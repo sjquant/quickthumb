@@ -1,0 +1,3887 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Export quickthumb documents to raster, web, document and video formats, plus bounded Canvas-only Lottie vectors.">
+      
+      
+        <meta name="author" content="Seonu Jang">
+      
+      
+        <link rel="canonical" href="https://quickthumb.solaqua.dev/exports/">
+      
+      
+        <link rel="prev" href="../concepts/">
+      
+      
+        <link rel="next" href="../timing/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/brand/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Exporting to SVG, PPTX, PDF & video - quickthumb</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  
+  
+  
+    
+  
+  
+  
+    
+  
+  
+  
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="quickthumb">
+  <meta property="og:title" content="Exporting to SVG, PPTX, PDF &amp; video - quickthumb">
+  <meta property="og:description" content="Export quickthumb documents to raster, web, document and video formats, plus bounded Canvas-only Lottie vectors.">
+  
+  <meta property="og:url" content="https://quickthumb.solaqua.dev/exports/">
+  
+  <meta property="og:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Exporting to SVG, PPTX, PDF &amp; video - quickthumb">
+  <meta name="twitter:description" content="Export quickthumb documents to raster, web, document and video formats, plus bounded Canvas-only Lottie vectors.">
+  <meta name="twitter:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#exporting-to-svg-pptx-pdf-video" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="quickthumb" class="md-header__button md-logo" aria-label="quickthumb" data-md-component="logo">
+      
+  <img src="../assets/brand/quickthumb-icon.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            quickthumb
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Exporting to SVG, PPTX, PDF & video
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/sjquant/quickthumb" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sjquant/quickthumb
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../json-schema/" class="md-tabs__link">
+          
+  
+  
+  JSON & AI
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../cookbook/" class="md-tabs__link">
+          
+  
+  
+  Cookbook
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../faq/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  FAQ
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../changelog/" class="md-tabs__link">
+          
+  
+  
+  Changelog
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="quickthumb" class="md-nav__button md-logo" aria-label="quickthumb" data-md-component="logo">
+      
+  <img src="../assets/brand/quickthumb-icon.png" alt="logo">
+
+    </a>
+    quickthumb
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sjquant/quickthumb" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sjquant/quickthumb
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exporting to SVG, PPTX, PDF & video
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exporting to SVG, PPTX, PDF & video
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#recommended-output-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended output API
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Recommended output API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#format-and-option-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Format and option selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#document-layer-routing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document layer routing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-static-svg-fidelity-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional static SVG fidelity report
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-static-pdf-fidelity-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional static PDF fidelity report
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#html-browser-validation-harness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTML browser validation harness
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#static-cross-export-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Static cross-export checks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#migrating-output-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migrating output calls
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-export-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How export works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#svg" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SVG
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#html" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTML
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pptx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PPTX
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pdf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PDF
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#animated-gif-video" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Animated GIF &amp; video
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Animated GIF &amp; video">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#transparent-webm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Transparent WebM
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prores-4444-mov" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ProRes 4444 MOV
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-sequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image sequences
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-quality-animated-compositing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-quality animated compositing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parallel-animated-rendering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parallel animated rendering
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#narrated-deck-video" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Narrated deck video
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#canonical-samples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Canonical samples
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Canonical samples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#render-reproducibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Render reproducibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#remote-assets-and-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remote assets and caching
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Remote assets and caching">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ownership-and-reuse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ownership and reuse
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asset-and-plugin-lifecycle-fixtures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Asset and plugin lifecycle fixtures
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decks-multiple-images-and-slides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decks (multiple images and slides)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lottie-vectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lottie vectors
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Lottie vectors">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#lottie-stroke-trim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lottie stroke trim
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lottie-outlined-text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lottie outlined text
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../timing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Animation Timing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/canvas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canvas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/deck/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deck (Multiple Slides)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/inspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Document Inspection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/background/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Background
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Text
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/shape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shape
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Path
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/svg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Video
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Audio-reactive Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Group (Auto Layout)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/outline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Outline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/data-visualizations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data visualizations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/effects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Effects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/enums/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enums & Gradients
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON & AI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    JSON & AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../json-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON Schema & AI Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostics & CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Structured Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cookbook
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Cookbook
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gallery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/youtube-thumbnail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YouTube Thumbnails
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/instagram-card/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instagram Card
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/podcast-promo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Podcast Promo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/shorts-cover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shorts / Vertical Cover
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/launch-announcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Launch Announcement (Auto Layout)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/ai-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/webfonts-rembg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webfonts & Background Removal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Changelog
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../releases/0.8.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0.8.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#recommended-output-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended output API
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Recommended output API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#format-and-option-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Format and option selection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#document-layer-routing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Document layer routing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-static-svg-fidelity-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional static SVG fidelity report
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-static-pdf-fidelity-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional static PDF fidelity report
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#html-browser-validation-harness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTML browser validation harness
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#static-cross-export-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Static cross-export checks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#migrating-output-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migrating output calls
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-export-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How export works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#svg" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SVG
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#html" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTML
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pptx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PPTX
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pdf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PDF
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#animated-gif-video" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Animated GIF &amp; video
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Animated GIF &amp; video">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#transparent-webm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Transparent WebM
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prores-4444-mov" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ProRes 4444 MOV
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-sequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image sequences
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#high-quality-animated-compositing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-quality animated compositing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parallel-animated-rendering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parallel animated rendering
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#narrated-deck-video" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Narrated deck video
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timing
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#canonical-samples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Canonical samples
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Canonical samples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#render-reproducibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Render reproducibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#remote-assets-and-caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remote assets and caching
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Remote assets and caching">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ownership-and-reuse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ownership and reuse
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#asset-and-plugin-lifecycle-fixtures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Asset and plugin lifecycle fixtures
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decks-multiple-images-and-slides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decks (multiple images and slides)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lottie-vectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lottie vectors
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Lottie vectors">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#lottie-stroke-trim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lottie stroke trim
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lottie-outlined-text" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lottie outlined text
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="exporting-to-svg-pptx-pdf-video">Exporting to SVG, PPTX, PDF &amp; video</h1>
+<p>A canvas renders to raster, vector, document, web, and animated formats. The
+format comes from the file extension:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">canvas</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"thumbnail.png"</span><span class="p">)</span>   <span class="c1"># raster (PNG/JPEG/WEBP)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">canvas</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"thumbnail.svg"</span><span class="p">)</span>   <span class="c1"># vector SVG</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">canvas</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"thumbnail.html"</span><span class="p">)</span>  <span class="c1"># self-contained web page that plays animations</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">canvas</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"thumbnail.pptx"</span><span class="p">)</span>  <span class="c1"># editable PowerPoint slide</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">canvas</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"thumbnail.pdf"</span><span class="p">)</span>   <span class="c1"># single-page PDF</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">canvas</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"thumbnail.gif"</span><span class="p">)</span>   <span class="c1"># animated GIF playing the layer animations</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">canvas</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"thumbnail.mp4"</span><span class="p">)</span>   <span class="c1"># H.264 video (requires ffmpeg); .webm for VP9</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">canvas</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"thumbnail.mov"</span><span class="p">)</span>   <span class="c1"># ProRes 4444 video (requires ffmpeg with prores_ks)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">canvas</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"thumbnail.lot"</span><span class="p">)</span>   <span class="c1"># bounded Canvas-only Lottie vectors</span>
+</code></pre></div>
+<p>For formats with in-memory methods, use the corresponding specialist method:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">svg_markup</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_svg</span><span class="p">()</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">html</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_html</span><span class="p">()</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">pptx_bytes</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_pptx</span><span class="p">()</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">pdf_bytes</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_pdf</span><span class="p">()</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">gif_bytes</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_gif</span><span class="p">()</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">mp4_bytes</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_mp4</span><span class="p">()</span>      <span class="c1"># and canvas.to_webm() / canvas.to_mov()</span>
+</code></pre></div>
+<h2 id="recommended-output-api">Recommended output API</h2>
+<p>Use <code>export()</code> to write a Canvas or Deck and receive an <code>ExportResult</code> with
+<code>written_paths</code>, capability/fallback diagnostics, pixel/timing metadata, assets
+and the observed rendering environment.
+The extension selects the format. MP4, WebM, MOV and GIF play the animated timeline.
+Deck video also mixes per-slide narration.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">VideoOptions</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">result</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"slides.mp4"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">VideoOptions</span><span class="p">(</span><span class="n">hold</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">render_quality</span><span class="o">=</span><span class="s2">"high"</span><span class="p">))</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">written_paths</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">fallback_diagnostics</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">deck</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"slides.html"</span><span class="p">)</span>  <span class="c1"># interactive slideshow with click-triggered motion</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">canvas</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"card.webp"</span><span class="p">,</span> <span class="n">quality</span><span class="o">=</span><span class="mi">85</span><span class="p">)</span>  <span class="c1"># JPEG/WebP compression quality</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Need</th>
+<th>Entry point</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Write a file with capability policy and a result receipt</td>
+<td><code>export(path, ...)</code></td>
+</tr>
+<tr>
+<td>Draw debug boxes or use the lower-level file renderer</td>
+<td><code>render(path, ...)</code></td>
+</tr>
+<tr>
+<td>Get bytes or an in-memory document</td>
+<td><code>to_mp4()</code>, <code>to_gif()</code>, <code>to_html()</code>, etc.</td>
+</tr>
+<tr>
+<td>Export narrated Deck slides</td>
+<td><code>export(path, animation=VideoOptions(hold=3))</code> / <code>to_mp4(hold=3)</code></td>
+</tr>
+<tr>
+<td>Write silent animation frames plus a manifest</td>
+<td><code>export_image_sequence(directory, options=...)</code></td>
+</tr>
+<tr>
+<td>Write bounded Canvas-only Lottie vectors</td>
+<td><code>canvas.export("scene.lot", animation=LottieOptions(fps=30, hold=3))</code>; see <a href="#lottie-vectors">Lottie vectors</a></td>
+</tr>
+</tbody>
+</table>
+<p>All animated byte methods and options use <code>hold</code> for settled-state seconds.
+<code>render_quality="standard"</code> or <code>"high"</code> controls animation compositing;
+<code>quality</code> on <code>export()</code>/<code>render()</code> controls compression: JPEG accepts integer
+values 1–95 and WebP accepts 1–100.
+Keep <code>workers=1</code> unless advanced spawn-based rendering is needed.
+Optional <a href="../timing/#temporal-exposure">temporal exposure</a> adds motion blur to Canvas exports.
+Both <code>export()</code> and <code>render()</code> enforce file capability policies such as
+<code>unsupported_motion="error"</code> before writing; <code>export()</code> also returns the receipt.
+Byte methods expose target-specific controls without the shared file receipt.
+Use the returned <code>written_paths</code> for Deck raster sequences: they are numbered files.
+Image sequences keep a separate API because their destination is a new directory.</p>
+<h3 id="format-and-option-selection">Format and option selection</h3>
+<p>Canvas and Deck use the same selection rules except that <code>.lot</code> is Canvas-only;
+Deck rejects Lottie output.</p>
+<table>
+<thead>
+<tr>
+<th>Input</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>File extension, with no <code>format</code></td>
+<td>Selects the output; <code>.jpg</code>/<code>.jpeg</code> report <code>output_format="jpeg"</code>, <code>.htm</code>/<code>.html</code> report <code>"html"</code>.</td>
+</tr>
+<tr>
+<td><code>format="PNG"</code>, <code>"JPEG"</code> or <code>"WEBP"</code> (case-insensitive)</td>
+<td>Selects raster encoding for a raster, unknown or extensionless filename. The requested filename is kept; it is not renamed to match the encoding.</td>
+</tr>
+<tr>
+<td>Raster <code>format</code> with a document or animated extension</td>
+<td>Rejected rather than writing image bytes into an SVG, PDF, HTML, PPTX, video or <code>.lot</code> filename.</td>
+</tr>
+<tr>
+<td><code>quality</code></td>
+<td>JPEG integer 1–95 or WebP integer 1–100; rejected for other targets.</td>
+</tr>
+<tr>
+<td><code>animation</code></td>
+<td><code>GifOptions</code> for GIF; <code>VideoOptions</code> for MP4/WebM/MOV; <code>LottieOptions</code> for Canvas <code>.lot</code>. Rejected for other static/document targets.</td>
+</tr>
+</tbody>
+</table>
+<p>Format selection, compression quality and animation option-family conflicts are
+rejected before asset reads or file writes. Codec-specific limits are validated
+during export preparation. Rendering or encoding failures can still occur later;
+ordinary file exports are not an atomic multi-file transaction. Inspect <code>written_paths</code> rather than guessing Canvas or
+numbered Deck filenames. A Deck cannot be written as a single SVG; export its
+Canvas slides individually. See <a href="#image-sequences">image sequences</a> for their
+separate new-directory and encoding-option contract.</p>
+<h3 id="document-layer-routing">Document layer routing</h3>
+<p>Canvas and Deck HTML/PPTX exports, and Canvas SVG/PDF exports, report
+executed layer routes in <code>result.capability_report</code> with
+<code>feature="layer_representation"</code>. Native HTML/CSS, SVG/PDF primitives, editable
+PowerPoint objects and original
+embedded SVG have <code>support="native"</code>; emitted PNG fragments have
+<code>support="fallback"</code> and <code>fallback="rasterize"</code>. These are representation
+observations, not pixel-fidelity measurements.</p>
+<p><code>result.fallback_diagnostics</code> identifies the affected inspection <code>layer_id</code> and
+reason. A retained group includes its descendant IDs in <code>layer_ids</code>; a shared
+backdrop-dependent prefix has no single <code>layer_id</code> and lists all contributing
+sources in <code>layer_ids</code>. Such composites are reported together because their
+appearance depends on the combined pixels. Flattened auto-layout children keep
+their original inspection IDs. Empty raster fragments and empty text produce no
+element and no representation observation.</p>
+<p>For these executed routes, <code>native_attempt=True</code> includes native content emission
+or execution/verification of a native candidate that falls back to raster.
+Read <code>support</code> and <code>fallback</code> to identify the representation actually adopted.
+<code>False</code> means raster capture was selected before native generation or verification.
+Capability-only diagnostics can leave this fact unknown (<code>None</code>).
+Parent scenes report their static composite in SVG/PDF/PPTX; HTML can also report PNG
+sources with baked affine CSS motion. Existing motion capability diagnostics
+remain separate. SVG/PDF observations describe authored-static output. PDF text
+retains embedded fonts when supported; shaping, glyph coverage and font-embedding
+constraints can instead select an explained raster fragment.</p>
+<p>Executed Deck observations also carry a zero-based <code>slide_index</code>. Layer IDs stay
+local to each slide, matching <code>deck.inspect().slides[index]</code>; use both fields to
+distinguish repeated IDs between slides. Canvas observations omit <code>slide_index</code>.
+Deck HTML keeps its interactive cues, transitions and notes; these representation
+records do not turn a click-driven slideshow into fixed-duration playback.</p>
+<p>For example, <code>ExportPolicy(unsupported_motion="error")</code> does not reject a static
+masked shape: this HTML route preserves its mask using a PNG fragment and
+reports that decision. No layer-selection policy is added. This executed routing
+report covers Canvas SVG/PDF and Canvas/Deck HTML/PPTX; Deck PDF does not yet
+collect these observations. Fidelity metrics describe the complete document and are
+not attributed to individual fallback layers. Rendering all slides precedes
+opening the HTML destination, so an
+unsupported later slide or strict motion rejection preserves an existing file.</p>
+<p>PPTX routes describe the actual OOXML representation: native text boxes and
+autoshapes remain editable objects; PNG fragments preserve their raster payload
+and placement but lose per-glyph/vector editing. Raster reasons include masks,
+backdrop compositing, image/radial text fills and unsupported font semantics.
+Canvas observations omit a slide index; Deck observations identify their slide.
+PPTX file exports build the complete presentation before opening the destination,
+so a later source-rendering failure preserves an existing file.</p>
+<p>These structural observations do not certify a PowerPoint or Keynote pixel
+match, font availability, animation timing or transparency in a particular viewer.
+There is no PPTX fidelity policy or automatic application renderer. PPTX geometry
+uses 9,525 EMU per source pixel (96 pixels per inch), or 0.75 PDF points per source
+pixel. A later PDF-based viewer comparison must derive scale from its actual page
+dimensions rather than assuming the PDF exporter's one-point-per-pixel mapping.</p>
+<h3 id="optional-static-svg-fidelity-report">Optional static SVG fidelity report</h3>
+<p>Request a CairoSVG comparison through <code>ExportPolicy</code> when the current job has
+explicit acceptance limits. All three limits are required; there are no built-in
+format budgets. This example requests exact visible RGBA rather than an
+application-specific allowance for edge or font differences:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">Canvas</span><span class="p">,</span> <span class="n">ExportPolicy</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">policy</span> <span class="o">=</span> <span class="n">ExportPolicy</span><span class="p">(</span><span class="n">fidelity</span><span class="o">=</span><span class="p">{</span><span class="s2">"svg"</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="s2">"pixel_tolerance"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="s2">"max_different_pixel_ratio"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="s2">"min_hash_similarity"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">}})</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">canvas</span> <span class="o">=</span> <span class="n">Canvas</span><span class="p">(</span><span class="mi">160</span><span class="p">,</span> <span class="mi">90</span><span class="p">)</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#123456"</span><span class="p">)</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">result</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"checked.svg"</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="n">policy</span><span class="p">)</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">comparison</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">pixel_metrics</span><span class="o">.</span><span class="n">fidelity</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="nb">print</span><span class="p">(</span><span class="n">comparison</span><span class="o">.</span><span class="n">verdict</span><span class="p">,</span> <span class="n">comparison</span><span class="o">.</span><span class="n">pixel_diff_ratio</span><span class="p">,</span> <span class="n">comparison</span><span class="o">.</span><span class="n">hash_similarity</span><span class="p">)</span>
+</code></pre></div>
+<p>The optional <code>quickthumb[svg]</code> extra and system Cairo are needed only when the
+selected SVG export requests this check. The report records CairoSVG/Cairo
+versions, the canonical render environment, applied limits and actual rasterized
+dimensions. It compares the authored-static <code>sample()</code> still, with no resize.
+<code>exact</code> means all visible RGBA channels match; <code>tolerated</code> satisfies the supplied
+pixel-ratio and average-hash limits; <code>out_of_policy</code> fails a limit or dimensions.
+Mean absolute error is normalized over four channels, and the maximum channel
+delta is also reported. Fully transparent pixels ignore hidden RGB, so this
+definition of exact is distinct from canonical raw-pixel SHA-256 equality.
+The 8×8 average hash composites onto white; RGBA measurements independently catch
+alpha loss even when that hash is identical.</p>
+<p>This is report-only: the original SVG representation is written even when the
+verdict is <code>out_of_policy</code>. A fidelity diagnostic describes the observation;
+no new raster fallback is selected. Missing/failed reference rendering raises
+before the destination is opened, preserving an existing file. Default exports
+and non-SVG targets do not perform this comparison.</p>
+<p>The observation applies to static Cairo rendering in the recorded environment.
+Cairo uses installed fonts and does not honor embedded CSS <code>@font-face</code>, so the
+same font environment must be available separately; see the
+<a href="https://cairosvg.org/documentation/">CairoSVG documentation</a>. It is not a browser,
+HTML, or animation fidelity guarantee. SVG keeps its existing authored-static
+motion behavior.</p>
+<h3 id="optional-static-pdf-fidelity-report">Optional static PDF fidelity report</h3>
+<p>Canvas PDF exports accept the same three explicit limits under the <code>"pdf"</code> key:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">policy</span> <span class="o">=</span> <span class="n">ExportPolicy</span><span class="p">(</span><span class="n">fidelity</span><span class="o">=</span><span class="p">{</span><span class="s2">"pdf"</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="s2">"pixel_tolerance"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="s2">"max_different_pixel_ratio"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="s2">"min_hash_similarity"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">}})</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">result</span> <span class="o">=</span> <span class="n">Canvas</span><span class="p">(</span><span class="mi">160</span><span class="p">,</span> <span class="mi">90</span><span class="p">)</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#123456"</span><span class="p">)</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"checked.pdf"</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="n">policy</span><span class="p">)</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">pixel_metrics</span><span class="o">.</span><span class="n">fidelity</span><span class="o">.</span><span class="n">verdict</span><span class="p">)</span>
+</code></pre></div>
+<p>Install <code>quickthumb[pdf]</code> for ReportLab and the optional PDFium observer. Default
+PDF exports do not import PDFium. Requested comparison renders the actual PDF
+bytes on transparent RGBA at scale 1: this exporter uses one PDF point per
+canonical pixel, not a 96-DPI print-size conversion. The report records PDFium
+and binding versions, actual page size in points, page count, rendered dimensions
+and the canonical environment. Native PDFium document/render/cleanup calls are
+serialized across threads; canonical rendering and pixel comparison stay outside
+that lock. It requires exactly one page of the expected
+point dimensions; mismatches stay out of policy even under permissive pixel
+limits. No resizing or white-background flattening hides alpha or geometry loss.</p>
+<p>The same visible-RGBA/hash criteria and report-only behavior described above
+apply. For an unexpected multi-page Canvas result, metrics observe its first
+page and the reported page count makes the verdict out of policy. PDF generation
+and requested comparison finish before opening the destination; missing/failed
+observation preserves an existing file. Native text/vectors and explained raster
+fragments are retained regardless of the fidelity verdict. Native PDF text is
+searchable vector content; this does not promise PowerPoint-style editing.
+Deck PDF comparison is rejected explicitly; export its Canvas slides individually.
+This observation does not establish PPTX or animation fidelity.</p>
+<h3 id="html-browser-validation-harness">HTML browser validation harness</h3>
+<p>The developer-only harness captures actual exported Canvas and two-slide Deck
+stages with an explicitly selected Chrome and Node's built-in WebSocket. It does
+not install a browser or change <code>ExportPolicy</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">PYTHONPATH</span><span class="o">=</span>.<span class="w"> </span>python<span class="w"> </span>scripts/check_html_fidelity.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>--chrome<span class="w"> </span><span class="s2">"/path/to/chrome"</span><span class="w"> </span>--output<span class="w"> </span>/tmp/quickthumb-html-observations
+</code></pre></div>
+<p>The output directory must be new. Chrome runs headless with a temporary profile
+and loopback CDP; the harness never attaches to an existing browser session.
+It waits for fonts, images and slide transitions, captures only the original-size
+stage at DPR 1, and seeks a real click-triggered CSS fade at 0, 5 and 10 seconds.
+The report records browser/Node versions, canonical environment, input asset
+hashes, executed route diagnostics, dimensions, seek points, explicit fixture
+limits, pixel/hash metrics and verdicts. Canonical/browser PNGs remain beside it.</p>
+<p>The mixed text/shape/image/mask fixtures allow a channel tolerance of 16, at most
+8% differing pixels, and average-hash similarity of at least 0.94. Every component
+must also satisfy its recorded region criteria: text allows 20% differing pixels
+and requires hash similarity 0.95; the native ellipse allows 2% and requires 0.98.
+The embedded image is exact; the masked fragment allows only one channel level
+of rounding. Text/ellipse channel tolerance is 16. These local criteria prevent
+small missing features from passing a whole-stage average. Negative controls
+remove each text/image/mask/ellipse element in both the wide Canvas and tall Deck
+and must fail that specific region, not merely another metric. All allowances
+are fixture-specific and are not general document budgets. The simple
+fade permits only one channel level of rounding; a deliberately wrong document
+must fail comparison. Unexpected verdicts fail the command while retaining its
+report. No automatic raster fallback or browser/CI installation is performed.</p>
+<p>This observes one Chrome/font/platform environment and one bounded CSS animation,
+not every browser, animation, cue, or Deck transition. CairoSVG cannot substitute
+for this browser observation. Existing Node runtime tests check scheduling and
+state behavior separately from browser pixels.</p>
+<h3 id="static-cross-export-checks">Static cross-export checks</h3>
+<p><code>tests/test_static_export_matrix.py</code> sends the same authored content through the
+public Canvas and Deck file-export boundaries. The first 160×120 slide combines
+repository-font text, a native rectangle, a generated image and an elliptical
+mask; the second Deck slide has a translucent rectangle on a transparent canvas.
+The checks distinguish measured appearance from structural evidence:</p>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Canvas</th>
+<th>Deck</th>
+<th>Capability and fallback evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PNG</td>
+<td>Decoded RGBA equals the canonical sample</td>
+<td>Each numbered slide equals its canonical sample</td>
+<td>Raster output; no native-object or document-viewer claim</td>
+</tr>
+<tr>
+<td>SVG</td>
+<td>Actual CairoSVG observation plus native text/vector and PNG checks</td>
+<td>Single-file Deck SVG is rejected; each Canvas slide is measured separately</td>
+<td>Executed source IDs, native routes and explained image/mask PNG routes</td>
+</tr>
+<tr>
+<td>HTML</td>
+<td>Stage markup, native text/CSS and exact mask PNG</td>
+<td>Stage count and slide-local routes</td>
+<td>Structural only; no browser pixel measurement in this matrix</td>
+</tr>
+<tr>
+<td>PDF</td>
+<td>Actual PDFium observation, searchable text, vector paths and image objects</td>
+<td>Page count/geometry, native objects and rendered component regions</td>
+<td>Canvas routes reported; Deck executed routes and receipt fidelity are not collected yet</td>
+</tr>
+<tr>
+<td>PPTX</td>
+<td>Editable OOXML text/shapes and exact positioned mask PNG</td>
+<td>Slide count and per-slide native/raster objects</td>
+<td>Executed routes reported; PowerPoint/Keynote appearance remains unmeasured</td>
+</tr>
+</tbody>
+</table>
+<p>The mixed SVG/PDF fixture uses explicit whole-image limits: zero channel
+tolerance, at most 8% different pixels, and hash similarity of at least 0.94.
+These are fixture-specific font/edge budgets, not export defaults. Native text
+must also be present as text, and small rectangle, image and mask-interior regions
+must match exactly so a missing component cannot hide in the whole-image budget.
+The text region also requires hash similarity of at least 0.95 and permits at most
+30% different pixels after a channel tolerance of 16 for font rasterization edges.
+A real Deck PDF containing searchable white-on-white text must fail this regional
+check, even though its text objects and other component regions are intact.
+For the transparent rectangle only, alpha must match exactly while visible RGB
+may differ by at most two levels per channel because of renderer
+premultiplication/unpremultiplication rounding. Fully hidden RGB follows the
+existing visible-RGBA comparison rule; PNG still preserves raw RGBA exactly.
+No output is resized or flattened onto an invented matte.</p>
+<p>Run <code>uv run --locked pytest tests/test_static_export_matrix.py --no-cov -q</code>.
+The existing quality workflow already runs this file through <code>pytest tests/</code>
+with the SVG/PDF/PPTX extras and native Cairo installed. Local environments
+without an optional observer skip its cases with the dependency reason.
+Pytest case IDs identify the format and document kind. Each case keeps its
+source JSON, canonical PNGs, actual exports and JSON receipts in its temporary
+directory; measured receipts include renderer versions, canonical environment,
+limits and metrics. A failure is reproducible from the shared fixture and named
+format check rather than a platform-specific screenshot baseline.</p>
+<p>This is a bounded static matrix. It does not run a browser, certify PPTX viewer
+pixels/fonts/timing, or add a Deck PDF fidelity policy. The separate HTML browser
+harness and native presentation-viewer observations require their own execution
+and environment evidence. Structural success must not be reported as a rendered
+pixel-fidelity verdict.</p>
+<h3 id="migrating-output-calls">Migrating output calls</h3>
+<ul>
+<li><code>Deck.to_mp4()</code> now plays animation, matching Canvas and file exports.
+  Replace old <code>to_animated_mp4()</code> and <code>to_narrated_mp4()</code> calls with <code>to_mp4()</code>.</li>
+<li>Replace <code>render_mp4()</code> and <code>render_narrated_mp4()</code> with <code>export("deck.mp4")</code>.
+  The separate still-slide encoder is removed, with no aliases. To retain still
+  scenes, author static canvases and use <code>Cut()</code>; this does not freeze an
+  already animated Deck or promise identical encoded output.</li>
+<li><code>export_image_sequence()</code> replaces <code>export_png_sequence()</code>; the public
+  options/manifest/result models are now <code>ImageSequence*</code>, with no obsolete aliases.</li>
+<li>Replace animated Deck <code>slide_duration=</code> and narrated <code>default_duration=</code> with
+  <code>hold=</code>. Replace animation <code>quality=</code> with <code>render_quality=</code>, including saved
+  GifOptions, VideoOptions and ImageSequenceOptions JSON. There are no aliases.</li>
+</ul>
+<h2 id="how-export-works">How export works</h2>
+<p>SVG, PDF and PPTX exporters keep eligible layers <strong>native</strong> and use canonical
+PNG fragments where a native representation is unavailable. Positions, wrapping
+and alignment share the raster renderer's layout math. HTML uses the same
+native-or-raster approach; see <a href="#html">HTML</a> below.</p>
+<p><a href="#lottie-vectors">Lottie</a> instead accepts a bounded native-vector subset and
+rejects unsupported content before writing. It never substitutes PNG frames.</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>SVG</th>
+<th>PPTX</th>
+<th>PDF</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Background color / gradient</td>
+<td>Native <code>rect</code> + gradient defs</td>
+<td>Native shape fill (linear gradients native, radial embedded)</td>
+<td>Native fill; opaque gradients native, translucent gradients embedded</td>
+</tr>
+<tr>
+<td>Outline</td>
+<td>Native <code>rect</code> stroke</td>
+<td>Native bordered rectangle</td>
+<td>Native rectangle stroke</td>
+</tr>
+<tr>
+<td>Shapes (all primitives)</td>
+<td>Native elements, incl. rotation and stroke/shadow/glow</td>
+<td>Native autoshapes; polygons become freeforms</td>
+<td>Native paths incl. rotation; shapes with effects embedded</td>
+</tr>
+<tr>
+<td>Text (simple &amp; rich)</td>
+<td>Native <code>&lt;text&gt;</code> per line/run, incl. wrapping, letter spacing, gradient fills, effects</td>
+<td>Editable text boxes with per-run styling</td>
+<td>Native selectable text when its font can be embedded and the text does not need complex shaping; unsupported fonts and gradient/image fills or blur effects are embedded as pixels</td>
+</tr>
+<tr>
+<td>Groups (auto-layout)</td>
+<td>Children exported natively at their layout positions</td>
+<td>Same</td>
+<td>Same</td>
+</tr>
+<tr>
+<td>Images &amp; image-filled text</td>
+<td>Embedded PNG fragment</td>
+<td>Embedded picture</td>
+<td>Embedded picture</td>
+</tr>
+<tr>
+<td>SVG layers</td>
+<td>Embedded as vector data URL (raster when effects are applied)</td>
+<td>Embedded picture</td>
+<td>Embedded picture</td>
+</tr>
+<tr>
+<td>Blend modes &amp; custom layers</td>
+<td>Everything below the last blend/custom layer is flattened into one PNG</td>
+<td>Same</td>
+<td>Same</td>
+</tr>
+</tbody>
+</table>
+<h2 id="svg">SVG</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">svg</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_svg</span><span class="p">()</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">svg</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_svg</span><span class="p">(</span><span class="n">embed_fonts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<p>By default the SVG references fonts by family name (<code>font-family="Roboto"</code>), which keeps files small but requires the font on the viewing machine. With <code>embed_fonts=True</code> the used font files are inlined as <code>@font-face</code> data URLs so text renders identically everywhere.</p>
+<div class="admonition note">
+<p class="admonition-title">Viewer support</p>
+<p>Shadow and glow effects use SVG filters (<code>feGaussianBlur</code>). Browsers render them faithfully; some minimal SVG rasterizers apply filters only partially.</p>
+</div>
+<h2 id="html">HTML</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">html</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_html</span><span class="p">()</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">canvas</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"card.html"</span><span class="p">)</span>
+</code></pre></div>
+<p>The result is one self-contained HTML file. Backgrounds, shapes, outlines, and
+text become HTML and CSS; images and anything else without a CSS equivalent
+are embedded as PNG fragments. Unlike SVG, PDF, and PPTX, the page plays layer
+<code>animation</code> effects, advancing on click.</p>
+<p>The design is a fixed-size stage that never reflows. By default
+(<code>responsive=True</code>) the whole stage scales to fit the browser window; pass
+<code>responsive=False</code> to get it at its exact pixel size. Fonts are embedded by
+default (<code>embed_fonts=True</code>), so the page looks the same on any machine.</p>
+<p>A deck exports to an HTML slideshow the same way, with a presenter view; see
+<a href="../api/deck/">Deck</a>.</p>
+<h2 id="pptx">PPTX</h2>
+<p>PPTX export needs the <code>pptx</code> extra:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"quickthumb[pptx]"</span>
+</code></pre></div>
+<p>The canvas becomes a single slide sized to the canvas pixels (at 96 dpi). Text stays editable: font family, size, weight, color, alignment, and line wrapping carry over run by run, and stroke, shadow, and glow map to PowerPoint's text outline and effect settings.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">canvas</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"promo.pptx"</span><span class="p">)</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="c1"># or</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"promo.pptx"</span><span class="p">,</span> <span class="s2">"wb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">canvas</span><span class="o">.</span><span class="n">to_pptx</span><span class="p">())</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Fidelity</p>
+<p>PowerPoint lays text out with its own font metrics, so text placement is a close approximation rather than pixel-identical. Radial background gradients and multi-stop text gradients beyond what DrawingML supports are embedded as pictures or approximated.</p>
+</div>
+<h2 id="pdf">PDF</h2>
+<p>PDF export needs the <code>pdf</code> extra:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"quickthumb[pdf]"</span>
+</code></pre></div>
+<p>The canvas becomes a single PDF page sized to the canvas pixels (one point per pixel). Backgrounds, outlines, shapes, and eligible text are drawn as native PDF vector primitives using the same layout math as the raster renderer. Fonts that can be safely embedded are subset when their text does not need complex shaping; unsupported text is embedded as a pixel-exact PNG fragment so its visual result remains faithful.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">canvas</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"promo.pdf"</span><span class="p">)</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="c1"># or</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"promo.pdf"</span><span class="p">,</span> <span class="s2">"wb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">canvas</span><span class="o">.</span><span class="n">to_pdf</span><span class="p">())</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Fidelity</p>
+<p>PDF shadings cannot express transparency, so translucent gradients (and gradients with translucent stops) are embedded as pictures. Blur effects (shadow, glow), strokes on shapes, and gradient/image glyph fills have no faithful PDF vector form and are likewise embedded as pixel-exact PNG fragments.</p>
+</div>
+<h2 id="animated-gif-video">Animated GIF &amp; video</h2>
+<p>See <a href="../timing/">animation timing</a> for canonical sampling versus encoded frame
+counts, slide/narration clocks, captions and interactive HTML behavior.</p>
+<p>Animated export renders per-layer <code>animation</code> effects and deck slide <code>transition</code>s as real raster frames, sampled through the same pixel pipeline as PNG output. Canvas and Deck GIF/MP4/WebM/MOV all play this animated timeline, including file exports with no explicit options.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">AudioTrack</span><span class="p">,</span> <span class="n">Canvas</span><span class="p">,</span> <span class="n">Deck</span><span class="p">,</span> <span class="n">Fade</span><span class="p">,</span> <span class="n">GifOptions</span><span class="p">,</span> <span class="n">VideoOptions</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb.transitions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Push</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">canvas</span> <span class="o">=</span> <span class="n">Canvas</span><span class="p">(</span><span class="mi">1280</span><span class="p">,</span> <span class="mi">720</span><span class="p">)</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#101820"</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="n">content</span><span class="o">=</span><span class="s2">"Hello"</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="s2">"50%"</span><span class="p">,</span> <span class="s2">"50%"</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="mi">96</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#FFFFFF"</span><span class="p">,</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>    <span class="n">animation</span><span class="o">=</span><span class="n">Fade</span><span class="p">(</span><span class="n">duration</span><span class="o">=</span><span class="mf">0.6</span><span class="p">),</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="p">)</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="n">canvas</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"hello.gif"</span><span class="p">)</span>                     <span class="c1"># defaults: 20 fps, 3s hold</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="n">canvas</span><span class="o">.</span><span class="n">render</span><span class="p">(</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>    <span class="s2">"preview.gif"</span><span class="p">,</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>    <span class="n">animation</span><span class="o">=</span><span class="n">GifOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">max_size</span><span class="o">=</span><span class="p">(</span><span class="mi">540</span><span class="p">,</span> <span class="mi">960</span><span class="p">),</span> <span class="n">colors</span><span class="o">=</span><span class="mi">128</span><span class="p">),</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="p">)</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="n">mp4</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_mp4</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>          <span class="c1"># tunable variants return bytes</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="n">other</span> <span class="o">=</span> <span class="n">Canvas</span><span class="p">(</span><span class="mi">1280</span><span class="p">,</span> <span class="mi">720</span><span class="p">)</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#204060"</span><span class="p">)</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="n">deck</span> <span class="o">=</span> <span class="n">Deck</span><span class="p">(</span><span class="mi">1280</span><span class="p">,</span> <span class="mi">720</span><span class="p">)</span><span class="o">.</span><span class="n">slide</span><span class="p">(</span><span class="n">canvas</span><span class="p">)</span><span class="o">.</span><span class="n">slide</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">transition</span><span class="o">=</span><span class="n">Push</span><span class="p">(</span><span class="n">direction</span><span class="o">=</span><span class="s2">"left"</span><span class="p">))</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="n">gif</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_gif</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="n">webm</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_webm</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>
+</code></pre></div>
+<p>Every effect takes <code>duration</code>, <code>delay</code>, and <code>trigger</code>, plus two timing controls:</p>
+<ul>
+<li><code>easing</code> picks the curve the reveal follows, from the shared easing vocabulary
+  (<code>"linear"</code>, <code>"ease"</code>, <code>"ease_out_cubic"</code>, <code>"ease_out_back"</code>, …). Legacy effects
+  default to <code>"ease"</code>; canonical presets resolve their easing/feel and otherwise
+  use <code>"linear"</code>. A bar that reports elapsed time needs <code>"linear"</code> to represent
+  its progress. HTML sends named easing and custom cubic-bezier
+  timing functions to CSS. Named polynomial curves use the existing CSS
+  cubic-bezier approximations: their shape is similar, but intermediate pixel
+  states need not match canonical sampling exactly.</li>
+<li><code>start</code> pins the effect to an absolute time on the slide instead of chaining it
+  to whatever ran before. Anchored effects do not move the cursor the relative
+  effects around them are chained from, so the two styles can be mixed.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">Wipe</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">canvas</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="n">shape</span><span class="o">=</span><span class="s2">"rectangle"</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">700</span><span class="p">),</span> <span class="n">width</span><span class="o">=</span><span class="mi">1280</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#E8A552"</span><span class="p">,</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="n">animation</span><span class="o">=</span><span class="n">Wipe</span><span class="p">(</span><span class="n">direction</span><span class="o">=</span><span class="s2">"right"</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="mf">6.0</span><span class="p">,</span> <span class="n">easing</span><span class="o">=</span><span class="s2">"linear"</span><span class="p">),</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="p">)</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="n">canvas</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>    <span class="n">shape</span><span class="o">=</span><span class="s2">"rectangle"</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="mi">80</span><span class="p">,</span> <span class="mi">180</span><span class="p">),</span> <span class="n">width</span><span class="o">=</span><span class="mi">180</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#E8A552"</span><span class="p">,</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>    <span class="n">animation</span><span class="o">=</span><span class="n">Wipe</span><span class="p">(</span><span class="n">direction</span><span class="o">=</span><span class="s2">"right"</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="mf">2.4</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">easing</span><span class="o">=</span><span class="s2">"linear"</span><span class="p">),</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="p">)</span>
+</code></pre></div>
+<p>A canonical <code>AnimationSpec</code> with a <code>stagger</code> moves each target on its own beat.
+Line targets are sliced out of the layer's finished render, so every line keeps
+the layout it was drawn with and waits off screen until its turn:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnimationSpec</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">canvas</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    <span class="n">content</span><span class="o">=</span><span class="s2">"가로로 한 번.</span><span class="se">\n</span><span class="s2">세로로 한 번.</span><span class="se">\n</span><span class="s2">미리보기로 또 한 번."</span><span class="p">,</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="mi">80</span><span class="p">,</span> <span class="mi">150</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="mi">38</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#F2EFE9"</span><span class="p">,</span> <span class="n">line_height</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    <span class="n">animation</span><span class="o">=</span><span class="n">AnimationSpec</span><span class="o">.</span><span class="n">rise</span><span class="p">(</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>        <span class="n">from_</span><span class="o">=</span><span class="s2">"bottom"</span><span class="p">,</span> <span class="n">distance</span><span class="o">=</span><span class="mi">26</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="mf">0.45</span><span class="p">,</span> <span class="n">stagger</span><span class="o">=</span><span class="mf">0.32</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="s2">"lines"</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>    <span class="p">),</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="p">)</span>
+</code></pre></div>
+<p>Lines set tight enough to touch cannot be told apart in the render, and word and
+character targets have no separable band; those fall back to moving the layer as
+a whole.</p>
+<p>Static text and top-level groups may also stagger as leaves of an explicit
+parent chain. Separated bands inherit the ancestor's full affine transform and
+keep their own anchors and appearance tracks. This uses the same partial band
+adapter and whole-block fallback described above; a staggered layer cannot itself
+be another layer's parent. Counter-plus-stagger and dynamic sources remain
+guarded. See the <a href="../api/video/#current-adapters-and-boundaries">parent transform boundaries</a>
+and runnable <code>examples/parent_stagger.py</code> example.</p>
+<p><code>Canvas.render()</code> and <code>Deck.render()</code> accept a format-specific options object for
+animated file output. Use <code>GifOptions</code> for GIF (<code>fps</code>, <code>hold</code>, <code>matte</code>, <code>loop</code>,
+<code>max_size=(width, height)</code>, and <code>colors</code>) and <code>VideoOptions</code> for MP4/WebM/MOV
+(<code>fps</code>, <code>hold</code>, <code>matte</code>, <code>soundtrack=AudioTrack(...)</code>, <code>loop_audio</code>, and WebM/MOV
+<code>transparent=True</code>). Both accept <code>workers=1</code> and <code>render_quality="standard"</code>.
+GIF sizing and palette controls are rejected for video output, and video
+options are rejected for GIF output. The generic <code>render(..., quality=...)</code>
+option remains reserved for JPEG and WebP raster output.</p>
+<p>Both option models use <code>hold=3.0</code> for the settled-state hold, matching <code>hold</code>
+on Canvas and Deck byte methods. It must be
+a finite nonnegative number; booleans and strings are rejected. A default hold
+is omitted from serialized options and restored when loaded; an explicit zero
+is retained. Narration and explicit Deck slide durations still determine the
+video schedule, while Deck GIF continues to ignore those per-slide durations.
+Deck animated video retains its existing restriction: <code>hold=0</code> fails when any slide has neither narration nor an explicit
+positive duration, because its audio schedule requires a positive silent bed.
+Use a positive hold for those slides. Canvas, Deck GIF, and silent image sequences
+continue to permit a zero hold.</p>
+<p>The byte methods accept the same rendering controls as keyword-only scalars:
+<code>workers=1</code> and <code>render_quality="standard"</code> on Canvas GIF/MP4/WebM/MOV and Deck
+GIF/animated MP4/WebM/MOV, plus <code>max_size=None</code> and <code>colors=None</code> on GIF.
+These methods use <code>hold</code> and do not accept options objects. Narration uses the
+same Deck MP4 timeline as other video output.</p>
+<p>File execution resolves the format before checking export policy. Canvas and
+Deck MP4 always play the animated timeline, with default <code>VideoOptions()</code> when
+no options are supplied.
+Unused authored Morph transitions do not produce fallback errors or receipt
+diagnostics for static files or reduced-motion execution.
+Reduced animation retains the encoder's holds and default transitions between
+slides. See <a href="../timing/">animation timing</a> for sampling rates and encoded visual
+frame counts and durations.</p>
+<p><code>ExportResult.pixel_metrics.width</code> and <code>height</code> remain the canonical first-canvas
+raster dimensions. They do not describe GIF resizing or MP4/WebM cropping. Image
+sequence results separately report their full-size output dimensions.</p>
+<p><code>validate_export(target)</code> is a declared motion-capability query, independent of
+file execution options. For example, <code>validate_export("mp4")</code> still queries
+animated video, even with a reduced-motion policy. Concrete <code>svg</code> and <code>pdf</code>
+queries describe their static document fallback with the existing <code>raster</code>
+family label. Targets are case-insensitive; <code>jpg</code>, <code>jpeg</code>, <code>webp</code>, <code>png</code>, <code>gif</code>,
+<code>mp4</code>, <code>webm</code>, <code>mov</code>, <code>htm</code>, and <code>image_sequence</code> are accepted as corresponding family
+aliases. The GIF query uses <code>raster</code>, while a GIF <code>ExportResult.target</code> remains
+<code>video</code> for compatibility.</p>
+<h3 id="transparent-webm">Transparent WebM</h3>
+<p>VP9 WebM can preserve alpha through <code>VideoOptions(transparent=True)</code>, or the
+keyword-only <code>transparent=True</code> argument to <code>Canvas.to_webm()</code> and
+<code>Deck.to_webm()</code>. The default is <code>False</code>; existing opaque exports keep their
+matte and encoder settings. This is an export option, not a layer or motion
+property, so it is absent from Canvas/Deck JSON and <code>inspect_motion()</code>;
+<code>VideoOptions.model_validate_json()</code> and its model JSON schema expose the strict
+boolean option. <code>validate_export()</code> continues to describe document motion,
+while <code>render()</code> rejects transparent options on unsupported output formats.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">canvas</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"overlay.webm"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">VideoOptions</span><span class="p">(</span><span class="n">transparent</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"overlay.webm"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">VideoOptions</span><span class="p">(</span><span class="n">transparent</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">render_quality</span><span class="o">=</span><span class="s2">"high"</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="n">webm_bytes</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_webm</span><span class="p">(</span><span class="n">transparent</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="n">options</span> <span class="o">=</span> <span class="n">VideoOptions</span><span class="o">.</span><span class="n">model_validate_json</span><span class="p">(</span><span class="s1">'{"transparent": true, "fps": 24}'</span><span class="p">)</span>
+</code></pre></div>
+<p>Only the export matte is skipped. Authored backgrounds remain visible, empty
+areas and mixed-size slide letterboxing stay transparent, and a transition on
+slide zero starts from transparency. Fade and mask transitions interpolate
+premultiplied colors; covering and scaled slides composite with source-over
+alpha. Keyed Morph normalizes mixed-size slides to the first slide's output
+space before interpolating positions, dimensions and translucent pixels. The
+existing parent/caption Morph fallback restrictions still apply.</p>
+<p>Both compositing quality modes, spawn workers, soundtracks and Deck narration
+work with transparent WebM. The encoder streams RGBA into VP9 <code>yuva420p</code> with
+lossless VP9 coding to protect the alpha plane. The RGBA-to-YUV conversion can
+change decoded alpha by one 8-bit level; RGB remains chroma-subsampled (4:2:0),
+so source color pixels are not lossless. Files can be larger than opaque WebM.
+The existing bounded frame batches and atomic destination replacement remain.
+Transparent transitions use temporary floating-point planes for accurate
+premultiplied blending; memory usage grows with frame size and worker count.
+MP4, GIF, and document/raster output reject this video option before writing
+the destination. PNG animation sequences use the separate
+<a href="#image-sequences"><code>export_image_sequence()</code> API</a>.</p>
+<p>Use a player or editor that supports VP9 WebM alpha. To inspect the actual
+alpha plane with FFmpeg, select the libvpx decoder <strong>before</strong> the input:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>ffmpeg<span class="w"> </span>-c:v<span class="w"> </span>libvpx-vp9<span class="w"> </span>-i<span class="w"> </span>overlay.webm<span class="w"> </span>-frames:v<span class="w"> </span><span class="m">1</span><span class="w"> </span>-pix_fmt<span class="w"> </span>rgba<span class="w"> </span>frame.png
+</code></pre></div>
+<p>The native VP9 decoder may report/decode only color; <code>alpha_mode</code> metadata
+alone is not proof of preserved transparency. The regression tests decode RGBA
+with libvpx and compare transparent, translucent and opaque pixels. See
+<code>examples/transparent_lower_third.py</code> for an overlay with an authored translucent
+panel and transparent surroundings.</p>
+<h3 id="prores-4444-mov">ProRes 4444 MOV</h3>
+<p>Canvas and Deck can export <code>.mov</code> with the fixed ProRes 4444 profile, using
+FFmpeg's <code>prores_ks</code> encoder. MOV always plays the animated timeline, including
+Deck transitions and narration. <code>transparent</code> is the same strict boolean option
+as WebM and defaults to <code>False</code>: ordinary MOV composites onto the matte; opt-in
+alpha skips only that matte. Authored backgrounds, letterboxing, transitions,
+quality modes and workers follow the transparent WebM behavior above.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">canvas</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"overlay.mov"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">VideoOptions</span><span class="p">(</span><span class="n">transparent</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">fps</span><span class="o">=</span><span class="mi">24</span><span class="p">))</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">deck</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"overlay.mov"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">VideoOptions</span><span class="p">(</span><span class="n">transparent</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">render_quality</span><span class="o">=</span><span class="s2">"high"</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="n">mov_bytes</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_mov</span><span class="p">(</span><span class="n">hold</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">transparent</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="n">mov_bytes</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_mov</span><span class="p">(</span><span class="n">hold</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">transparent</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">soundtrack</span><span class="o">=</span><span class="s2">"music.wav"</span><span class="p">)</span>
+</code></pre></div>
+<p>MOV retains odd dimensions and even 1-pixel-wide or 1-pixel-high frames; it does
+not crop the final row or column. It uses full-resolution 4:4:4 chroma with
+<code>yuv444p10le</code> encoder input for opaque output and <code>yuva444p10le</code> with 16-bit
+alpha coding for transparent output. The renderer still supplies <strong>8-bit RGBA</strong>;
+16-bit alpha coding does not create additional source precision. Decoding all
+256 source alpha levels with FFmpeg 7.1.5 measured a maximum error of one 8-bit
+level with 16-bit alpha coding, compared with two levels for 8-bit coding.
+Transparent and opaque endpoints are retained. This conversion is not guaranteed
+to reproduce source alpha exactly, and ProRes color compression plus RGB/YUV
+conversion is lossy despite 4:4:4 chroma. The codec's lossless alpha coding claim
+does not imply lossless RGBA conversion. See the
+<a href="https://www.ffmpeg.org/ffmpeg-codecs.html#ProRes">FFmpeg ProRes options</a> and
+<a href="https://www.apple.com/final-cut-pro/docs/Apple_ProRes.pdf">Apple ProRes white paper</a>.</p>
+<p>Soundtracks, per-slide narration and embedded video audio are encoded as AAC,
+using the same scheduling, looping, padding and trimming rules as animated MP4.
+A Canvas MOV with no audio inputs contains only video. Deck MOV retains the
+existing narration workflow’s silent AAC bed even when no slides have narration.
+The fixed codec/profile and audio choices have no selection API. ProRes files can be substantially larger than
+WebM/MP4, and require a ProRes-capable player or editor. Encoded segments stay
+bounded and destinations are replaced only after the full encode and mux succeed.
+A missing <code>prores_ks</code> encoder raises a rendering error and preserves any existing
+destination. Decode pixels, rather than relying on profile metadata, to check alpha:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>ffmpeg<span class="w"> </span>-i<span class="w"> </span>overlay.mov<span class="w"> </span>-frames:v<span class="w"> </span><span class="m">1</span><span class="w"> </span>-pix_fmt<span class="w"> </span>rgba<span class="w"> </span>frame.png
+</code></pre></div>
+<p><code>examples/transparent_lower_third.py</code> writes both WebM and ProRes MOV overlays.</p>
+<h3 id="image-sequences">Image sequences</h3>
+<p><code>Canvas.export_image_sequence()</code> and the matching Deck method write the actual
+animated timeline as independent PNG, JPEG, or WebP files plus one manifest.
+The destination must be new and its parent must exist. PNG is the default.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImageSequenceOptions</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="n">options</span> <span class="o">=</span> <span class="n">ImageSequenceOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">render_quality</span><span class="o">=</span><span class="s2">"high"</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="n">result</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">export_image_sequence</span><span class="p">(</span><span class="s2">"overlay_frames"</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="n">canvas</span><span class="o">.</span><span class="n">export_image_sequence</span><span class="p">(</span><span class="s2">"review_frames"</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">"jpeg"</span><span class="p">,</span> <span class="n">quality</span><span class="o">=</span><span class="mi">85</span><span class="p">,</span> <span class="n">matte</span><span class="o">=</span><span class="s2">"white"</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="n">canvas</span><span class="o">.</span><span class="n">export_image_sequence</span><span class="p">(</span><span class="s2">"web_frames"</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">"webp"</span><span class="p">,</span> <span class="n">lossless</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">frame_count</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">duration</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">manifest_path</span><span class="p">)</span>
+</code></pre></div>
+<p>Encoding controls are keyword arguments to the method, separate from timing
+and compositing in <code>ImageSequenceOptions(fps=30, hold=3, workers=1,
+render_quality="standard")</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>PNG</th>
+<th>JPEG</th>
+<th>WebP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>format</code> (case-insensitive)</td>
+<td><code>"png"</code> (default)</td>
+<td><code>"jpeg"</code></td>
+<td><code>"webp"</code></td>
+</tr>
+<tr>
+<td><code>quality</code></td>
+<td>Rejected</td>
+<td>Integer 1–95; default 90</td>
+<td>Integer 1–95 for lossy output; default 80</td>
+</tr>
+<tr>
+<td><code>matte</code></td>
+<td>Rejected</td>
+<td>Opaque color string; default white</td>
+<td>Rejected</td>
+</tr>
+<tr>
+<td><code>lossless</code></td>
+<td>Rejected</td>
+<td>Rejected</td>
+<td>Boolean; default <code>False</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>lossless=True</code> and <code>quality</code> cannot be combined: quality names lossy
+compression, not lossless WebP encoder effort. Invalid types or incompatible
+options fail before creating output or staging. Options models contain only
+<code>fps</code> (finite, &gt;0 and ≤120), <code>hold</code> (finite, nonnegative seconds), <code>workers</code>
+(strict integer 1–8), and <code>render_quality</code> (<code>"standard"</code> or <code>"high"</code>).</p>
+<p>PNG retains the renderer's exact <strong>8-bit straight-alpha RGBA bytes</strong>, including
+hidden RGB. Lossless WebP also preserves those pixels, including hidden RGB.
+JPEG flattens alpha onto the resolved matte and encodes RGB; JPEG and lossy
+WebP can change colors and do not promise exact canonical pixels. WebP retains
+alpha, but fully opaque files may omit the redundant alpha plane and open as
+RGB in image readers. Convert those files to RGBA when consuming the manifest's
+logical <code>mode: "RGBA"</code>. Authored backgrounds stay visible in every format.
+Odd and one-pixel dimensions retain every row and column. Differently sized
+slides fit the first canvas's full dimensions, with transparent padding before
+encoding (matte-colored padding for JPEG). Imported images are not
+ICC-normalized; output strips inherited profiles/metadata and makes no
+sRGB/color-profile claim.</p>
+<p>The directory contains <code>000000.png</code>, <code>.jpg</code>, or <code>.webp</code>, and so on, plus one
+compact <code>manifest.json</code>. It records <code>version: "1"</code>, <code>format: "image_sequence"</code>,
+document <code>kind</code>, <code>encoding: "png"|"jpeg"|"webp"</code>, relative <code>filename_pattern</code>
+(<code>%06d.png</code>, <code>%06d.jpg</code>, or <code>%06d.webp</code>), and <code>start_index: 0</code>. Actual
+<code>frame_count</code>, <code>fps</code>, <code>duration</code>, <code>width</code>, and <code>height</code> describe the written
+files. Pixel fields describe logical decoding: PNG/WebP use <code>mode: "RGBA"</code>
+and <code>alpha: "straight"</code>; JPEG uses <code>"RGB"</code> and <code>"none"</code>. <code>bit_depth</code> is 8.
+<code>lossless</code> reports the selected encoding; resolved <code>quality</code> and <code>matte</code> are
+recorded where applicable and otherwise <code>null</code>.</p>
+<p><code>ImageSequenceResult</code> adds absolute <code>output_directory</code>, <code>manifest_path</code>, and
+<code>capability_report</code> diagnostics to <code>ImageSequenceManifest</code>. Both models and
+<code>ImageSequenceOptions</code> support JSON round trips and <code>model_json_schema()</code>.
+They add no Canvas/Deck document fields or raster format enum values. There
+is no growing list of frame paths or timestamps. Repeated frames are encoded
+once per canonical shot and written as independent editable files, not hardlinks.
+Frame memory stays bounded; existing scene preparation and worker buffers
+still consume memory.</p>
+<p>Timing follows animated exports, including explicit slide durations,
+<code>advance_after</code>, narration-derived visual timing, transitions, and Morph.
+Cumulative frame allocation avoids drift across fractional holds; short or
+zero-hold still slides receive at least one frame. The reported duration is
+exactly <code>frame_count / fps</code>, measured from the files actually written. This
+can differ from the independent timeline sampler's duration or sample count.
+<code>validate_export("image_sequence")</code> and <code>inspect_motion(target="image_sequence")</code>
+use video motion capabilities. Existing strict/reduced-motion policies and
+parent, Morph, caption, and worker restrictions apply.</p>
+<p>Sequences are silent: no audio encoding, mux, soundtrack, or audio sidecars.
+Narration retains its existing file validation and duration inference, without
+the encoder's 64-audio-input limit. Image-only scenes need no FFmpeg; inferred
+narration lengths still require ffprobe, and video layers retain their normal
+probe/decode requirements.</p>
+<p>All frames and the manifest are prepared in a private sibling staging directory;
+render resources close before publication. A single exclusive rename publishes
+the complete directory, refusing files, directories, and live or dangling
+symlinks, including destinations created by a competing exporter. This requires
+Linux <code>renameat2(RENAME_NOREPLACE)</code>, macOS <code>renamex_np(RENAME_EXCL)</code>, or Windows
+same-volume rename support. Unsupported systems/filesystems fail clearly with
+no ordinary Unix rename or copying fallback. Failures clean only verified owned
+staging and never delete the destination, even if a commit error has an ambiguous
+outcome. This is atomic visibility and no-overwrite publication, not an fsync
+crash-durability guarantee or protection from hostile same-user replacement of
+the parent directory.</p>
+<p>Run <code>examples/image_sequence_overlay.py</code> for PNG, white-matted JPEG and
+lossless WebP lower-third sequences with no FFmpeg dependency. All three
+output directories must be fresh on every run.</p>
+<h3 id="high-quality-animated-compositing">High-quality animated compositing</h3>
+<p><code>GifOptions(render_quality="high")</code> and <code>VideoOptions(render_quality="high")</code> opt into a 2×
+layer-compositing surface followed by one LANCZOS downsample. The default is
+<code>render_quality="standard"</code>, which preserves existing output. This namespaced option
+is separate from <code>render(..., quality=...)</code> for JPEG/WebP. Animated byte
+methods also accept the keyword-only <code>render_quality="high"</code> argument.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="n">canvas</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"smooth.mp4"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">VideoOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">render_quality</span><span class="o">=</span><span class="s2">"high"</span><span class="p">))</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"smooth.gif"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">GifOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">colors</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">render_quality</span><span class="o">=</span><span class="s2">"high"</span><span class="p">))</span>
+</code></pre></div>
+<p>High mode filters prepared layers and staggered targets directly into the
+larger surface without retaining enlarged copies of every source image. It
+improves integration of rotated/downscaled edges; dimensions, timing, audio,
+GIF palette/size controls and <code>workers</code> keep their existing meanings. Frames
+and cached background plates contain four times as many pixels, so high mode
+costs more rendering time and memory. Each worker adds its own buffers, so
+aggregate memory can increase with worker count.</p>
+<p>This is supersampled <strong>layer compositing</strong>, not higher-resolution source layout:
+fonts/assets and backdrop-dependent source surfaces are still prepared at their
+native size. Authored static rotation is already baked into those sources.
+Captions retain native rendering after the downsample, while slide transitions
+and keyed Morph keep their existing native-resolution paths. High mode cannot
+restore details absent from a prepared source and may soften very small text.
+See the <a href="https://github.com/sjquant/quickthumb/tree/main/benchmarks">benchmark guide</a>
+for matched cost measurements and before/after text crops.</p>
+<h3 id="parallel-animated-rendering">Parallel animated rendering</h3>
+<p><code>GifOptions(workers=2)</code> and <code>VideoOptions(workers=2)</code> opt into process-based
+frame rendering. The same keyword-only <code>workers</code> argument is available on
+animated byte methods. <code>workers</code> is a strict integer from 1 to 8; the default remains
+1, with no automatic CPU scaling. Small/static exports may be faster with one
+worker because starting processes, preparing slides, and copying frames cost
+time. Encoding and audio mixing still run in the parent export path.</p>
+<p>Use an importable script and Python's main guard: workers always use <code>spawn</code>,
+including on Linux, without changing the application's global start method.
+Interactive environments that cannot import the main module should use
+<code>workers=1</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">Canvas</span><span class="p">,</span> <span class="n">Fade</span><span class="p">,</span> <span class="n">VideoOptions</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>    <span class="n">canvas</span> <span class="o">=</span> <span class="n">Canvas</span><span class="p">(</span><span class="mi">640</span><span class="p">,</span> <span class="mi">360</span><span class="p">)</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#123456"</span><span class="p">)</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>    <span class="n">canvas</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="s2">"rectangle"</span><span class="p">,</span> <span class="p">(</span><span class="mi">40</span><span class="p">,</span> <span class="mi">40</span><span class="p">),</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">160</span><span class="p">,</span> <span class="s2">"#FF3355"</span><span class="p">,</span>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>                 <span class="n">animation</span><span class="o">=</span><span class="n">Fade</span><span class="p">(</span><span class="n">duration</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>    <span class="n">canvas</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"parallel.mp4"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">VideoOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>
+<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+<a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a>    <span class="n">main</span><span class="p">()</span>
+</code></pre></div>
+<p>Workers rebuild built-in canvases with separate fonts and video decoders.
+Only a bounded, ordered window of frame jobs is outstanding, preserving the
+existing shot durations, collapsed holds, caption boundaries, and transition
+order. Local video layers, captions, seeded grain and built-in motion work in
+parallel. Custom/plugin layers, Canvas subclasses, remote video sources and
+unseeded nonzero grain require <code>workers=1</code>. Remote images/fonts resolved by
+slide preparation are pinned for workers; keep local assets and font-cache
+files unchanged during export. A source or worker failure fails the export
+and preserves a pre-existing destination.</p>
+<p>More workers require more memory: each has a Python runtime, fonts, prepared
+slide images and decoder caches, in addition to its in-flight RGB frame.
+Normal completion and errors wait for running jobs to finish and close their
+decoders. Pending jobs are canceled on failure; abruptly terminated workers
+are reported as rendering errors. An OS-level kill cannot run normal cleanup.</p>
+<h3 id="narrated-deck-video">Narrated deck video</h3>
+<p>A deck can be exported as a video with a voice-over per slide:</p>
+<ul>
+<li>Pass <code>audio=</code> to <code>Deck.slide()</code>. Without <code>duration=</code>, the narration duration
+  is measured with <code>ffprobe</code>. An explicit <code>duration=</code> trims the audio or pads
+  it with silence. A slide with no audio holds silently for <code>hold</code> (3 seconds).</li>
+<li><code>deck.export("deck.mp4")</code> and <code>deck.render("deck.mp4")</code> play layer animations
+  and transitions with narration by default. <code>deck.to_mp4()</code>, <code>deck.to_webm()</code>,
+  and <code>deck.to_mov()</code> return animated video bytes.</li>
+<li>To show still slides with narration, author static canvases and set an
+  explicit <code>Cut()</code> transition. The output is H.264/yuv420p with AAC when audio
+  is present. Omitting a transition uses the default fade, not a cut.
+  <code>reduced_motion=True</code> also selects default transitions; it is not a still-slide
+  export mode. Existing animated layers still play in the ordinary MP4 path.</li>
+<li>Add background music with
+  <code>animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True))</code>
+  on <code>deck.export()</code> or <code>deck.render()</code>. Quickthumb mixes it with the slide
+  narration; callers do not need to pre-mix audio themselves.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">Canvas</span><span class="p">,</span> <span class="n">Deck</span><span class="p">,</span> <span class="n">VideoOptions</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb.transitions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Cut</span>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="n">deck</span> <span class="o">=</span> <span class="n">Deck</span><span class="p">(</span><span class="mi">640</span><span class="p">,</span> <span class="mi">360</span><span class="p">)</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">Cut</span><span class="p">())</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="n">deck</span><span class="o">.</span><span class="n">slide</span><span class="p">(</span><span class="n">Canvas</span><span class="p">(</span><span class="mi">640</span><span class="p">,</span> <span class="mi">360</span><span class="p">)</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#123456"</span><span class="p">),</span>
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>           <span class="n">audio</span><span class="o">=</span><span class="s2">"voice.wav"</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="mf">2.5</span><span class="p">)</span>
+<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="n">deck</span><span class="o">.</span><span class="n">slide</span><span class="p">(</span><span class="n">Canvas</span><span class="p">(</span><span class="mi">640</span><span class="p">,</span> <span class="mi">360</span><span class="p">)</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#456789"</span><span class="p">),</span> <span class="n">duration</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a><span class="n">result</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"narrated.mp4"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">VideoOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">))</span>
+<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="n">mp4_bytes</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_mp4</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="timing">Timing</h3>
+<p>Video and GIF follow the HTML slideshow's timing, except that nobody can
+click: <code>on_click</code> animations play automatically, one after another, like
+<code>after_previous</code> (PowerPoint's own video export does the same). Each slide
+plays its transition over the previous slide's last frame, runs its
+animations (starting with the transition, as in HTML), then holds its settled
+state for the transition's <code>advance_after</code> if set, otherwise for <code>hold</code>.
+In narrated MP4/WebM/MOV output, the inferred or explicit narration duration
+(or the silent-slide default) extends the visual slide when it is longer
+than <code>advance_after</code>. A slide with no transition cross-fades in over 0.5s
+(slide 0 with none starts instantly); set a transition on slide 0 to animate
+in from the matte, which also makes looping GIFs wrap smoothly.</p>
+<p>GIF is encoded by Pillow with per-frame durations, so no extra dependency is needed. MP4 (H.264), WebM (VP9), and MOV (ProRes 4444) require the <code>ffmpeg</code> binary on <code>PATH</code> (or pointed to by the <code>QUICKTHUMB_FFMPEG</code> environment variable).</p>
+<p>Canvas MP4, WebM, and MOV output can carry a soundtrack: any audio file ffmpeg decodes (MP3, WAV, AAC, OGG, ...), encoded as AAC in MP4/MOV and Opus in WebM:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="n">mp4</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_mp4</span><span class="p">(</span><span class="n">soundtrack</span><span class="o">=</span><span class="s2">"music.mp3"</span><span class="p">)</span>                    <span class="c1"># loops to fill the video</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="n">mp4</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_mp4</span><span class="p">(</span><span class="n">soundtrack</span><span class="o">=</span><span class="s2">"jingle.wav"</span><span class="p">,</span> <span class="n">loop_audio</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="c1"># plays once, then silence</span>
+</code></pre></div>
+<p>The audio is always trimmed to the video length. For an <code>AudioTrack</code>, <code>loop=True</code> repeats a shorter track and <code>loop=False</code> plays it once before silence; <code>loop_audio</code> is an explicit override. Legacy string paths keep the previous looping default. GIF exports do not accept a soundtrack.</p>
+<div class="admonition note">
+<p class="admonition-title">Format limits</p>
+<p>Canonical layer translation, rotation and scaling use subpixel bicubic affine
+sampling while geometry is moving. Still images, held geometry and settled
+endpoints retain their existing pixels, including nonidentity final transforms.
+Image viewport zoom/pan keeps its separate image-renderer behavior.</p>
+<p>By default, frames are composited onto the opaque <code>matte</code> color (default black). VP9 WebM and ProRes MOV support opt-in alpha as described above; GIF and MP4 remain opaque. Mixed-size slides are scaled to fit and centered on the first slide's size. H.264/VP9 4:2:0 output needs even dimensions, so odd-sized canvases lose their last pixel row/column in MP4/WebM output. GIF encoding streams quantized frames through Pillow, keeping only a bounded number of uncompressed frames instead of imposing a timeline frame-memory budget. The final compressed GIF is still buffered in memory, including for file exports; large canvases, documents and encoded files can still exhaust available memory. <code>max_size</code> and <code>colors</code> remain useful for reducing output size. GIF dimensions and each coalesced frame duration must still fit the format’s 16-bit fields (65,535 pixels and 655.35 seconds). Animated Deck MP4/WebM/MOV accepts at most 64 slides with narration because each narration is decoded as a concurrent FFmpeg input; split larger narrated decks into multiple exports. Silent slides do not count toward this limit.</p>
+</div>
+<h2 id="canonical-samples">Canonical samples</h2>
+<p><code>sample()</code> returns the renderer-independent reference that exports are compared against, as a JSON-serializable <code>FrameSequence</code>. Canvas and Deck share the same contract, and a canvas produces the same observations as a one-slide deck containing it.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="n">still</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span>                         <span class="c1"># settled frame(s), as PNG/PDF/PPTX draw them</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="n">timed</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>                     <span class="c1"># uniform grid over the whole animated timeline</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="n">probe</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">sample</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.25</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">],</span> <span class="n">hold</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span> <span class="c1"># explicit instants, ascending</span>
+</code></pre></div>
+<ul>
+<li><strong>Frames.</strong> Each <code>CanonicalFrame</code> holds <code>width * height</code> pixels as raw 8-bit RGBA (row-major from the top-left, sRGB, straight alpha), base64-encoded in <code>data</code>, plus the <code>sha256</code> of those bytes. <code>index</code> is the frame's position in the sequence and <code>slide</code> the page it shows. A frame whose digest or dimensions do not match its data is rejected when it is loaded.</li>
+<li><strong>Still captures</strong> (<code>capture="still"</code>) hold one frame per page in slide order, at each page's own size, with transparency preserved. <code>time</code> is <code>None</code>, <code>duration</code> is <code>0</code>, and <code>timeline</code> is empty.</li>
+<li><strong>Timeline captures</strong> (<code>capture="timeline"</code>) observe the timeline that animated WebM/MP4 exports play: transitions, Morph, layer animations, narration-driven slide durations, and a settled hold of <code>hold</code> seconds (default 3) for pages without an explicit duration. Frames are ordered by ascending <code>time</code> in seconds, share the first slide's size, and are composited onto the opaque <code>matte</code> (default black), which is reported as <code>#RRGGBB</code>. Deck GIF export currently ignores explicit and narration slide durations, so it matches this timeline only for decks without them.</li>
+<li><strong>Sampling.</strong> <code>fps=N</code> (at most 120) observes every instant <code>k / N</code> before <code>duration</code>; explicit times must be ascending, and times at or past <code>duration</code> show the final settled frame. One capture observes at most 100,000 instants; a larger explicit list or fps grid is rejected with a <code>ValidationError</code> before any frame renders. This grid is an observation schedule, not an exporter's frame schedule: exporters sample each span on their own frame grid, and stretch a slide shorter than one frame to a full frame.</li>
+<li><strong>Timing.</strong> <code>duration</code> is the exact timeline length and never depends on <code>fps</code> or on the requested instants. Each <code>TimelineSegment</code> gives a slide's absolute <code>start</code>, <code>transition_end</code>, <code>animation_end</code>, and <code>end</code>, rounded to nanoseconds; a slide is on screen over <code>[start, end)</code>, so a boundary instant belongs to the incoming slide.</li>
+<li><strong>Memory.</strong> A capture whose distinct frames would exceed 768 MiB of raw RGBA is rejected with a <code>ValidationError</code>, before any frame renders when every page of a still capture, or one frame of a timeline capture, already exceeds it; request fewer instants, a lower <code>fps</code>, a shorter <code>hold</code>, or a smaller document.</li>
+<li><strong>Environment.</strong> <code>sample()</code> and <code>export()</code> report quickthumb, Pillow and FreeType versions, the text layout engine (<code>basic</code> or <code>raqm</code>), available RAQM/HarfBuzz/FriBidi versions, and the FFmpeg version for documents with video layers. Sampling video without a working FFmpeg raises <code>RenderingError</code> before any frame renders. <code>environment.fonts</code> reports the actual font face bytes selected by that operation; the asset manifest separately describes authored references.</li>
+</ul>
+<h3 id="render-reproducibility">Render reproducibility</h3>
+<p>Font family names and <code>QUICKTHUMB_DEFAULT_FONT</code> depend on the machine's font
+search path. Inspect the selected faces rather than treating those names as
+portable identifiers:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="n">capture</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">sample</span><span class="p">()</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="k">for</span> <span class="n">font</span> <span class="ow">in</span> <span class="n">capture</span><span class="o">.</span><span class="n">environment</span><span class="o">.</span><span class="n">fonts</span><span class="p">:</span>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">font</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">font</span><span class="o">.</span><span class="n">sha256</span><span class="p">,</span> <span class="n">font</span><span class="o">.</span><span class="n">variations</span><span class="p">)</span>
+</code></pre></div>
+<p>Each face has its resolved file path (or <code>pillow:default</code>), SHA-256 and applied
+variable coordinates keyed by the font's axis names. The hash identifies the
+font bytes. Pillow's embedded
+face reports no hash if its bytes are unavailable. Paths are diagnostic: compare
+hashes and coordinates across machines. Only faces loaded for the current
+operation are reported; unused named fonts and faces from earlier operations
+are excluded.</p>
+<p>Remote and Google fonts load from content-addressed copies of their resolved
+bytes, so another document refreshing the original URL does not change a
+prefetched face. These copies live in the asset cache and follow its caller-owned
+cleanup lifecycle. Keep local input files unchanged during an operation.</p>
+<p>For repeatable canonical raster output, use identical document data, input asset
+bytes, selected fonts and variable coordinates, rendering options and environment;
+seed procedural effects where supported. Different font, shaping or rasterizer
+versions can change layout and edge pixels. This report explains those inputs;
+it does not promise exact pixels across platforms or native-output viewers.
+Use format-specific fidelity tolerances when comparing such outputs.</p>
+<h2 id="remote-assets-and-caching">Remote assets and caching</h2>
+<p><code>render()</code> and <code>export()</code> download remote images, SVGs, text fills, and fonts into a shared cache, and <code>export()</code> returns an <code>asset_manifest</code> describing every asset it used. <code>prefetch_assets()</code> is optional: it does the same downloads up front and returns the manifest without rendering, so you can catch network failures or stale entries before a long export, or warm the cache for offline renders. Each <code>AssetManifestEntry</code> has the <code>source</code> as written, its semantic <code>asset_type</code>, a <code>status</code>, and whatever identity it has: <code>source_key</code> (canonical URL), <code>cache_key</code> and <code>cache_path</code>, <code>content_hash</code> (SHA-256 of the bytes used), and <code>fetched_at</code> (UTC time of the download).</p>
+<table>
+<thead>
+<tr>
+<th><code>status</code></th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>local</code></td>
+<td>An existing local file.</td>
+</tr>
+<tr>
+<td><code>missing</code></td>
+<td>A local path that does not exist.</td>
+</tr>
+<tr>
+<td><code>network</code></td>
+<td>Downloaded now and written to the cache.</td>
+</tr>
+<tr>
+<td><code>fresh</code></td>
+<td>Read from a cache entry within <code>max_age</code> (always, when no <code>max_age</code> is set).</td>
+</tr>
+<tr>
+<td><code>stale</code></td>
+<td>Read from an expired cache entry, or while offline, because it could not be refreshed. <code>stale_reason</code> explains why.</td>
+</tr>
+<tr>
+<td><code>unresolved</code></td>
+<td>A remote reference that has not been resolved yet.</td>
+</tr>
+</tbody>
+</table>
+<p>The cache is controlled by environment variables:</p>
+<ul>
+<li><code>QUICKTHUMB_ASSET_CACHE_DIR</code>: cache directory (default: the system temp directory).</li>
+<li><code>QUICKTHUMB_ASSET_MAX_AGE</code>: seconds after which a cached entry is refreshed from the network. When the refresh fails, the old bytes are used and reported as <code>stale</code>. Unset means cached entries never expire.</li>
+<li><code>QUICKTHUMB_ASSET_OFFLINE=1</code>: never make network requests. Cached entries are used, and expired ones are reported as <code>stale</code>.</li>
+</ul>
+<h3 id="ownership-and-reuse">Ownership and reuse</h3>
+<p>Keep the same <code>Canvas</code> or <code>Deck</code> to reuse resolution across <code>prefetch_assets()</code>,
+<code>sample()</code>, and exports. Each canvas retains its first remote resolution result
+and status; a deck uses its slides' results. Remote images, text fills, and SVGs
+render from these retained bytes. Remote fonts, including Google fonts, load
+from content-addressed copies of the resolved bytes, so another document's URL
+refresh does not change a prefetched face. Keep those cache files available
+through sampling and export. Construct a new document to resolve the same
+reference again under the current cache policy.</p>
+<p><code>PrefetchResult</code> and <code>asset_manifest</code> are JSON-safe reports, not resource handles.
+Saving or loading their JSON does not transfer bytes or preload another document.
+A new document can reuse the persisted cache and reports <code>fresh</code> when its entry
+is usable. Local image, font, video, and audio paths remain caller-owned files:
+keep them available and unchanged through sampling or export; prefetch does not
+freeze or copy them. Video and audio sources are not downloaded by prefetch;
+remote video is read by FFmpeg when needed and is outside this cache contract.
+Generated content without a file/URL reference has no external asset entry.</p>
+<p>The caller owns the cache directory and its cleanup. Quickthumb atomically writes
+remote cache files and metadata but does not automatically evict them. Remove
+unused entries only when documents and export workers are no longer using that
+cache; existing manifests are observations, not guarantees that their
+<code>cache_path</code> still exists. No explicit document close is required for the
+in-memory remote results: they are released with the document.</p>
+<p>When neither a usable cache entry nor a network response exists, resolution raises <code>RenderingError</code> naming the source, the cause, and the cache directory it searched. To refuse stale inputs, check the manifest before rendering:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="n">prefetched</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">prefetch_assets</span><span class="p">()</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="n">stale</span> <span class="o">=</span> <span class="p">[</span><span class="n">entry</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">prefetched</span><span class="o">.</span><span class="n">asset_manifest</span> <span class="k">if</span> <span class="n">entry</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s2">"stale"</span><span class="p">]</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="k">if</span> <span class="n">stale</span><span class="p">:</span>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>    <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="sa">f</span><span class="s2">"stale assets: </span><span class="si">{</span><span class="p">[(</span><span class="n">e</span><span class="o">.</span><span class="n">source</span><span class="p">,</span><span class="w"> </span><span class="n">e</span><span class="o">.</span><span class="n">stale_reason</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">e</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">stale</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="asset-and-plugin-lifecycle-fixtures">Asset and plugin lifecycle fixtures</h3>
+<p>The shared font/texture scenarios in <code>tests/test_asset_cache.py</code> use a private
+plugin registry, a repository TTF and generated image bytes served by a temporary
+localhost HTTP server. They exercise public Canvas/Deck operations and cache
+environment settings. A controlled standard clock advances expiry without
+sleeping or editing cache files or metadata. No public network service or
+platform-specific pixel snapshot is required.</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Observable evidence</th>
+<th>Regression check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Network → fresh new document → expired refresh</td>
+<td>Resolution status, fetched time, changed content hashes, actual font identity and decoded PNG pixels; original documents retain their resolved bytes</td>
+<td><code>test_combined_resources_refresh_only_for_new_expired_documents</code> (<code>canvas</code>, <code>deck</code>)</td>
+</tr>
+<tr>
+<td>Expired cache while offline</td>
+<td>Both resources report <code>stale</code> with source, hash, fetch time and offline/max-age reason before plugin execution or output; a caller proceeding gets the original RGBA/font bytes without requests</td>
+<td><code>test_combined_offline_stale_evidence_precedes_optional_rendering</code> (<code>canvas</code>, <code>deck</code>)</td>
+</tr>
+<tr>
+<td>Cold offline font or plugin texture</td>
+<td>Public prefetch identifies the later slide, source URL and cache directory; plugin texture errors also identify the layer/asset path. No callback or file write occurs</td>
+<td><code>test_combined_cold_offline_failure_identifies_later_slide_resource</code> (<code>font</code>, <code>texture</code>)</td>
+</tr>
+<tr>
+<td>Prefetched resources across raster and native document output</td>
+<td>Canvas/Deck raster agreement, actual font SHA, asset manifest, native SVG text and exact plugin PNG fallback</td>
+<td><code>test_prefetched_font_and_private_plugin_keep_shared_export_evidence</code></td>
+</tr>
+<tr>
+<td>Missing declared plugin dependency</td>
+<td>Escaped JSON Pointer, layer identity and prewrite failure</td>
+<td><code>test_plugin_declared_missing_assets_fail_before_output_or_callback</code></td>
+</tr>
+<tr>
+<td>Plugin native match, tolerated difference, mismatch or unsupported target</td>
+<td>Actual local SVG comparison and adopted native/PNG representation; explained fallback and strict rejection</td>
+<td><code>tests/test_plugin_svg.py</code>, <code>test_plugin_document_fallback_reports_and_preserves_output</code> in <code>tests/test_plugin_runtime.py</code></td>
+</tr>
+<tr>
+<td>Default, family, file and variable fonts</td>
+<td>Actual selected face hashes and applied coordinates in sample/export environments</td>
+<td>Font identity cases in <code>tests/test_canonical_sampling.py</code></td>
+</tr>
+</tbody>
+</table>
+<p>Stale refusal is a caller decision using the returned manifest, as shown above;
+there is no automatic refuse-stale export flag. The offline fixture verifies
+that evidence is available before any plugin callback or destination change,
+then separately verifies the caller's choice to render with those stale bytes.
+Cold misses fail rather than substituting a font or empty plugin texture.</p>
+<p>Run <code>uv run --locked pytest tests/test_asset_cache.py tests/test_plugin_runtime.py
+tests/test_plugin_svg.py tests/test_canonical_sampling.py --no-cov -q</code>.
+These files are included in the existing automated <code>pytest tests/</code> quality job.
+Named scenarios and parameter IDs identify the resource/document failure;
+expected hashes are computed from the controlled source bytes and rendered
+samples are compared in the same recorded font/render environment. This does
+not promise identical font pixels across machines or native viewers.</p>
+<h2 id="decks-multiple-images-and-slides">Decks (multiple images and slides)</h2>
+<p>A <code>Deck</code> is an ordered list of canvases. Each slide is a full <code>Canvas</code> and renders exactly as it would on its own. See the <a href="../api/deck/">Deck API reference</a> for the full method list.</p>
+<p>Give the deck a size once and each slide can be a bare <code>Canvas()</code> that inherits it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">AudioTrack</span><span class="p">,</span> <span class="n">Canvas</span><span class="p">,</span> <span class="n">Deck</span><span class="p">,</span> <span class="n">VideoOptions</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="n">deck</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>    <span class="n">Deck</span><span class="p">(</span><span class="mi">1280</span><span class="p">,</span> <span class="mi">720</span><span class="p">)</span>   <span class="c1"># default slide size; Deck.from_aspect_ratio("16:9", 1280) also works</span>
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>    <span class="o">.</span><span class="n">slide</span><span class="p">(</span><span class="n">Canvas</span><span class="p">()</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#101820"</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="s2">"Cover"</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">96</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#FFFFFF"</span><span class="p">))</span>
+<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>    <span class="o">.</span><span class="n">slide</span><span class="p">(</span><span class="n">Canvas</span><span class="p">()</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#1A1A2E"</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="s2">"Body"</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#FFFFFF"</span><span class="p">))</span>
+<a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a><span class="p">)</span>
+<a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a><span class="c1"># pre-built canvases work too: Deck(slides=[cover, body])</span>
+<a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a>
+<a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"deck.pdf"</span><span class="p">)</span>     <span class="c1"># one multi-page PDF (a page per slide)</span>
+<a id="__codelineno-27-11" name="__codelineno-27-11" href="#__codelineno-27-11"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"deck.pptx"</span><span class="p">)</span>    <span class="c1"># one multi-slide PPTX (a slide per slide)</span>
+<a id="__codelineno-27-12" name="__codelineno-27-12" href="#__codelineno-27-12"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"deck.gif"</span><span class="p">)</span>     <span class="c1"># one animation playing transitions between slides</span>
+<a id="__codelineno-27-13" name="__codelineno-27-13" href="#__codelineno-27-13"></a><span class="n">deck</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"deck.mp4"</span><span class="p">)</span>     <span class="c1"># animated slides with per-slide narration</span>
+<a id="__codelineno-27-14" name="__codelineno-27-14" href="#__codelineno-27-14"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span>
+<a id="__codelineno-27-15" name="__codelineno-27-15" href="#__codelineno-27-15"></a>    <span class="s2">"deck.mp4"</span><span class="p">,</span>
+<a id="__codelineno-27-16" name="__codelineno-27-16" href="#__codelineno-27-16"></a>    <span class="n">animation</span><span class="o">=</span><span class="n">VideoOptions</span><span class="p">(</span><span class="n">soundtrack</span><span class="o">=</span><span class="n">AudioTrack</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="s2">"music.mp3"</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="kc">True</span><span class="p">)),</span>
+<a id="__codelineno-27-17" name="__codelineno-27-17" href="#__codelineno-27-17"></a><span class="p">)</span>  <span class="c1"># animated + mixed audio</span>
+<a id="__codelineno-27-18" name="__codelineno-27-18" href="#__codelineno-27-18"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"animated.mp4"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">VideoOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">20</span><span class="p">))</span>  <span class="c1"># animated, silent</span>
+<a id="__codelineno-27-19" name="__codelineno-27-19" href="#__codelineno-27-19"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"slides.png"</span><span class="p">)</span>   <span class="c1"># numbered sequence: slides_01.png, slides_02.png, …</span>
+<a id="__codelineno-27-20" name="__codelineno-27-20" href="#__codelineno-27-20"></a>
+<a id="__codelineno-27-21" name="__codelineno-27-21" href="#__codelineno-27-21"></a><span class="n">pdf_bytes</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_pdf</span><span class="p">()</span>
+<a id="__codelineno-27-22" name="__codelineno-27-22" href="#__codelineno-27-22"></a><span class="n">pptx_bytes</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_pptx</span><span class="p">()</span>
+<a id="__codelineno-27-23" name="__codelineno-27-23" href="#__codelineno-27-23"></a><span class="n">gif_bytes</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_gif</span><span class="p">()</span>
+<a id="__codelineno-27-24" name="__codelineno-27-24" href="#__codelineno-27-24"></a><span class="n">webm_bytes</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_webm</span><span class="p">()</span>
+<a id="__codelineno-27-25" name="__codelineno-27-25" href="#__codelineno-27-25"></a><span class="n">mp4_bytes</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_mp4</span><span class="p">()</span>   <span class="c1"># timeline with per-slide narration</span>
+</code></pre></div>
+<p><code>render()</code> dispatches on the output extension: <code>.pdf</code> and <code>.pptx</code> produce a single document; <code>.gif</code>, <code>.mp4</code>, <code>.webm</code>, and <code>.mov</code> produce an animation; and raster extensions have no native multi-page container, so the deck writes one file per slide as a zero-padded numbered sequence and returns the written paths.</p>
+<p>Slides may have different dimensions. <code>deck.diagnose()</code> aggregates each slide's <a href="../diagnostics/">diagnostics</a> (each tagged with its <code>slide_index</code>) and adds a <code>mixed-slide-size</code> warning when they differ. The PDF path sizes each page to its slide, but PPTX has a single presentation size taken from the first slide, so slides larger than the first are clipped by PowerPoint. Keep slides the same size when targeting <code>.pptx</code>. Decks round-trip through JSON with <code>deck.to_json()</code> / <code>Deck.from_json(...)</code>, reusing the per-canvas serialization.</p>
+<h2 id="cli">CLI</h2>
+<p>The CLI picks the format from the output extension too:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>quickthumb<span class="w"> </span>render<span class="w"> </span>spec.json<span class="w"> </span>-o<span class="w"> </span>card.svg
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>quickthumb<span class="w"> </span>render<span class="w"> </span>spec.json<span class="w"> </span>-o<span class="w"> </span>card.pptx
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>quickthumb<span class="w"> </span>render<span class="w"> </span>spec.json<span class="w"> </span>-o<span class="w"> </span>card.pdf
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>
+<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a><span class="c1"># Live HTML slides; open /?presenter for the presenter dashboard</span>
+<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a>quickthumb<span class="w"> </span>serve<span class="w"> </span>slides.py
+</code></pre></div>
+<h2 id="lottie-vectors">Lottie vectors</h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">Canvas</span><span class="p">,</span> <span class="n">LottieOptions</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>
+<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a><span class="n">canvas</span> <span class="o">=</span> <span class="n">Canvas</span><span class="p">(</span><span class="mi">240</span><span class="p">,</span> <span class="mi">160</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="s2">"ellipse"</span><span class="p">,</span> <span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span> <span class="mi">80</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="s2">"#159A8C"</span><span class="p">)</span>
+<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="n">result</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"scene.lot"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">LottieOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="mi">3</span><span class="p">))</span>
+</code></pre></div>
+<p><code>.lot</code> contains ordinary Lottie JSON, not Quickthumb document JSON. The supported
+subset is a single Canvas: one initial solid background, solid
+rectangle/rounded rectangle, ellipse, pill, triangle, star and polygon shapes,
+and Paths (<code>M/L/H/V/C/S/Q/T/A/Z</code>) with even-odd solid fill or solid stroke. Shape
+alignment and percentage positions retain their authored layout. Path control hulls must
+fit inside the viewport (strokes reserve a conservative miter-limit margin); stroked Paths require uniform view-box scaling.</p>
+<p><code>hold</code> is nonnegative seconds; <code>fps</code> defaults to 30 and supports up to 120.
+Stroked degenerate contours are rejected rather than replaced with missing dots.
+The playback span is the latest canonical motion end plus <code>hold</code>, rounded up
+to whole frames; the receipt reports
+that frame count and its duration divided by fps. Zero hold adds no final pause;
+a static zero-hold composition still occupies one frame. Output has no audio or assets.
+See <a href="https://github.com/sjquant/quickthumb/blob/main/examples/lottie_static.py">the runnable static example</a>.</p>
+<p><code>canvas.validate_export("lottie")</code> lists unsupported source IDs and JSON paths.
+Gradients, effects/presets, stagger, masks, viewport clipping,
+paint/dash tracks, motion paths, images, plugins and Deck output are
+not supported in this slice.
+Export rejects them before opening the destination, including when a policy asks
+for static or raster fallback. It never silently drops features or embeds rendered
+frames. No Lottie import, ZIP or editor API is provided.</p>
+<p>Quadratics convert exactly to cubic tangent handles. Elliptical arcs use the
+same bounded cubic conversion as native PDF paths (at most 1/8 device pixel
+approximation, with command and coordinate precision limits). No ReportLab or
+other document-renderer dependency is needed for Lottie. Closed contours retain
+their closing tangents and multiple contours share the even-odd fill rule.
+Admission uses the conservative control hull: some curves that visually fit
+are rejected when their controls exceed the fixed viewport. Rescale or reposition
+the path data inside its view box instead of expecting implicit cropping.
+See the <a href="https://github.com/sjquant/quickthumb/blob/main/examples/lottie_paths.py">curved Path example</a>.</p>
+<p>Canonical position, uniform/axis scale, rotation and opacity timelines retain
+ordered composition, easing, delays and held keys. Authored rotation is retained;
+track opacity multiplies authored layer opacity. Paths use their fixed viewport
+pivot. Shapes use the same whole painted-source pivot as canonical sampling,
+including authored static rotation, alignment and irregular geometry. Preparing
+an animated Shape uses one bounded untimed source probe to determine that pivot;
+it does not embed pixels. Animated Shape sources must fit inside the Canvas.
+Nonpositive uniform Shape/Null scale is explicitly unsupported by this renderer;
+axis scales and Path scales retain their canonical behavior.</p>
+<p>Pose properties are held vector samples at <code>LottieOptions.fps</code>, augmented with
+exact event and authored-key boundaries shared across the Canvas. Between those instants the previous
+pose remains visible; output does not claim continuous native Lottie easing.
+Static properties remain native constants. Capability diagnostics report this
+sampling distinction. Export stops before writing if more than 100,000 total
+layer-pose observations or native coordinate precision limits would be exceeded.
+<code>ExportPolicy(reduced_motion=True)</code> intentionally removes the timelines and
+exports the authored static pose for <code>hold</code> seconds, rather than the animation
+endpoint. Other unsupported features still fail before writing.
+See the <a href="https://github.com/sjquant/quickthumb/blob/main/examples/lottie_motion.py">pose-motion example</a>.</p>
+<p>Top-level Null and supported Shape layers can form transform hierarchies with
+<code>parent</code>. Parenting composes existing canonical local frames, including authored
+rotation, anchors and nonuniform axes; local poses do not bake ancestors again.
+Percent coordinates still resolve against Canvas dimensions, even on children.
+Opacity affects each painted source independently and does not propagate from
+an invisible parent to its children. Axis-zero collapse and axis reflections
+retain the canonical parent behavior. Source drawing order remains independent
+of the graph order, including a child listed before its parent.</p>
+<p>Linked Shape pivots retain the canonical opaque-reference footprint, even when
+the parent's own paint is transparent. Their local sources may begin outside the
+Canvas: ancestor transforms can bring them into view. Unlinked animated Shape
+sources keep the earlier unclipped-source requirement. Cycles, missing parents,
+unsupported groups/effects and Path parenting are rejected before writing.
+See the <a href="https://github.com/sjquant/quickthumb/blob/main/examples/lottie_parenting.py">parenting example</a>.</p>
+<h3 id="lottie-stroke-trim">Lottie stroke trim</h3>
+<p>Paths support authored <code>trim_start</code>, <code>trim_end</code>, <code>trim_offset</code> and their
+<code>TrimStartTrack</code>, <code>TrimEndTrack</code>, <code>TrimOffsetTrack</code> timelines. Trim uses one
+normalized local arc-length clock across all contours, including cyclic wrapped
+windows and negative or multi-turn offsets. Full 0→1 ignores offset; equal
+endpoints and 1→0 are empty. Fill remains complete underneath the trimmed stroke.
+Closed seams retain their joins; open cuts use the authored cap.</p>
+<p>Trim properties use the same held fps samples, authored boundaries, composition,
+easing and reduced-motion policy as pose properties above. They remain native
+vector trim modifiers, with no frame images. Native endpoint rounding must not
+collapse a nonempty interval or exceed a conservative 1/8-pixel endpoint bound
+under the sampled scale; otherwise export rejects it before writing. The existing
+viewport, uniform stroke scaling and nondegenerate contour limits still apply.
+Dashes and dash-offset tracks remain unsupported; there is no trim-then-dash
+approximation. See the <a href="https://github.com/sjquant/quickthumb/blob/main/examples/lottie_trim.py">stroke-trim example</a>.</p>
+<h3 id="lottie-outlined-text">Lottie outlined text</h3>
+<p>Static plain single-line printable ASCII text exports as self-contained native
+cubic glyph outlines. Install <code>quickthumb[lottie]</code> for the optional fonttools
+dependency; shape and Path output do not require it. The actual resolved local
+FreeType face, including Pillow's embedded default font, supplies the outlines.
+The file embeds neither font assets nor editable Lottie text. Canonical baseline,
+alignment and explicit letter spacing determine glyph positions; font contour
+winding preserves holes within each independently painted glyph, so overlapping
+glyphs cannot cancel each other. Opacity applies once to the whole text layer. Text paint itself
+must be opaque: the canonical direct-draw alpha-paint behavior on a backdrop is
+not equivalent to native Lottie compositing.</p>
+<p>Text must not use animation, parenting, rotation, wrapping/fitting, rich content,
+counters, effects, masks, gradients, variable/color fonts or remote font sources.
+Missing glyphs fail explicitly instead of becoming replacement boxes. Unspaced
+multi-character RAQM layout requires shaping and is rejected; use explicit
+nonzero <code>letter_spacing</code>. Unspaced BASIC text is admitted only when its measured
+advances are additive. This subset does not promise complex-script shaping.</p>
+<p>Each layer is bounded to 1024 characters, 65536 outline vertices and a 64 MiB
+font source, with native coordinate-precision checks. Unsupported text and missing
+fonttools produce source-specific diagnostics before opening the destination.
+See the <a href="https://github.com/sjquant/quickthumb/blob/main/examples/lottie_text.py">outlined-text example</a>.</p>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.tabs", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
