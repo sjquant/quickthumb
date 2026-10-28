@@ -622,7 +622,11 @@ def average_visible_background(
 
     # Transparent areas read as white, matching JPEG export and typical viewers.
     alpha = mean_a / 255
-    return tuple(channel * alpha + 255 * (1 - alpha) for channel in (mean_r, mean_g, mean_b))
+    return (
+        mean_r * alpha + 255 * (1 - alpha),
+        mean_g * alpha + 255 * (1 - alpha),
+        mean_b * alpha + 255 * (1 - alpha),
+    )
 
 
 def worst_tile_contrast(

@@ -903,7 +903,8 @@ class TextEngine:
         return lines
 
     def _prepare_wrapped_rich_text_lines(self, layer: TextLayer) -> list[list[TextPartData]]:
-        max_width_px = parse_coordinate(layer.max_width, self._ctx.width)  # type: ignore[arg-type]
+        assert layer.max_width is not None
+        max_width_px = parse_coordinate(layer.max_width, self._ctx.width)
         lines: list[list[TextPartData]] = [[]]
         current_width = 0
 

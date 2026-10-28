@@ -412,9 +412,11 @@ def caption_geometry(
         y - background_height // 2 + background_height,
     )
     shift = _caption_safe_shift(requested, image_size)
-    rendered = tuple(
-        value + delta
-        for value, delta in zip(requested, (shift[0], shift[1], shift[0], shift[1]), strict=True)
+    rendered = (
+        requested[0] + shift[0],
+        requested[1] + shift[1],
+        requested[2] + shift[0],
+        requested[3] + shift[1],
     )
     return CaptionGeometry(
         text_position=(text_left + shift[0], text_top + shift[1]),

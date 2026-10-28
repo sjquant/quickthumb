@@ -78,7 +78,7 @@ class TestCanvasSvgAPI:
 
         with pytest.raises(ValidationError, match=error_pattern):
             Canvas(400, 300).svg(
-                path=cast(str, params["path"]),
+                path=params["path"],
                 position=cast(tuple[int, int], params["position"]),
                 width=cast(int | None, params.get("width")),
                 height=cast(int | None, params.get("height")),

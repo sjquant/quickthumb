@@ -150,7 +150,7 @@ class EffectsEngine:
     def _rgba_color(self, color: str | tuple) -> tuple[int, int, int, int]:
         parsed = self.parse_color(color)
         if len(parsed) == 4:
-            return cast(tuple[int, int, int, int], parsed)
+            return parsed
         r, g, b = parsed[:3]
         return (r, g, b, FULL_OPACITY)
 
@@ -256,7 +256,7 @@ class EffectsEngine:
             parsed_color = self.parse_color(color)
             # Ensure color has alpha channel (default to 255 if not provided)
             if len(parsed_color) == 3:
-                rgba = (*cast(tuple[int, int, int], parsed_color), 255)
+                rgba = (*parsed_color, 255)
             else:
                 rgba = cast(tuple[int, int, int, int], parsed_color[:4])
             parsed_stops.append((rgba, pos))
