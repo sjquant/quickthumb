@@ -473,10 +473,10 @@ colors; it leaves stroke, shadow, glow and other effect colors unchanged.
 Before its start, and in untimed or reduced-motion stills, the authored fill
 is preserved. A group's animation continues to override descendant animations;
 intrinsic counter values still update. Separately rendered stagger lines sample
-their own colors. Targets that cannot be split keep the existing approximate
-whole-layer stagger fallback. Plain character targets instead require exact
-[codepoint ownership](#character-ownership); unprovable character layouts raise
-an error. [Range selectors](#text-range-selectors) support static or keyframed
+their own colors. Word/line text targets require exact placed fragments, and
+character targets require exact [codepoint ownership](#character-ownership).
+Unprovable text layouts raise an error before output, rather than using an
+approximate whole-layer stagger. [Range selectors](#text-range-selectors) support static or keyframed
 percentages. General shaping and grapheme-cluster animation remain unsupported.
 
 Groups containing backdrop-dependent descendants support pure parent color
