@@ -8,8 +8,8 @@ This guide walks through the core workflow: create a canvas, add layers, and exp
 
 ## First export without fonts or downloads
 
-First install [the current checkout's wheel in an isolated environment](installation.md#isolated-environment);
-the published 0.7.0 release does not include this `export()` API. In the working
+First install [quickthumb 0.8.0 in an isolated environment](installation.md#isolated-environment).
+In the working
 directory outside the checkout, save this as `first_export.py`. It needs only
 the base package and local disk:
 

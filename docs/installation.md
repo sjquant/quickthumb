@@ -8,44 +8,36 @@ quickthumb needs Python 3.11 or later.
 
 ## Isolated environment
 
-The first-export guide uses current-checkout APIs, including `Canvas.export()`,
-which are not in the published 0.7.0 release. To follow that guide, build a wheel
-from this checkout with [uv](https://docs.astral.sh/uv/), then install it in a
-virtual environment outside the checkout:
+The first-export guide uses the 0.8.0 API, including `Canvas.export()`. Install
+the release in a virtual environment outside any quickthumb checkout:
 
 ```bash
-# Start at the quickthumb repository root.
-uv build
-QUICKTHUMB_WHEEL="$(pwd)/dist/quickthumb-0.7.0-py3-none-any.whl"
-mkdir -p ../quickthumb-first-export
-cd ../quickthumb-first-export
+mkdir -p quickthumb-first-export
+cd quickthumb-first-export
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install "${QUICKTHUMB_WHEEL}[cli]"
+python -m pip install "quickthumb[cli]==0.8.0"
 ```
 
 On Windows, activate with `.venv\Scripts\activate` instead. Omit `[cli]` when
-using only the Python API. The shell commands above use Bash/Zsh; use your
-wheel's absolute path in another shell. Building and installing dependencies
+using only the Python API. The shell commands above use Bash/Zsh. Installing dependencies
 needs the package index or a populated local cache. Running outside the checkout
 ensures Python imports the installed wheel rather than the source directory.
 
-### Published release installation
-
-For the published release instead, run this in an isolated environment:
+### Existing uv project
 
 ```bash
-python -m pip install "quickthumb[cli]"
+uv add "quickthumb[cli]>=0.8.0"
 ```
 
-Or, in an existing uv project:
+### Development checkout
 
-```bash
-uv add "quickthumb[cli]"
-```
-
-These install the release, not unreleased checkout changes. Use that version's
-API documentation; they do not make the new `export()` guide available.
+To try unreleased changes, run `uv build` in the repository, then install the
+resulting wheel into the isolated environment using its absolute path, for
+example `python -m pip install "/path/to/dist/quickthumb-0.8.0-py3-none-any.whl[cli]"`.
+This installs the checkout's code rather than downloading the published release.
+See the [0.8.0 migration notes](releases/0.8.0.md#migration-from-v070) when upgrading
+from 0.7.0.
 
 The base package is enough for PNG, JPEG, WebP, GIF, SVG output, and HTML.
 Try the [font-free first export](getting-started.md#first-export-without-fonts-or-downloads)
@@ -61,6 +53,7 @@ Some features need extra packages. Install them by name, for example
 | `svg` | cairosvg | `canvas.svg(...)` layers. Without it, rendering an SVG layer raises `RenderingError`. Exporting *to* SVG doesn't need it. |
 | `pdf` | reportlab, fonttools, pypdfium2 | PDF export and opt-in PDF fidelity observation |
 | `pptx` | python-pptx | `.to_pptx()` and `render("out.pptx")` |
+| `lottie` | fonttools | Self-contained supported text outlines in Canvas `.lot` exports; shape-only Lottie does not need this extra |
 | `rembg` | rembg, onnxruntime | `remove_background=True` on image layers. Requires Python 3.11+; downloads a model of about 170 MB on first use. |
 | `cli` | typer, watchfiles, jinja2 | The `quickthumb` command: `render`, `lint`, `watch`, `serve`, `doctor`, and more |
 
