@@ -16,6 +16,7 @@ from quickthumb import (
     ValidationError,
     canvas_json_schema,
 )
+from quickthumb.canvas import RenderableLayer
 from quickthumb.errors import RenderingError
 
 from tests.test_parent_documents import embedded_png
@@ -116,6 +117,7 @@ def test_matte_reference_graph_rejects_invalid_scenes_atomically(kind):
     canvas = Canvas(20, 20).shape("rectangle", (0, 0), 20, 20, color="#FF0000", id="first")
     first = canvas.layers[0]
     assert isinstance(first, ShapeLayer)
+    layers: list[RenderableLayer]
     if kind == "missing":
         layers = [first.model_copy(update={"mask": TrackMatte(layer="missing")})]
     elif kind == "self":
@@ -222,7 +224,7 @@ def test_mattes_reach_static_png_and_canonical_timeline_capture(tmp_path):
 def test_deep_matte_chain_resolves_without_recursive_rendering():
     """A chain longer than Python's recursion limit resolves to the final target's RGBA pixels."""
     # Given: a complete scene of one-pixel mattes with forward references
-    layers = [
+    layers: list[RenderableLayer] = [
         ShapeLayer(
             type="shape",
             shape="rectangle",
@@ -279,7 +281,7 @@ def test_consumed_matte_chain_surfaces_are_released(monkeypatch):
     from quickthumb._export_video import _SlideAnimator
 
     # Given: a real forty-step chain and an observer of actual compositor surface lifetimes
-    layers = [
+    layers: list[RenderableLayer] = [
         ShapeLayer(
             type="shape",
             shape="rectangle",

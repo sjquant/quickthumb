@@ -160,7 +160,7 @@ def layer_pose(canvas, layer, shapes, timeline, fps, boundaries, geometry=None):
             "a": anchor,
             "s": [sx, sy, 100],
         }
-        checks = [(v, 1) for v in position + anchor]
+        checks: list[tuple[float, float]] = [(v, 1) for v in position + anchor]
         checks.extend(
             (
                 (rotation, max(1, width, height) * math.pi / 180),

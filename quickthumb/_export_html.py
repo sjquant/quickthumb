@@ -396,7 +396,7 @@ def _mask_html_geometry_problem(layer, ctx, tracks):
                 ],
             ]
         )
-        css_values = [mx - x, my - y, mw, mh]
+        css_values: list[float] = [mx - x, my - y, mw, mh]
         for dx, dy, width, height in product(*ranges):
             left, top = mx + dx, my + dy
             geometry = (left, top, width, height, left + width, top + height)
@@ -816,6 +816,7 @@ class HtmlExporter:
                     parent_geometry=True,
                 )
             baked = bake_parent_html(canvas, sampling.times) if sampling else None
+            prefix: list[RenderableLayer]
             prefix, rest = split_backdrop_prefix(
                 flatten_layers(
                     canvas,

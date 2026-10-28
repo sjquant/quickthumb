@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from io import BytesIO
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from PIL import Image
 
@@ -178,7 +178,9 @@ def _parent_sample_times(events: list[TimelineEvent]) -> tuple[float, ...] | Non
                 return None
             if track.property == "rotation":
                 for first, second in zip(track.keyframes, track.keyframes[1:], strict=False):
-                    rate = abs(second.value - first.value) / (second.time - first.time)
+                    rate = abs(cast(float, second.value) - cast(float, first.value)) / (
+                        second.time - first.time
+                    )
                     rotation_segments.append(
                         (
                             first.time,

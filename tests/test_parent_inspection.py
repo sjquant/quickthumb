@@ -20,6 +20,7 @@ from quickthumb import (
 from quickthumb._measurements import BBox, LayerMeasurementEngine
 from quickthumb._parent_inspection import transform_bbox
 from quickthumb._parent_render import IDENTITY, ParentNode
+from quickthumb.canvas import RenderableLayer
 from quickthumb.errors import RenderingError, ValidationError
 from quickthumb.models import VideoLayer
 
@@ -324,7 +325,7 @@ def test_unlinked_inspection_is_the_existing_measurement_path(monkeypatch):
 
 
 def test_deep_null_chain_inspection_is_iterative():
-    layers = [NullLayer(type="null", id="root", position=(1, 1))]
+    layers: list[RenderableLayer] = [NullLayer(type="null", id="root", position=(1, 1))]
     layers += [
         NullLayer(
             type="null", id=f"n{i}", parent="root" if i == 0 else f"n{i - 1}", position=(1, 1)

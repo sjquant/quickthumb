@@ -19,8 +19,11 @@ def cubic_path_commands(layer: PathLayer):
         if kind == "Q":
             control, end = points
             points = (
-                tuple(a + (b - a) * 2 / 3 for a, b in zip(current, control, strict=True)),
-                tuple(a + (b - a) * 2 / 3 for a, b in zip(end, control, strict=True)),
+                (
+                    current[0] + (control[0] - current[0]) * 2 / 3,
+                    current[1] + (control[1] - current[1]) * 2 / 3,
+                ),
+                (end[0] + (control[0] - end[0]) * 2 / 3, end[1] + (control[1] - end[1]) * 2 / 3),
                 end,
             )
             kind = "C"

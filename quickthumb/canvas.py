@@ -1288,7 +1288,7 @@ class Canvas:
                     [self],
                     [None],
                     output_path,
-                    format=resolved.output_format,  # type: ignore[arg-type]
+                    format=cast(Literal["gif", "mp4", "webm", "mov"], resolved.output_format),
                     animation=cast(GifOptions | VideoOptions | None, animation),
                     reduced_motion=not resolved.uses_authored_transitions,
                 )

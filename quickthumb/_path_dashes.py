@@ -110,15 +110,15 @@ def dash_contours(
             runs[0] = _Contour(runs[-1].points[:-1] + runs[0].points, False)
             runs.pop()
             closed = False
-        for run in runs:
-            work += len(run.points)
+        for dash in runs:
+            work += len(dash.points)
             if work > 65_536:
                 raise _dash_limit()
             output.append(
                 _Contour(
-                    tuple((x * scale[0], y * scale[1]) for x, y in run.points),
-                    closed and len(run.points) > 2,
-                    (run.tangent[0] * scale[0], run.tangent[1] * scale[1]),
+                    tuple((x * scale[0], y * scale[1]) for x, y in dash.points),
+                    closed and len(dash.points) > 2,
+                    (dash.tangent[0] * scale[0], dash.tangent[1] * scale[1]),
                 )
             )
     return tuple(output)

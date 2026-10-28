@@ -109,7 +109,11 @@ def parse_path(data: str) -> tuple[_Segment, ...]:
             raise ValueError("SVG path coordinates must be finite")
         segments.append(_Segment(normalized, points, tuple(numbers[:5]) if kind == "A" else ()))
         current = points[-1]
-        cubic = points[-2] if normalized == "C" else None
+        if normalized == "C":
+            assert len(points) > 1
+            cubic = points[-2]
+        else:
+            cubic = None
         quadratic = points[0] if normalized == "Q" else None
     return tuple(segments)
 

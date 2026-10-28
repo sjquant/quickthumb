@@ -11,6 +11,7 @@ from quickthumb import (
     AnimationSpec,
     Canvas,
     GifOptions,
+    ImageLayer,
     ImageZoomTrack,
     KeyframeSpec,
     PositionTrack,
@@ -275,7 +276,9 @@ def test_image_object_scale_and_viewport_zoom_have_distinct_boundaries(kind, bou
     assert alpha.getbbox() == bounds
 
     # Group layout must retain the same object motion with the default center pivot.
-    child = canvas.layers[0].model_copy(
+    source_layer = canvas.layers[0]
+    assert isinstance(source_layer, ImageLayer)
+    child = source_layer.model_copy(
         update={"anchor": (0.5, 0.5), "position": None, "animation": animation(track(kind, 1, 1.5))}
     )
     grouped = Canvas(128, 96).group([child], position=(48, 36))
@@ -349,7 +352,7 @@ def test_pixel_centroid_matches_independent_forward_affine(quality, anchor):
     )
     canvas = scene(anchor, motion)
     frame = video._SlideAnimator(canvas, {}, quality=quality).frame_at(0.5)
-    alpha = list(frame.getchannel("A").get_flattened_data())
+    alpha = cast(list[int], list(frame.getchannel("A").get_flattened_data()))
     mass = sum(alpha)
     actual = (
         sum((i % frame.width + 0.5) * value for i, value in enumerate(alpha)) / mass,

@@ -571,7 +571,7 @@ def test_parented_real_video_reverse_seeks_static_rotation_and_captions(tmp_path
         check=True,
         timeout=20,
     )
-    captions = [
+    captions: list[VideoCaption | dict[str, Any]] = [
         VideoCaption(
             text="Fixed overlay",
             position=(110, 95),

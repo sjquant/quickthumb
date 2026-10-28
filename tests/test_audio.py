@@ -8,6 +8,7 @@ import struct
 import wave
 from bisect import bisect_right
 from itertools import accumulate
+from typing import cast
 
 import pytest
 from PIL import Image
@@ -101,7 +102,10 @@ def test_onsets_bake_into_portable_motion(tmp_path, monkeypatch):
     ends = list(accumulate(durations))
     times = [0.18, 0.2, 0.24, 0.3]
     observed = [
-        frames[bisect_right(ends, round(time * 1000))].getpixel((16, 12))[0] for time in times
+        cast(
+            tuple[int, int, int], frames[bisect_right(ends, round(time * 1000))].getpixel((16, 12))
+        )[0]
+        for time in times
     ]
     expected = [
         frame.to_image().convert("RGB").getpixel((16, 12))[0]

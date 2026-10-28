@@ -11,7 +11,7 @@ from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
 from multiprocessing.util import Finalize
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from PIL import Image
 from pydantic import BaseModel
@@ -119,7 +119,15 @@ def validate_parallel_canvases(canvases: list[Canvas]) -> None:
 class _FrameRenderer:
     """Rebuild at most the current slide and its outgoing transition source."""
 
-    def __init__(self, specs, timings, size, matte, reduced_motion, quality="standard"):
+    def __init__(
+        self,
+        specs,
+        timings,
+        size,
+        matte,
+        reduced_motion,
+        quality: Literal["standard", "high"] = "standard",
+    ):
         self.specs: list[_CanvasSpec] = specs
         self.timings: list[tuple[Transition | None, float, float, float]] = timings
         self.offsets: list[float] = []
@@ -225,7 +233,9 @@ def _close_worker() -> None:
         _worker_renderer.close()
 
 
-def _initialize_worker(specs, timings, size, matte, reduced_motion, quality="standard") -> None:
+def _initialize_worker(
+    specs, timings, size, matte, reduced_motion, quality: Literal["standard", "high"] = "standard"
+) -> None:
     global _worker_renderer
     # No rendering in the initializer: failures belong to Futures, not a
     # respawning worker initializer. multiprocessing runs this finalizer on exit.
@@ -280,7 +290,14 @@ class ParallelFrames:
     """One export owns a lazily started executor and at most workers outstanding frames."""
 
     def __init__(
-        self, canvases, timings, matte, reduced_motion, workers: int, *, quality="standard"
+        self,
+        canvases,
+        timings,
+        matte,
+        reduced_motion,
+        workers: int,
+        *,
+        quality: Literal["standard", "high"] = "standard",
     ):
         validate_parallel_canvases(canvases)
         self.canvases = canvases

@@ -53,7 +53,8 @@ def _arc(controls: Controls) -> _Arc:
     keep the subdivision and length sums finite for very large valid inputs.
     """
     scale = max(abs(number) for point in controls for number in point) or 1.0
-    normalized: Controls = tuple((x / scale, y / scale) for x, y in controls)  # type: ignore[assignment]
+    a, b, c, d = ((x / scale, y / scale) for x, y in controls)
+    normalized: Controls = (a, b, c, d)
     extent = max(math.dist(normalized[0], point) for point in normalized)
     tolerance = max(extent * 1e-7, 1e-15)
     parameters, lengths = [0.0], [0.0]

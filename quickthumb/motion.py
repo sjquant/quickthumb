@@ -2318,6 +2318,7 @@ def _validate_export(
         from quickthumb._export_lottie import validate_lottie
 
         return validate_lottie(source, policy)
+    source_canvases = cast("Iterable[Canvas]", getattr(source, "slides", (source,)))
     normalized = _normalize_target(target)
     resolved_policy = policy or ExportPolicy()
     row = capabilities_for(normalized)
@@ -2328,7 +2329,7 @@ def _validate_export(
     if normalized == "html":
         from quickthumb._export_base import is_backdrop_dependent
 
-        for canvas in getattr(source, "slides", (source,)):
+        for canvas in source_canvases:
             layers = list(_iter_export_layers(canvas))
             last = max(
                 (
@@ -2349,7 +2350,7 @@ def _validate_export(
     parentless_text_paths: set[str] = set()
     document_format = parent_document_format or normalized
     svg_candidates: set[int] = set()
-    for index, canvas in enumerate(getattr(source, "slides", (source,))):
+    for index, canvas in enumerate(source_canvases):
         if document_format == "svg" and "svg" in resolved_policy.fidelity:
             svg_candidates.update(
                 id(layer)
