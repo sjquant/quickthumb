@@ -1164,10 +1164,12 @@ fractional boundaries. Open and closed contours, nested even-odd fills, solid
 RGBA fill/stroke and simultaneous pose/trim tracks retain their existing meaning.
 Each sampled shape stays in the authored fixed view box; Lottie does not interpolate
 between samples. Endpoint curves retain their native cubic handles, while intermediate
-polylines follow the canonical morph.
+polylines follow the canonical morph. Repeated endpoint vertices keep each animated
+contour at a fixed vertex count without changing its curves; padding counts toward
+the observation budget.
 
 The existing [morph topology limits](api/path.md#path-morphing) apply. The authored
-Path and morph keys must also have the same contour count. In addition,
+Path and morph keys must also have the same contour count and open/closed status. In addition,
 every sampled control hull and stroke margin must fit the viewport. Sampled contour
 vertices count toward the existing Canvas-wide 100,000-observation budget. Lower fps or simplify geometry
 if that bound is exceeded. Authored/keyframe viewport violations are reported by

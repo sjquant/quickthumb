@@ -202,6 +202,26 @@ def layer_pose(canvas, layer, shapes, timeline, fps, boundaries, geometry=None):
                 length_bound = trim_length_bound(sampled)
             trim_rows.append(trim_properties(layer, state, length_bound))
     if morph:
+        # lottie-web fixes each animated shape's vertex count and closedness at creation.
+        lengths = [
+            max(len(row[index]["v"]) for row in morph_rows) for index in range(len(morph_rows[0]))
+        ]
+        morph_vertices = len(morph_rows) * sum(lengths)
+        if morph_vertices > _MAX_OBSERVATIONS:
+            raise RenderingError(
+                "Lottie exceeds 100000 sampled morph vertices; lower fps or simplify paths",
+                path="/animation",
+            )
+        for row in morph_rows:
+            for contour, length in zip(row, lengths, strict=True):
+                if len(contour["v"]) < length:
+                    closing_handle = contour["o"][-1]
+                    contour["o"][-1] = [0, 0]
+                    while len(contour["v"]) < length:
+                        contour["v"].append(contour["v"][-1][:])
+                        contour["i"].append([0, 0])
+                        contour["o"].append([0, 0])
+                    contour["o"][-1] = closing_handle
 
         def animate_paths(items):
             contour = 0

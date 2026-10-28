@@ -100,10 +100,13 @@ def _layer_problem(layer, reduced_motion: bool, canvas, linked: bool) -> tuple[s
                         if problem := _layer_problem(sampled, False, canvas, False):
                             return problem
                         try:
-                            if len(_path_contours(sampled)) != len(_path_contours(layer)):
+                            if [shape["ks"]["k"]["c"] for shape in _path_contours(sampled)] != [
+                                shape["ks"]["k"]["c"] for shape in _path_contours(layer)
+                            ]:
                                 return (
                                     "animation",
-                                    "Lottie morph contour count must match the authored Path",
+                                    "Lottie morph contour count/closedness "
+                                    "must match the authored Path",
                                 )
                         except RenderingError as error:
                             return "d", str(error)

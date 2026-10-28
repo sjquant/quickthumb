@@ -579,7 +579,14 @@ def test_path_morph_retains_canonical_shapes_and_held_clock(tmp_path):
     for key, time in zip(shape["ks"]["k"], times, strict=True):
         data = timeline.sample(time, LayerState()).path_morph or layer.d
         expected = _path_contours(layer.model_copy(update={"d": data}))[0]["ks"]["k"]
-        assert key["s"] == [expected] and key["h"] == 1
+        actual = key["s"][0]
+        count = len(expected["v"])
+        assert actual["v"][:count] == expected["v"] and actual["i"][:count] == expected["i"]
+        assert actual["o"][: count - 1] == expected["o"][:-1]
+        assert actual["o"][-1] == expected["o"][-1]
+        assert all(point == expected["v"][-1] for point in actual["v"][count:])
+        assert actual["c"] == expected["c"] and key["h"] == 1
+    assert len({len(key["s"][0]["v"]) for key in shape["ks"]["k"]}) == 1
     assert payload["op"] == 9
     assert receipt.capability_report[0].support == "partial"
 
@@ -617,6 +624,7 @@ def test_path_morph_rejects_clipped_keys_before_writing(tmp_path):
     [
         ("M10 10H40V40H10Z", "M10 10H40V40H10Z M60 60H90V90H60Z"),
         ("M10 10H40V40H10Z M60 60H90V90H60Z", "M10 10H40V40H10Z"),
+        ("M10 10H40V40H10Z", "M10 10H40V40H10"),
     ],
 )
 def test_morph_contour_count_must_match_authored_source(tmp_path, authored, key):
