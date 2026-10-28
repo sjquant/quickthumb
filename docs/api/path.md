@@ -173,6 +173,7 @@ For smooth morphing, both keyframes should have a matching number of non-interse
 
 ## Export Support
 
-- **Raster & Video (PNG, GIF, MP4, WebM)**: Full native support for all paths, dashes, trims, and morph animations.
-- **HTML**: Native SVG rendering with CSS stroke animations for open paths. Complex morphs fall back to rendered stills.
-- **PDF & PPTX**: Exported as native vector curves where supported, or crisp rendered fragments for complex animated layouts.
+- **Raster & Video (PNG, GIF, MP4, WebM)**: Render paths, dashes, trims, and morph animations.
+- **Lottie**: Export supported [path morph animations](../reference/export-lottie.md#lottie-path-morph) as vectors.
+- **HTML**: Native SVG rendering with CSS stroke animations for supported open paths. Morph animations use the authored still image.
+- **PDF & PPTX**: Export supported paths as vectors; morph animations use the authored still image.

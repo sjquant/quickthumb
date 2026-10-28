@@ -66,6 +66,7 @@ Choose a topic below for its options, requirements, and limitations.
 ## Lottie files
 
 <a id="lottie-vectors"></a>
+<a id="lottie-path-morph"></a>
 <a id="lottie-stroke-trim"></a>
 <a id="lottie-outlined-text"></a>
 [Export supported Canvas artwork as Lottie.](reference/export-lottie.md)
