@@ -1130,7 +1130,7 @@ exact event and authored-key boundaries shared across the Canvas. Between those 
 pose remains visible; output does not claim continuous native Lottie easing.
 Static properties remain native constants. Capability diagnostics report this
 sampling distinction. Export stops before writing if more than 100,000 total
-layer-pose observations or native coordinate precision limits would be exceeded.
+pose/contour-vertex observations or native coordinate precision limits would be exceeded.
 `ExportPolicy(reduced_motion=True)` intentionally removes the timelines and
 exports the authored static pose for `hold` seconds, rather than the animation
 endpoint. Other unsupported features still fail before writing.
@@ -1168,8 +1168,8 @@ polylines follow the canonical morph.
 
 The existing [morph topology limits](api/path.md#path-morphing) apply. The authored
 Path and morph keys must also have the same contour count. In addition,
-every sampled control hull and stroke margin must fit the viewport, and each layer
-may store at most 100,000 sampled contour vertices. Lower fps or simplify geometry
+every sampled control hull and stroke margin must fit the viewport. Sampled contour
+vertices count toward the existing Canvas-wide 100,000-observation budget. Lower fps or simplify geometry
 if that bound is exceeded. Authored/keyframe viewport violations are reported by
 `validate_export("lottie")`; sample-dependent topology, precision or budget errors
 are detected during compilation before the destination is opened. Gradients,

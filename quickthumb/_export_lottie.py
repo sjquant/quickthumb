@@ -484,7 +484,7 @@ def write_lottie(
         pose_count += count
         if pose_count > _MAX_OBSERVATIONS:
             raise RenderingError(
-                "Lottie exceeds 100000 total pose samples; lower fps or simplify motion",
+                "Lottie exceeds 100000 total pose/vertex samples; lower fps or simplify motion",
                 path=pointer,
                 layer_id=layer_id,
             )
