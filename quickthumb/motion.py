@@ -2179,6 +2179,7 @@ _CAPABILITIES["lottie"] = {
             "trim_start",
             "trim_end",
             "trim_offset",
+            "path_morph",
             "easing",
         }
         else "unsupported",

@@ -1152,6 +1152,30 @@ sources keep the earlier unclipped-source requirement. Cycles, missing parents,
 unsupported groups/effects and Path parenting are rejected before writing.
 See the [parenting example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_parenting.py).
 
+### Lottie path morph
+
+`PathMorphTrack` uses the same bounded contour correspondence, eased local clock
+and exact authored endpoints as canonical Path sampling. Export with the ordinary
+`canvas.export("morph.lot", animation=LottieOptions(fps=24, hold=0.5))`;
+see the runnable [logo morph](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_morph.py).
+
+Geometry is held at the same fps/event/key instants as pose properties, including
+fractional boundaries. Open and closed contours, nested even-odd fills, solid
+RGBA fill/stroke and simultaneous pose/trim tracks retain their existing meaning.
+Each sampled shape stays in the authored fixed view box; Lottie does not interpolate
+between samples. Endpoint curves retain their native cubic handles, while intermediate
+polylines follow the canonical morph.
+
+The existing [morph topology limits](api/path.md#path-morphing) apply. The authored
+Path and morph keys must also have the same contour count. In addition,
+every sampled control hull and stroke margin must fit the viewport, and each layer
+may store at most 100,000 sampled contour vertices. Lower fps or simplify geometry
+if that bound is exceeded. Authored/keyframe viewport violations are reported by
+`validate_export("lottie")`; sample-dependent topology, precision or budget errors
+are detected during compilation before the destination is opened. Gradients,
+dashes and Path parenting remain unsupported; no raster fallback is substituted.
+Reduced-motion export retains the authored static path, as for other timelines.
+
 ### Lottie stroke trim
 
 Paths support authored `trim_start`, `trim_end`, `trim_offset` and their
