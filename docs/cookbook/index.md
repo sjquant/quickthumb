@@ -4,7 +4,10 @@ description: Browse ready-to-run quickthumb recipes for YouTube thumbnails, Inst
 
 # Cookbook
 
-Each image below was rendered by a script in the repository's `examples/` folder, and each recipe page shows that exact script.
+Choose a layout for the content you publish, then adapt its text, images, and colors.
+Each preview was rendered by the exact script shown on its recipe page.
+For a small example that renders several cards from one layout, start with
+[Render your first cards](../getting-started.md).
 
 ## Gallery
 
@@ -49,15 +52,15 @@ Each image below was rendered by a script in the repository's `examples/` folder
 
 ## Recipes
 
-| Recipe | Size | What it shows |
+| Recipe | Size | Use it to… |
 | --- | --- | --- |
-| [YouTube Thumbnails](youtube-thumbnail.md) | 1280×720 | Five layouts: before/after cards, a big question, talking head, reaction, tutorial |
-| [Instagram Card](instagram-card.md) | 1080×1080 | A label built from a text `Background` effect, a serif headline, percentage positions |
-| [Podcast Promo](podcast-promo.md) | 1280×720 | A full-bleed portrait, a gradient that makes room for text, a webfont from a URL |
-| [Shorts / Vertical Cover](shorts-cover.md) | 1080×1920 | The whole design as a JSON spec, rendered with `Canvas.from_json()` |
-| [Launch Announcement](launch-announcement.md) | 1280×720 | Auto-layout groups, theme tokens, and `diagnose()` before rendering |
-| [AI Workflow](ai-workflow.md) | Any | Prompting an LLM for a spec, validating it, rendering, and iterating |
-| [Webfonts & Background Removal](webfonts-rembg.md) | Any | Fonts from Google Fonts or a URL, and `remove_background` |
+| [YouTube Thumbnails](youtube-thumbnail.md) | 1280×720 | Give a comparison, commentary, or tutorial video a cover |
+| [Instagram Card](instagram-card.md) | 1080×1080 | Pair a news headline with a photograph for a square social post |
+| [Podcast Promo](podcast-promo.md) | 1280×720 | Introduce a podcast episode with its title and guest portrait |
+| [Shorts / Vertical Cover](shorts-cover.md) | 1080×1920 | Make a vertical video cover from a JSON layout |
+| [Launch Announcement](launch-announcement.md) | 1280×720 | Reuse a release card with new copy and brand colors |
+| [AI Workflow](ai-workflow.md) | Any | Have an LLM draft a layout, then validate and render its spec |
+| [Webfonts & Background Removal](webfonts-rembg.md) | Any | Add a chosen typeface or place a cut-out portrait in a design |
 
 ## Running the recipes
 

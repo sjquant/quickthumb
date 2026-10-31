@@ -394,7 +394,7 @@
 }
 
 /* ─── Home page ───────────────────────────────────────────────────────────── */
-/* One narrow column read top to bottom: pitch, code → output, examples, extras. */
+/* One column: promise and outputs, reusable code, recipes, supporting guides. */
 .md-main__inner:has(.qt-home) {
     margin-top: 0;
 }
@@ -430,7 +430,7 @@
 }
 
 .qt-hero {
-    padding-top: 3.5rem;
+    padding-top: 2.5rem;
 }
 
 .md-typeset .qt-hero > p:first-of-type {
@@ -520,6 +520,10 @@
     opacity: 0.85;
 }
 
+.md-typeset .qt-variants {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .md-typeset .qt-gallery--cookbook {
     grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -602,6 +606,10 @@
     .qt-end .highlight {
         display: block;
         min-width: 0;
+    }
+
+    .md-typeset .qt-variants {
+        grid-template-columns: 1fr;
     }
 
     .md-typeset .qt-gallery--cookbook {

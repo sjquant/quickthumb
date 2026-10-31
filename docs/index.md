@@ -1,6 +1,6 @@
 ---
 title: quickthumb · thumbnails from code
-description: quickthumb is a Python library that renders thumbnails and social images from layers you describe in code or JSON. Same input, same pixels, every time.
+description: Turn changing content into consistent images. Define a reusable thumbnail or social card layout in Python or JSON, then render it with new content.
 template: home.html
 hide:
   - navigation
@@ -11,92 +11,30 @@ hide:
 
 # Thumbnails, from code
 
-quickthumb is a Python library that renders thumbnails and social images from
-layers you describe in code or JSON. The same input gives the same pixels,
-every time.
-
-```bash
-pip install quickthumb
-```
+Create thumbnails and social images in Python or JSON. Build a layout once,
+then update the text, images, and colors for your next post.
 
 [Get started](getting-started.md){ .md-button .md-button--primary }
-[See examples](cookbook/index.md){ .md-button }
+[Browse recipes](cookbook/index.md){ .md-button }
 
-</section>
-
-<section class="qt-block" markdown>
-
-## This code makes this image
-
-=== "Python"
-
-    ```python
-    from quickthumb import Canvas, TextPart
-
-    canvas = (
-        Canvas(1280, 720)
-        .background(color="#0A1730")
-        .shape("ellipse", position=(940, 380), width=560, height=560, color="#2F6FE8")
-        .shape("pill", position=(96, 112), width=240, height=56, color="#2F6FE8")
-        .text("EPISODE 12", font="Inter", font_source="google", size=26, weight=800,
-              color="#FFFFFF", position=(216, 140), align=("center", "middle"))
-        .text(
-            [TextPart(text="Ship faster\nwith "),
-             TextPart(text="less code.", color="#7FADFF")],
-            font="Inter", font_source="google", size=124, weight=900,
-            color="#FFFFFF", position=(96, 220), line_height=1.0,
-        )
-    )
-
-    canvas.render("thumbnail.png")
-    ```
-
-=== "JSON"
-
-    ```json
-    {
-      "kind": "canvas",
-      "width": 1280,
-      "height": 720,
-      "layers": [
-        {"type": "background", "color": "#0A1730"},
-        {"type": "shape", "shape": "ellipse", "position": [940, 380],
-         "width": 560, "height": 560, "color": "#2F6FE8"},
-        {"type": "shape", "shape": "pill", "position": [96, 112],
-         "width": 240, "height": 56, "color": "#2F6FE8"},
-        {"type": "text", "content": "EPISODE 12",
-         "font": "Inter", "font_source": "google", "size": 26, "weight": 800,
-         "color": "#FFFFFF", "position": [216, 140], "align": ["center", "middle"]},
-        {"type": "text",
-         "content": [{"text": "Ship faster\nwith "},
-                     {"text": "less code.", "color": "#7FADFF"}],
-         "font": "Inter", "font_source": "google", "size": 124, "weight": 900,
-         "color": "#FFFFFF", "position": [96, 220], "line_height": 1.0}
-      ]
-    }
-    ```
-
-<figure class="qt-output" markdown>
-![The thumbnail rendered by the code above: “Ship faster with less code.” on a dark navy background](assets/home/demo-thumbnail.png)
-<figcaption>thumbnail.png · 1280 × 720</figcaption>
+<figure class="qt-output" markdown="span">
+[![YouTube thumbnail with a textured photographic background, bold headline, and overlapping before-and-after cards](assets/examples/youtube_thumbnail_01.png)](cookbook/youtube-thumbnail.md#before-after)
+<figcaption markdown="span">Made with quickthumb · [See the source](cookbook/youtube-thumbnail.md#before-after)</figcaption>
 </figure>
 
-Layers are drawn in the order you add them. The JSON spec renders the exact same
-pixels, so a template engine or an LLM can write the layout instead of you.
-
 </section>
 
 <section class="qt-block" markdown>
 
-## Made with quickthumb
+## Start with a layout that fits your content
 
-Every image here is a runnable recipe in the cookbook.
+Each image links to a runnable recipe and its source.
 
 <div class="qt-gallery" markdown>
-[![YouTube thumbnail with bold headline and floating cards](assets/examples/youtube_thumbnail_01.png)](cookbook/youtube-thumbnail.md)
-[![Reaction thumbnail with a large view count and a cut-out portrait](assets/examples/youtube_reaction.png)](cookbook/youtube-thumbnail.md)
-[![Podcast interview promo with guest portrait](assets/examples/podcast_interview_promo.png)](cookbook/podcast-promo.md)
-[![Product launch announcement built with auto layout](assets/examples/launch_announcement.png)](cookbook/launch-announcement.md)
+[![Release announcement with a large two-tone headline and blue artwork](assets/examples/launch_announcement.png)](cookbook/launch-announcement.md)
+[![Commentary thumbnail with a large headline and cut-out portrait](assets/examples/youtube_reaction.png)](cookbook/youtube-thumbnail.md#reaction)
+[![Podcast episode card with a guest portrait](assets/examples/podcast_interview_promo.png)](cookbook/podcast-promo.md)
+[![Social news card with a serif headline over a photograph](assets/examples/instagram_news_card.png)](cookbook/instagram-card.md)
 </div>
 
 [Browse all recipes →](cookbook/index.md){ .qt-more }
@@ -105,40 +43,58 @@ Every image here is a runnable recipe in the cookbook.
 
 <section class="qt-block" markdown>
 
-## Also included
+## Try a reusable layout
 
-<dl class="qt-list" markdown>
-<div markdown>
-<dt markdown="span">[Export to any format](exports.md)</dt>
-<dd markdown="span">PNG, JPEG, WebP, SVG, PDF, PPTX, GIF, and MP4 from the same canvas.</dd>
+Start with a small example: one function, three episode cards.
+For the designs above, open a recipe to use its fonts, images, and full layout.
+
+<div class="qt-gallery qt-variants" markdown>
+![Episode 12: "Ship your first release" with a giant 12 on an orange band](assets/home/episode-12.png)
+![Episode 13: "Make room for better work" with a giant 13 on a yellow band](assets/home/episode-13.png)
+![Episode 14: "Build less. Finish more." with a giant 14 on a blue band](assets/home/episode-14.png)
 </div>
-<div markdown>
-<dt markdown="span">[Check before you ship](diagnostics.md)</dt>
-<dd markdown="span"><code>diagnose()</code> flags off-canvas layers, unreadable text, and low contrast.</dd>
-</div>
-<div markdown>
-<dt markdown="span">[Layout without coordinates](api/group.md)</dt>
-<dd markdown="span">Groups stack layers in rows and columns, so long titles don’t break the design.</dd>
-</div>
-<div markdown>
-<dt markdown="span">[Multi-slide decks](api/deck.md)</dt>
-<dd markdown="span">Turn several canvases into a slideshow, PDF, PPTX, or narrated video.</dd>
-</div>
-<div markdown>
-<dt markdown="span">[A schema for AI agents](json-schema.md)</dt>
-<dd markdown="span">Hand an LLM the JSON Schema and let it generate valid specs.</dd>
-</div>
-</dl>
+
+Python 3.11+ · Base package only · No font or image downloads after installation
+
+```bash
+python -m pip install quickthumb
+```
+
+Save as `episode_cards.py`, then run `python episode_cards.py`:
+
+```python
+--8<-- "examples/episode_cards.py"
+```
+
+Open `episode-12.png`, `episode-13.png`, and `episode-14.png` in the same directory.
+Edit the `episodes` list and run it again to replace the cards with your own content.
+
+Prefer JSON? [Load a spec from your pipeline or an AI workflow](json-schema.md).
+
+</section>
+
+<section class="qt-block" markdown>
+
+## Keep the layout. Change the content
+
+- **Fit changing titles.** Set text wrapping and fitting bounds, or use
+  [auto-layout groups](api/group.md) to arrange rows and columns.
+- **Catch common problems.** [Diagnostics](diagnostics.md) flag issues such as
+  off-canvas layers, small text, and low contrast before export.
+- **Use the output where you need it.** Export PNG, JPEG, WebP, SVG, HTML, or GIF
+  with the base package. [Other formats](exports.md), including PDF, PPTX, and
+  video, have additional dependencies and format-specific behavior.
+
+For repeatable pixels, keep assets, fonts, and the rendering environment fixed.
+[Read the reproducibility requirements](exports.md#render-reproducibility).
+
+Need several slides or narrated video? Explore [Deck](api/deck.md).
 
 </section>
 
 <section class="qt-block qt-end" markdown>
 
-## Your first thumbnail takes five minutes
-
-```bash
-pip install quickthumb
-```
+## Make the next image your own
 
 [Get started](getting-started.md){ .md-button .md-button--primary }
 [API reference](api/index.md){ .md-button }

@@ -8,19 +8,18 @@ quickthumb needs Python 3.11 or later.
 
 ## Isolated environment
 
-The first-export guide uses the 0.8.0 API, including `Canvas.export()`. Install
-the release in a virtual environment outside any quickthumb checkout:
+Install quickthumb 0.8.0 in a virtual environment outside any quickthumb checkout:
 
 ```bash
 mkdir -p quickthumb-first-export
 cd quickthumb-first-export
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install "quickthumb[cli]==0.8.0"
+python -m pip install "quickthumb==0.8.0"
 ```
 
-On Windows, activate with `.venv\Scripts\activate` instead. Omit `[cli]` when
-using only the Python API. The shell commands above use Bash/Zsh. Installing dependencies
+On Windows, activate with `.venv\Scripts\activate` instead.
+The shell commands above use Bash/Zsh. Installing dependencies
 needs the package index or a populated local cache. Running outside the checkout
 ensures Python imports the installed wheel rather than the source directory.
 
@@ -40,8 +39,8 @@ See the [0.8.0 migration notes](releases/0.8.0.md#migration-from-v070) when upgr
 from 0.7.0.
 
 The base package is enough for PNG, JPEG, WebP, GIF, SVG output, and HTML.
-Try the [font-free first export](getting-started.md#first-export-without-fonts-or-downloads)
-before adding optional renderers.
+Try [rendering your first episode cards](getting-started.md) before adding
+optional renderers. The example needs no font or image downloads after installation.
 
 ## Optional extras
 
