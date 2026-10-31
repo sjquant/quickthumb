@@ -1,7 +1,7 @@
 [project]
 name = "quickthumb"
 version = "0.8.0"
-description = "Programmatic thumbnail and social image generation with layered Python and JSON APIs"
+description = "Reusable thumbnail and social image layouts in Python or JSON"
 authors = [{name = "Seonu Jang"}]
 license = {text = "MIT"}
 readme = "README.md"
@@ -38,7 +38,7 @@ dependencies = [
 Homepage = "https://github.com/sjquant/quickthumb"
 Repository = "https://github.com/sjquant/quickthumb"
 Issues = "https://github.com/sjquant/quickthumb/issues"
-Documentation = "https://github.com/sjquant/quickthumb#readme"
+Documentation = "https://quickthumb.solaqua.dev/"
 
 [project.optional-dependencies]
 rembg = [

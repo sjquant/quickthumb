@@ -1,5 +1,5 @@
 site_name: quickthumb
-site_description: Programmatic thumbnail and social image generation with layered Python and JSON APIs
+site_description: Reusable thumbnail and social image layouts in Python or JSON. Update the content to generate the next image.
 site_url: https://quickthumb.solaqua.dev
 site_author: Seonu Jang
 repo_name: sjquant/quickthumb
@@ -79,8 +79,8 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting Started:
+      - Render your first cards: getting-started.md
       - Installation: installation.md
-      - Getting Started: getting-started.md
       - Core Concepts: concepts.md
       - Exporting to SVG, PPTX, PDF & video: exports.md
       - Animation Timing: timing.md

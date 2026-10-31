@@ -27,7 +27,6 @@ FONT = "Roboto"
 NAVY = "#0A1730"
 BLUE = "#7FADFF"
 WHITE = "#F5F7FB"
-MUTED = "#A9BBD4"
 CARD_EFFECTS = [
     Stroke(width=1, color="#FFFFFF33"),
     Shadow(offset_x=0, offset_y=18, color="#000000AA", blur_radius=28),
@@ -53,7 +52,7 @@ canvas = (
     )
     .text(
         content=[
-            TextPart(text="Thumbnails,\n", color=WHITE),
+            TextPart(text="Endless\nthumbnails,\n", color=WHITE),
             TextPart(text="from code.", color=BLUE),
         ],
         font=FONT,
@@ -62,15 +61,6 @@ canvas = (
         line_height=1.02,
         letter_spacing=-2,
         position=(70, 196),
-    )
-    .text(
-        content="Layers in Python or JSON.\nPNG, SVG, PDF, PPTX, and video out.",
-        font=FONT,
-        size=28,
-        weight=500,
-        color=MUTED,
-        line_height=1.4,
-        position=(72, 440),
     )
     # Back card: a real example render
     .image(
