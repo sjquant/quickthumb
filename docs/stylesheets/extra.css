@@ -76,10 +76,11 @@ body:has(.qt-drawer[open]), body:has(#__search:checked) { overflow: hidden; }
 /* Keep Material's search engine and results, opened by an explicit button. */
 .qt-header .md-search { display: none; position: fixed; inset: 0; margin: 0; padding: 0; z-index: 10; }
 #__search:checked ~ .qt-header .md-search { display: block; }
-.qt-header .md-search__overlay { display: block; position: fixed; inset: 0; width: 100%; height: 100%; background: #04102499; opacity: 1; pointer-events: auto; }
+.qt-header .md-search__overlay { display: block; position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; background: #04102499; opacity: 1; pointer-events: auto; }
 .qt-header .md-search__inner,
 #__search:checked ~ .qt-header .md-search__inner {
     position: fixed;
+    z-index: 2;
     top: 100px;
     left: 50%;
     width: min(760px, calc(100% - 48px));
