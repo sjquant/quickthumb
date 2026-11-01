@@ -46,24 +46,26 @@ hide:
 <div class="qt-example-layout" markdown>
 <div class="qt-example-code" markdown>
 
-<div class="qt-code-title"><span class="qt-code-dots" aria-hidden="true">● ● ●</span> episode_cards.py</div>
+<div class="qt-code-window" markdown>
+<div class="qt-code-title" markdown="span"><span class="qt-code-dots" aria-hidden="true"><i></i><i></i><i></i></span> [episode_cards.py](getting-started.md "See the full Python example")</div>
 
-```python
+```python linenums="1"
 episodes = [
     (12, "Ship your first release", "#FF4B1F"),
     (13, "Make room for better work", "#FFD400"),
     (14, "Build less. Finish more.", "#4D8DFF"),
 ]
-
 for episode, title, accent in episodes:
     episode_card(episode, title, accent).render(
         f"episode-{episode}.png"
     )
 ```
 
-[See the full Python example →](getting-started.md)
-
 </div>
+</div>
+<div class="qt-example-arrow" aria-hidden="true">→</div>
+<div class="qt-example-results" markdown>
+<p class="qt-output-label">Generates</p>
 <div class="qt-episode-grid" markdown>
 <figure markdown="span">
 ![Episode 12: Ship your first release](assets/home/episode-12.png)
@@ -79,8 +81,7 @@ for episode, title, accent in episodes:
 </figure>
 </div>
 </div>
-
-<p class="qt-example-note">Python 3.11+ · Base package only · No font or image downloads after installation</p>
+</div>
 
 </section>
 
