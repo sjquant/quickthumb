@@ -254,7 +254,7 @@ body:has(.qt-drawer[open]), body:has(#__search:checked) { overflow: hidden; }
 
 /* Light code panels */
 .qt-home .highlight { margin: 0; border-radius: 10px; }
-.qt-home .highlight pre > code { padding: 18px; font-size: 13px; line-height: 1.5; }
+.qt-home .highlight pre > code { padding: 18px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 [data-md-color-scheme="default"] .qt-home .highlight {
     --md-code-bg-color: #f2f6fc;
     --md-code-fg-color: #1d2c4a;
