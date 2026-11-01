@@ -18,15 +18,15 @@ hide:
 <p class="qt-hero-description">Create images, presentations, and animated videos from reusable layouts.</p>
 
 <div class="qt-actions" markdown>
-[Get started <span aria-hidden="true">→</span>](#get-started){ .qt-button .qt-button-white }
+[Install quickthumb <span aria-hidden="true">→</span>](#install){ .qt-button .qt-button-white }
 [Explore examples](cookbook/index.md){ .qt-button .qt-button-outline }
 </div>
 
 </div>
 <div class="qt-artwork" aria-label="Examples made with quickthumb" markdown>
 
-[![Podcast guest promotion](assets/examples/podcast_interview_promo.png)](cookbook/podcast-promo.md){ .qt-art .qt-art-back }
 [![Python for creators thumbnail](assets/home/python-for-creators.png)](cookbook/decks-and-video.md#cleaner-future){ .qt-art .qt-art-front }
+[![Podcast guest promotion](assets/examples/podcast_interview_promo.png)](cookbook/podcast-promo.md){ .qt-art .qt-art-back }
 [![Cover of the Cleaner Future presentation](assets/home/cleaner-future-1.png)](cookbook/decks-and-video.md#cleaner-future){ .qt-art .qt-art-bottom }
 
 </div>
@@ -160,32 +160,23 @@ for episode, title, accent in episodes:
 </div>
 </section>
 
-<section class="qt-story" id="get-started" aria-labelledby="start-heading" markdown>
+<section class="qt-story" id="install" aria-labelledby="install-heading" markdown>
 <div class="qt-container qt-story-grid" markdown>
 <div class="qt-story-copy" markdown>
 
 <p class="qt-kicker">Get started</p>
 
-## A few lines of code. { #start-heading }
+## Install quickthumb. { #install-heading }
 
-Install quickthumb, then create your first image with the built-in font. Python 3.11 or later required.
+Requires Python 3.11 or later.
 
-[Continue with the guide →](getting-started.md){ .qt-story-link }
+[Installation options →](installation.md){ .qt-story-link }
 
 </div>
 <div class="qt-visual" markdown>
 
 ```bash
 python -m pip install quickthumb
-```
-
-```python
-from quickthumb import Canvas
-
-canvas = Canvas(1280, 720).background(color="#155BD7")
-canvas = canvas.text("Hello, quickthumb", size=96,
-                     color="#FFFFFF", position=(64, 280))
-canvas.render("hello.png")
 ```
 
 </div>
