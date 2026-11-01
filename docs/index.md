@@ -25,7 +25,7 @@ hide:
 </div>
 <div class="qt-artwork" aria-label="Examples made with quickthumb" markdown>
 
-[![Creator thumbnail: I mapped the planet with Python](assets/home/orbit-thumbnail-planet.webp)](cookbook/decks-and-video.md#orbit-atlas){ .qt-art .qt-art-front }
+[![Python for creators thumbnail](assets/home/python-for-creators.png)](cookbook/decks-and-video.md#cleaner-future){ .qt-art .qt-art-front }
 [![Podcast guest promotion](assets/examples/podcast_interview_promo.png)](cookbook/podcast-promo.md){ .qt-art .qt-art-back }
 [![Cover of the Orbit Atlas presentation](assets/home/orbit-slide-1.webp)](cookbook/decks-and-video.md#orbit-atlas){ .qt-art .qt-art-bottom }
 
