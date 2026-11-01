@@ -99,5 +99,5 @@ All optional.
 | `QUICKTHUMB_ASSET_OFFLINE` | Set to `1` to never download; only cached files are used |
 | `QUICKTHUMB_FFMPEG`, `QUICKTHUMB_FFPROBE` | Paths to `ffmpeg` and `ffprobe` if they aren't on `PATH` |
 
-[Remote assets and caching](exports.md#remote-assets-and-caching) explains the
+[Remote assets and caching](reference/export-assets.md#remote-assets-and-caching) explains the
 cache in more detail.

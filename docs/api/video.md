@@ -17,7 +17,7 @@ For shared animation topics, jump to [motion paths](#curved-motion-paths),
 [transform anchors](#transform-anchors-and-independent-scale),
 [parent links](#parent-links-and-null-controllers), or [text selectors and masks](#text-range-selectors).
 See [animation timing](../timing.md) for output clocks and
-[exporting](../exports.md#animated-gif-video) for video requirements.
+[exporting](../reference/export-animation.md#animated-gif-video) for video requirements.
 
 ## Signature
 
@@ -820,7 +820,7 @@ Canvas and Deck WebM exports support `VideoOptions(transparent=True)` and
 `.to_webm(transparent=True)`. This output option preserves RGBA through both
 compositing quality modes and spawned workers. It does not change layer motion
 capabilities or canonical timeline samples, which retain their existing matte.
-See [transparent WebM](../exports.md#transparent-webm) for format limits, alpha
+See [transparent WebM](../reference/export-transparency.md#transparent-webm) for format limits, alpha
 composition, decoder verification and the runnable lower-third example.
 
 `Canvas.export_image_sequence()` and `Deck.export_image_sequence()` write silent
@@ -829,7 +829,7 @@ JPEG uses an opaque matte and lossy encodings can change colors.
 `ImageSequenceOptions` controls fps, hold, workers and rendering quality; the result reports
 the actual emitted count and duration. `image_sequence` is a video capability
 alias for validation and motion inspection, preserving the existing parent,
-Morph and caption restrictions. See [image sequences](../exports.md#image-sequences)
+Morph and caption restrictions. See [image sequences](../reference/export-frames.md#image-sequences)
 for timing, color-profile limits and exclusive fresh-directory publication.
 
 ## Text range selectors

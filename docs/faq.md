@@ -85,7 +85,7 @@ folder of fonts. See [Webfonts & Background Removal](cookbook/webfonts-rembg.md)
 
 Yes. `background(image=...)` and `image(path=...)` accept `http(s)` URLs. They
 are downloaded and cached while rendering. To control the cache, see
-[Remote assets and caching](exports.md#remote-assets-and-caching).
+[Remote assets and caching](reference/export-assets.md#remote-assets-and-caching).
 
 ### How do I remove the background behind a person?
 
