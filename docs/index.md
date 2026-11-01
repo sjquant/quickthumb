@@ -51,7 +51,7 @@ Combine text, photos, and shapes into thumbnails, social graphics, and more. You
 ![Python for creators thumbnail made with quickthumb](assets/home/python-for-creators.png)
 
 <div class="qt-code-window" markdown>
-<div class="qt-code-title" markdown="span"><span class="qt-code-dots" aria-hidden="true"><i></i><i></i><i></i></span> cleaner_future.py</div>
+<div class="qt-code-title" markdown="span"><span class="qt-code-dots" aria-hidden="true"><i></i><i></i><i></i></span> cleaner_future.py · excerpt</div>
 
 ```python
 canvas = Canvas(1280, 720)

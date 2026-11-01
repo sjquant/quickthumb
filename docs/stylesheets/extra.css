@@ -222,7 +222,7 @@ body:has(.qt-drawer[open]), body:has(#__search:checked) { overflow: hidden; }
 .qt-example-layout { display: grid; grid-template-columns: minmax(0, .42fr) 40px minmax(0, .58fr); gap: 20px; align-items: center; }
 .qt-example-code, .qt-example-results { min-width: 0; }
 .qt-code-window { border-radius: 8px; overflow: hidden; background: #0c1b30; }
-.qt-code-title { display: flex; align-items: center; gap: 20px; min-height: 34px; padding: 7px 14px; border-bottom: 1px solid #ffffff0e; background: #12233c; font-size: 12px; line-height: 20px; }
+.qt-code-title { color: #b8c9e2; display: flex; align-items: center; gap: 20px; min-height: 34px; padding: 7px 14px; border-bottom: 1px solid #ffffff0e; background: #12233c; font-size: 12px; line-height: 20px; }
 .qt-code-title a { color: #9aadc8; }
 .qt-code-dots { display: inline-flex; gap: 6px; }
 .qt-code-dots i { width: 10px; height: 10px; border-radius: 50%; background: #ff6058; }
