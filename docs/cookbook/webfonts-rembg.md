@@ -30,8 +30,7 @@ canvas = Canvas(1280, 720).background(color="#0A1730").text(
 canvas.render("inter.png")
 ```
 
-This is the easiest option and the one the [home page](../index.md) example
-uses.
+Use this option when you want to select a Google Fonts family by name.
 
 ### A font file by URL
 

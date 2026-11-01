@@ -5,9 +5,9 @@
 <h1 align="center">quickthumb</h1>
 
 <p align="center">
-  <strong>Thumbnails, social images, and slides from Python or JSON.</strong>
+  <strong>Thumbnails and social images, from Python or JSON.</strong>
   <br />
-  Describe the image as layers. The same input gives the same pixels every time.
+  Build a layout once. Update the content for your next post.
 </p>
 
 <p align="center">
@@ -18,118 +18,126 @@
   <a href="https://quickthumb.solaqua.dev/api/">API reference</a>
 </p>
 
+Define a layout once, then update the headline, episode, or accent color for each
+new image. Use quickthumb in Python scripts and content pipelines that need
+recurring thumbnails, episode cards, or social graphics.
+
 ![Launch announcement created with quickthumb](examples/launch_announcement.png)
+
+| YouTube thumbnail | Commentary thumbnail | Podcast episode |
+| --- | --- | --- |
+| [![YouTube thumbnail](examples/youtube_thumbnail_01.png)](https://quickthumb.solaqua.dev/cookbook/youtube-thumbnail/) | [![Commentary thumbnail](examples/youtube_reaction.png)](https://quickthumb.solaqua.dev/cookbook/youtube-thumbnail/#reaction) | [![Podcast interview promo](examples/podcast_interview_promo.png)](https://quickthumb.solaqua.dev/cookbook/podcast-promo/) |
+
+[Explore these layouts and their source →](https://quickthumb.solaqua.dev/cookbook/)
 
 ## Quick start
 
-Write a design once as code or JSON, then change the text, images, or colors and
-render it again as many times as you need.
+Requires **Python 3.11+**. In your Python environment:
 
 ```bash
-pip install quickthumb
+python -m pip install quickthumb
 ```
+
+Save this as `episode_cards.py`. It uses the built-in font and needs no downloads
+after installation:
 
 ```python
-from quickthumb import Canvas
+from quickthumb import Canvas, Stroke
 
-canvas = (
-    Canvas.from_aspect_ratio("16:9", base_width=1280)
-    .background(color="#F5F5F7")
-    .text(
-        "Make the message impossible to miss.",
-        size=88,
-        color="#1D1D1F",
-        weight=700,
-        position=(80, 180),
-        max_width=820,
-    )
-    .shape(
-        "rectangle",
-        position=(80, 500),
-        width=180,
-        height=8,
-        color="#0066CC",
-    )
-)
+INK = "#111111"
+WHITE = "#FFFFFF"
 
-canvas.render("announcement.png")
+
+def episode_card(episode, title, accent):
+    return (
+        Canvas(1280, 720)
+        .background(color=INK)
+        .shape("rectangle", position=(0, 0), width=1280, height=360, color=accent)
+        # The numeral stands on the band and crops at the top edge.
+        .text(
+            str(episode),
+            size=540,
+            color=INK,
+            # A stroke in the text color thickens the regular-weight built-in font.
+            effects=[Stroke(width=8, color=INK)],
+            position=(1240, 360),
+            align=("right", "bottom"),
+            letter_spacing=-10,
+        )
+        .text(
+            "THE BUILDER'S\nNOTEBOOK",
+            size=26,
+            color=INK,
+            effects=[Stroke(width=1, color=INK)],
+            position=(48, 44),
+            letter_spacing=1,
+        )
+        .text(
+            "EPISODE",
+            size=26,
+            color=INK,
+            effects=[Stroke(width=1, color=INK)],
+            position=(48, 330),
+            align=("left", "bottom"),
+            letter_spacing=1,
+        )
+        .text(
+            title,
+            size=136,
+            color=WHITE,
+            effects=[Stroke(width=2, color=WHITE)],
+            position=(48, 688),
+            align=("left", "bottom"),
+            max_width=1184,
+            max_height=290,
+            auto_scale=True,
+            balance_lines=True,
+            line_height=1.04,
+        )
+    )
+
+
+episodes = [
+    (12, "Ship your first release", "#FF4B1F"),
+    (13, "Make room for better work", "#FFD400"),
+    (14, "Build less. Finish more.", "#4D8DFF"),
+]
+
+for episode, title, accent in episodes:
+    episode_card(episode, title, accent).render(f"episode-{episode}.png")
 ```
 
-The core workflow stays small:
+Run `python episode_cards.py`, then open `episode-12.png`, `episode-13.png`, and
+`episode-14.png` in the same directory. Each is 1280 × 720 pixels.
+Change a title in `episodes` and run it again to replace the corresponding card.
 
-1. Create a `Canvas`.
-2. Add backgrounds, text, images, shapes, SVG, or auto-layout groups.
-3. Call `render()`.
+[Follow the first-use guide →](https://quickthumb.solaqua.dev/getting-started/)
+for environment setup and ways to adapt the layout.
 
-[Follow the five-minute guide →](https://quickthumb.solaqua.dev/getting-started/)
+## Build a layout you can reuse
 
-## What it does
+- **Keep content separate from layout.** Pass data into a Python function, or
+  load a [JSON spec](https://quickthumb.solaqua.dev/json-schema/) from your pipeline.
+- **Make room for changing text.** Set wrapping and fitting bounds, or use
+  [auto-layout groups](https://quickthumb.solaqua.dev/api/group/) for rows and columns.
+- **Catch common layout problems.** `diagnose()` flags issues such as off-canvas
+  layers, small text, and low contrast before export.
 
-- Layers are drawn in the order you add them, the same order you'd describe the image in.
-- Every design can be written in Python or as a JSON spec, so a template or an LLM can produce it.
-- One canvas exports to PNG, JPEG, WebP, SVG, HTML, PDF, PPTX, GIF, MP4, and WebM.
-- `diagnose()` finds text that is too small, runs off the canvas, or has too little contrast, before you export.
+Rendering can be repeated with fixed assets, fonts, and rendering environment.
+See [reproducibility requirements](https://quickthumb.solaqua.dev/exports/#render-reproducibility)
+when matching pixels across runs or machines.
 
-## Gallery
+## Export and extend
 
-| YouTube thumbnail | Commentary thumbnail | Tutorial cover |
-| --- | --- | --- |
-| ![YouTube thumbnail](examples/youtube_thumbnail_01.png) | ![Commentary thumbnail](examples/youtube_reaction.png) | ![Tutorial cover](examples/youtube_tutorial_explainer.png) |
+The base package exports PNG, JPEG, WebP, SVG, HTML, and GIF. PDF and PPTX need
+optional packages; MP4 and WebM need FFmpeg. Format support and visual behavior
+vary: see [Installation](https://quickthumb.solaqua.dev/installation/) and
+[Exporting](https://quickthumb.solaqua.dev/exports/).
 
-| Instagram news card | Podcast promo |
-| --- | --- |
-| ![Instagram news card](examples/instagram_news_card.png) | ![Podcast interview promo](examples/podcast_interview_promo.png) |
-
-<table>
-  <thead>
-    <tr>
-      <th>Vertical shorts cover</th>
-      <th>Animated product reel</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="center">
-        <img src="examples/shorts_cover_agent.png" alt="Vertical shorts cover" width="56%" />
-      </td>
-      <td align="center">
-        <img src="examples/product_hype_reel.gif" alt="Animated product reel" width="56%" />
-      </td>
-    </tr>
-  </tbody>
-</table>
-
-[Explore the examples and source files →](examples/README.md)
-
-## Output formats
-
-```python
-canvas.render("creative.png")
-canvas.render("creative.svg")
-canvas.render("creative.html")
-canvas.render("creative.pptx")
-canvas.render("creative.pdf")
-canvas.render("creative.gif")
-canvas.render("creative.mp4")
-```
-
-Multi-slide `Deck` compositions can also render to numbered images, PDF, PPTX,
-HTML slideshows, GIF, WebM, ProRes 4444 MOV, and narrated MP4.
-
-Some formats use optional dependencies. See
-[Installation](https://quickthumb.solaqua.dev/installation/) and
-[Exporting](https://quickthumb.solaqua.dev/exports/) for the exact setup and format behavior.
-
-## Where to go next
-
-| I want to… | Start here |
-| --- | --- |
-| Make my first graphic | [Getting Started](https://quickthumb.solaqua.dev/getting-started/) |
-| Build a proven layout | [Cookbook](https://quickthumb.solaqua.dev/cookbook/) |
-| Generate visuals with JSON or AI | [JSON & AI Workflow](https://quickthumb.solaqua.dev/json-schema/) |
-| Build a multi-slide deck | [Deck guide](https://quickthumb.solaqua.dev/api/deck/) |
-| Validate a composition | [Diagnostics & CLI](https://quickthumb.solaqua.dev/diagnostics/) |
-| Look up a class or option | [API Reference](https://quickthumb.solaqua.dev/api/) |
+For multi-slide presentations and narrated video, see the
+[Deck guide](https://quickthumb.solaqua.dev/api/deck/).
+For generated JSON specs, see the
+[JSON & AI workflow](https://quickthumb.solaqua.dev/json-schema/).
 
 ## License
 

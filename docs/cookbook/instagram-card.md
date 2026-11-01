@@ -8,11 +8,15 @@ description: A 1080×1080 breaking-news card for Instagram built with quickthumb
 
 A square news card: a photo, a red label, a serif headline, and a source line.
 
+Install [uv](https://docs.astral.sh/uv/) and clone the repository to run this example:
+
 ```bash
 git clone https://github.com/sjquant/quickthumb
 cd quickthumb
 uv run python examples/instagram_news_card.py
 ```
+
+The script writes `examples/instagram_news_card.png`, replacing an existing file with that name.
 
 ## How it's built
 

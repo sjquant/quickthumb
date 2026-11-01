@@ -8,19 +8,18 @@ quickthumb needs Python 3.11 or later.
 
 ## Isolated environment
 
-The first-export guide uses the 0.8.0 API, including `Canvas.export()`. Install
-the release in a virtual environment outside any quickthumb checkout:
+Install quickthumb 0.8.0 in a virtual environment outside any quickthumb checkout:
 
 ```bash
 mkdir -p quickthumb-first-export
 cd quickthumb-first-export
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install "quickthumb[cli]==0.8.0"
+python -m pip install "quickthumb==0.8.0"
 ```
 
-On Windows, activate with `.venv\Scripts\activate` instead. Omit `[cli]` when
-using only the Python API. The shell commands above use Bash/Zsh. Installing dependencies
+On Windows, activate with `.venv\Scripts\activate` instead.
+The shell commands above use Bash/Zsh. Installing dependencies
 needs the package index or a populated local cache. Running outside the checkout
 ensures Python imports the installed wheel rather than the source directory.
 
@@ -30,32 +29,23 @@ ensures Python imports the installed wheel rather than the source directory.
 uv add "quickthumb[cli]>=0.8.0"
 ```
 
-### Development checkout
-
-To try unreleased changes, run `uv build` in the repository, then install the
-resulting wheel into the isolated environment using its absolute path, for
-example `python -m pip install "/path/to/dist/quickthumb-0.8.0-py3-none-any.whl[cli]"`.
-This installs the checkout's code rather than downloading the published release.
-See the [0.8.0 migration notes](releases/0.8.0.md#migration-from-v070) when upgrading
-from 0.7.0.
-
 The base package is enough for PNG, JPEG, WebP, GIF, SVG output, and HTML.
-Try the [font-free first export](getting-started.md#first-export-without-fonts-or-downloads)
-before adding optional renderers.
+Try [rendering your first episode cards](getting-started.md) before adding
+optional renderers. The example needs no font or image downloads after installation.
 
 ## Optional extras
 
 Some features need extra packages. Install them by name, for example
 `pip install "quickthumb[svg,pdf]"`.
 
-| Extra | Adds | Needed for |
-| --- | --- | --- |
-| `svg` | cairosvg | `canvas.svg(...)` layers. Without it, rendering an SVG layer raises `RenderingError`. Exporting *to* SVG doesn't need it. |
-| `pdf` | reportlab, fonttools, pypdfium2 | PDF export and opt-in PDF fidelity observation |
-| `pptx` | python-pptx | `.to_pptx()` and `render("out.pptx")` |
-| `lottie` | fonttools | Self-contained supported text outlines in Canvas `.lot` exports; shape-only Lottie does not need this extra |
-| `rembg` | rembg, onnxruntime | `remove_background=True` on image layers. Requires Python 3.11+; downloads a model of about 170 MB on first use. |
-| `cli` | typer, watchfiles, jinja2 | The `quickthumb` command: `render`, `lint`, `watch`, `serve`, `doctor`, and more |
+| Extra | Use it for |
+| --- | --- |
+| `svg` | Drawing SVG files as layers. Exporting *to* SVG does not need this extra. |
+| `pdf` | PDF export and optional PDF fidelity checks. |
+| `pptx` | PowerPoint export. |
+| `lottie` | Supported text outlines in Canvas Lottie exports; shape-only Lottie does not need it. |
+| `rembg` | Removing image backgrounds. The first use downloads a model of about 170 MB. |
+| `cli` | The `quickthumb` command, including `render`, `lint`, `watch`, and `doctor`. |
 
 MP4, WebM, and MOV export also need [ffmpeg](https://ffmpeg.org/), which is a system
 program rather than a Python package:
@@ -67,11 +57,9 @@ sudo apt install ffmpeg  # Debian / Ubuntu
 
 MOV requires an FFmpeg build with the `prores_ks` encoder.
 
-Rendering SVG layers uses CairoSVG and its native Cairo library; installing the
-Python extra does not install system libraries. The optional SVG fidelity
-observer also uses CairoSVG. See [CairoSVG installation](https://cairosvg.org/documentation/)
-for platform requirements. The `pdf` extra includes PDFium bindings for PDF
-observation; plain PNG output needs neither renderer.
+SVG layers also need the native Cairo library; the Python extra does not install
+system libraries. See [CairoSVG installation](https://cairosvg.org/documentation/)
+for platform requirements.
 
 ## Check your environment
 
@@ -88,6 +76,15 @@ step. It does not render a test file or certify native libraries, codec support,
 or visual fidelity. Run the intended export as well. See
 [Diagnostics & CLI](diagnostics.md#quickthumb-doctor) for details.
 
+## Development checkout
+
+To try unreleased changes, run `uv build` in the repository, then install the
+resulting wheel into the isolated environment using its absolute path, for
+example `python -m pip install "/path/to/dist/quickthumb-0.8.0-py3-none-any.whl[cli]"`.
+This installs the checkout's code rather than downloading the published release.
+See the [0.8.0 migration notes](releases/0.8.0.md#migration-from-v070) when upgrading
+from 0.7.0.
+
 ## Environment variables
 
 All optional.
@@ -102,5 +99,5 @@ All optional.
 | `QUICKTHUMB_ASSET_OFFLINE` | Set to `1` to never download; only cached files are used |
 | `QUICKTHUMB_FFMPEG`, `QUICKTHUMB_FFPROBE` | Paths to `ffmpeg` and `ffprobe` if they aren't on `PATH` |
 
-[Remote assets and caching](exports.md#remote-assets-and-caching) explains the
+[Remote assets and caching](reference/export-assets.md#remote-assets-and-caching) explains the
 cache in more detail.

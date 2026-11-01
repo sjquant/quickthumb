@@ -50,7 +50,10 @@ All builder methods mutate the canvas and return `self`, enabling method chainin
 | `.text(...)` | Add a text layer |
 | `.image(...)` | Add an overlay image layer |
 | `.shape(...)` | Add a shape layer |
+| `.path(...)` | Draw a filled or stroked [path](path.md) |
 | `.svg(...)` | Add an SVG layer, rasterized at render time |
+| `.video(...)` | Add a [video clip](video.md) to an animated composition |
+| `.counter(...)` | Add an [animated number](#animated-counters) |
 | `.group(...)` | Add an auto-layout group of child layers |
 | `.outline(...)` | Add a canvas border |
 | `.chart(...)` | Add a deterministic bar or line chart layer from a typed chart spec |
@@ -59,6 +62,25 @@ All builder methods mutate the canvas and return `self`, enabling method chainin
 
 See the [data visualization reference](data-visualizations.md) and the other
 individual reference pages for full parameter details.
+
+### Animated counters
+
+Use `.counter(from_, to, duration, ...)` to animate a number as a text layer.
+Pass normal text options such as `position`, `size`, and `color`:
+
+```python
+from quickthumb import Canvas
+
+canvas = Canvas(320, 180).background(color="#102030").counter(
+    0, 100, 2, suffix="%", size=64, color="#FFFFFF", position=(40, 50)
+)
+canvas.render("counter.gif")
+```
+
+`delay`, `decimals`, `minimum_integer_digits`, `prefix`, `suffix`, and `grouping`
+control timing and formatting. `style` accepts `"plain"`, `"odometer"`, or
+`"flip"`; `easing` accepts `"linear"`, `"ease_in"`, `"ease_out"`, or
+`"ease_in_out"`. Static output shows the settled value.
 
 ## `.diagnose()`
 
@@ -88,7 +110,7 @@ if any(entry.status == "stale" for entry in manifest):
     ...  # decide whether to proceed with cached bytes
 ```
 
-See [Remote assets and caching](../exports.md#remote-assets-and-caching) for
+See [Remote assets and caching](../reference/export-assets.md#remote-assets-and-caching) for
 statuses, `QUICKTHUMB_ASSET_MAX_AGE`, and offline mode.
 
 ## Export methods
@@ -105,7 +127,7 @@ result = canvas.export("card.png")
 print(result.written_paths)
 ```
 
-See [Recommended output API](../exports.md#recommended-output-api)
+See [Recommended output API](../reference/export-methods.md#recommended-output-api)
 for the result fields, the capability preflight, and how `export()` relates to
 the methods below.
 
@@ -113,7 +135,7 @@ the methods below.
 
 Renders the canvas and writes the result to a file. The format is detected from the file extension; `.svg`, `.pptx`, and `.pdf` produce vector/document output, and `.gif`/`.mp4`/`.webm`/`.mov` produce an animation playing the canvas's layer `animation` effects (see [Exporting to SVG, PPTX, PDF & video](../exports.md)).
 Canvas `.lot` output writes the bounded native-vector subset described in
-[Lottie vectors](../exports.md#lottie-vectors), using `LottieOptions` for fps and
+[Lottie vectors](../reference/export-lottie.md#lottie-vectors), using `LottieOptions` for fps and
 final hold. Unsupported content is rejected before writing, without PNG fallback.
 
 ```python
@@ -141,7 +163,7 @@ canvas.render("preview.mp4", animation=VideoOptions(fps=30))
 | `quality` | `int \| None` | `None` | Compression quality: JPEG 1–95, WebP 1–100; other targets reject it. |
 | `debug` | `bool` | `False` | Draw public layer-id bounding boxes on raster output for visual review. |
 | `animation` | `GifOptions \| VideoOptions \| LottieOptions \| None` | `None` | Format-specific options: `GifOptions` for GIF, `VideoOptions` for MP4/WebM/MOV, `LottieOptions` for `.lot`. |
-| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. Both `render()` and `export()` enforce `unsupported_motion` before writing. `export()` reports an explicitly requested [static SVG fidelity check](../exports.md#optional-static-svg-fidelity-report). |
+| `policy` | `ExportPolicy \| None` | `None` | Renderer policy, such as `reduced_motion` for animated, HTML, and PPTX output. Both `render()` and `export()` enforce `unsupported_motion` before writing. `export()` reports an explicitly requested [static SVG fidelity check](../reference/export-validation.md#optional-static-svg-fidelity-report). |
 
 !!! warning
     Passing `quality` with `format="PNG"` raises `RenderingError`. Passing `debug=True` for document or animated output (`.svg`, `.pptx`, `.pdf`, `.html`, `.gif`, `.mp4`, `.webm`, `.mov`, or `.lot`) raises `RenderingError`.
@@ -153,7 +175,7 @@ accepts `fps`, `hold`, `matte`, `loop`, `max_size=(width, height)`, and `colors`
 boolean, default `False`); all other output targets reject this option.
 Both use a strict finite nonnegative `hold` (default 3 seconds), omitted from
 serialized options when equal to its default. Both accept `workers` (a strict
-integer from 1 to 8, default 1) and `render_quality="standard"` or `"high"` for rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
+integer from 1 to 8, default 1) and `render_quality="standard"` or `"high"` for rendering. See [parallel animated rendering](../reference/export-frames.md#parallel-animated-rendering)
 for spawn setup and supported inputs. GIF sizing and palette controls are rejected for MP4/WebM/MOV output.
 
 ### `.to_svg(embed_fonts=False)`
@@ -184,7 +206,7 @@ with open("card.pdf", "wb") as f:
 
 ### `.to_gif(...)` / `.to_mp4(...)` / `.to_webm(...)` / `.to_mov(...)`
 
-Return the canvas as an animation that plays its layer `animation` effects in sequence, then holds the settled composition for `hold` seconds (see [Animated GIF & video](../exports.md#animated-gif-video)). A canvas with no animations yields a single-frame GIF. `.to_mp4()`/`.to_webm()`/`.to_mov()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
+Return the canvas as an animation that plays its layer `animation` effects in sequence, then holds the settled composition for `hold` seconds (see [Animated GIF & video](../reference/export-animation.md#animated-gif-video)). A canvas with no animations yields a single-frame GIF. `.to_mp4()`/`.to_webm()`/`.to_mov()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
 
 ```python
 gif_bytes = canvas.to_gif(fps=20, hold=3.0, loop=0, matte="#000000")
@@ -201,14 +223,14 @@ All animated byte methods accept keyword-only `workers=1` and
 size (2–256 when supplied). Existing positional parameters remain unchanged.
 
 The keyword-only `transparent` flag on `.to_webm()` and `.to_mov()` skips only the export matte;
-authored backgrounds stay visible. See [transparent WebM](../exports.md#transparent-webm)
+authored backgrounds stay visible. See [transparent WebM](../reference/export-transparency.md#transparent-webm)
 for codec, alpha decoding and transition details.
 
 `.to_mov()` uses the same parameters and timing as `.to_webm()`, with fixed
 ProRes 4444 video and AAC audio. It retains odd and one-pixel dimensions.
 The RGBA source remains 8-bit; 16-bit alpha coding can decode with one-level
 8-bit alpha differences, and color is lossy 4:4:4 YUV. See
-[ProRes MOV](../exports.md#prores-4444-mov) for the measured conversion limits
+[ProRes MOV](../reference/export-transparency.md#prores-4444-mov) for the measured conversion limits
 and encoder requirements. `render()` and `export()` accept `.mov` with
 `VideoOptions` for both opaque and transparent output.
 
@@ -223,7 +245,7 @@ WebP preserves alpha and accepts `lossless=True`; lossy WebP accepts quality.
 PNG and lossless WebP preserve the renderer's exact RGBA8 pixels. Opaque WebP
 files may decode as RGB; manifest mode describes logical RGBA decoding.
 The receipt reports actual frame count, timing, encoding and destination.
-See [image sequences](../exports.md#image-sequences) for validation, per-format
+See [image sequences](../reference/export-frames.md#image-sequences) for validation, per-format
 metadata and atomic no-overwrite publication.
 
 ### `.to_base64(format="PNG", quality=None)`
@@ -267,47 +289,11 @@ for layer in report.layers:
     print(layer.id, layer.bbox)
 ```
 
-For supported parent-linked scenes, bounds describe the **authored-static** world
-layout, not the state at animation time zero. They conservatively enclose each
-existing measured local body after its ancestor transforms and can extend outside
-the canvas. Transparent corners can make these boxes looser than painted pixels.
-Text sizes/wrapping remain authored-local; intrinsic counters use their settled
-formatted text for these measurements, without sampling the timeline. Nulls have
-no visible body or bbox.
-`canvas.render("debug.png", debug=True)` overlays the same authored-static boxes.
-`diagnose()` uses the same authored-static world layout, with transformed painted
-alpha for overlap/occlusion and transformed glyph/background pixels for contrast.
-Parent opacity is not inherited. Geometry animation on an ancestor prevents a
-static footprint from being reported as permanently hiding another layer.
-Repair suggestions describe parent-local positions or containing group layout;
-world coordinates must not be copied directly into those local fields.
-A top-level group's own clip/mask restricts its complete painted source,
-including sampled counters in settled group slots.
-Inspection reports the boundary-intersected group box and keeps conservative
-laid-out child boxes. Each layer or group box intersects only its own finite
-boundary before applying world transforms; enclosing group boundaries do not
-cut descendant inspection boxes. Static leaves and nested
-structural groups can have their own clips and masks at several depths, using
-the top-level group's shared parent-local plane and original canvas dimensions
-for percentages. Inverted masks retain conservative boxes around their cutouts.
-Child transforms still use the full authored group body;
-the boundary does not clip independently linked children. Counter observations
-use settled text, including glyph backgrounds and preceding group content.
-Groups with descendant boundaries support `plain`, `odometer` and `flip` text
-counters in settled layout slots. Each counter's fragments are combined before
-its own boundary, and each nested group's children before that group's boundary;
-changing counter paint does not move siblings, pivots or independently linked
-children. Other intrinsic dynamic sources and authored stagger on any structural
-descendant remain guarded. The participating top-level group's own
-animation may override other authored descendant animations; an external
-ancestor's animation or only an inner group's animation does not qualify.
-Static inspection and diagnostics retain the authored layout and composition;
-HTML, SVG, PDF and PPTX retain whole-scene authored-static fallback for overridden
-descendant motion. Intrinsic counter clocks continue through that override;
-counter-group stagger remains guarded. Static graph-leaf groups with their own
-or descendant clip/mask boundaries can use root stagger through the existing
-partial horizontal-band adapter; it does not establish which child owns a band. See
-[parent adapter boundaries](video.md#current-adapters-and-boundaries).
+For parent-linked scenes, bounds reflect the authored static layout, not a
+frame of animation; they may conservatively extend beyond painted pixels.
+Use `canvas.render("debug.png", debug=True)` to see these boxes.
+For clips, masks, counters, and parent transforms, see
+[inspecting complex layouts](../reference/inspection-details.md).
 
 ### `.to_json()`
 

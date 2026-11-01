@@ -9,11 +9,15 @@ description: A 1280×720 podcast episode promo built with quickthumb, using a fu
 An episode card: show name, episode title, and guest, with the guest's photo
 filling the right side.
 
+Install [uv](https://docs.astral.sh/uv/) and clone the repository to run this example:
+
 ```bash
 git clone https://github.com/sjquant/quickthumb
 cd quickthumb
 uv run python examples/podcast_interview_promo.py
 ```
+
+The script writes `examples/podcast_interview_promo.png`, replacing an existing file with that name.
 
 The first run needs network access to download the show-title webfont. After
 that it is cached.

@@ -6,9 +6,15 @@ description: Find layout and legibility problems with canvas.diagnose(), and lin
 
 quickthumb can check a design for common layout and legibility problems without rendering a file: from Python with `canvas.diagnose()`, or from the terminal with `quickthumb lint`.
 
+To check a design in Python, start with the example below. For a JSON file,
+[install the CLI and run `quickthumb lint`](#quickthumb-lint). Use
+[`quickthumb doctor`](#quickthumb-doctor) to check export dependencies, or
+[`quickthumb render`](#quickthumb-render) to write an output. The detailed
+finding rules and other CLI commands are below.
+
 ## `canvas.diagnose()`
 
-Returns a `DiagnosticReport` whose `findings` list contains `Diagnostic` entries. An empty `findings` list means no issues.
+Returns a `DiagnosticReport` whose `findings` list contains `Diagnostic` entries. An empty list means the checks found no issues; it does not guarantee visual quality or catch every problem. Review the rendered result as well.
 
 ```python
 from quickthumb import Canvas
@@ -59,27 +65,11 @@ Each `Diagnostic` has stable human-readable fields and optional structured field
 !!! tip "With an LLM"
     Send the findings back to the model as specific edits to make, rather than asking for a new design. See [AI Workflow](cookbook/ai-workflow.md).
 
-Near-alignment findings compare final measured starts, rather than raw declared positions. The rule only compares layers that share a perpendicular span, ignores exact matches, intentional text-on-backdrop overlap, and layers with rotation or clip/mask composition, and reports the measured delta plus a coordinate repair suggestion.
+Near-alignment checks compare rendered layer positions to spot unintended 1–3 pixel misalignments.
 
-Parent-linked scenes use authored-static world bounds and transformed painted
-pixels. Rotation inherited through a parent also excludes near-alignment checks.
-Group text contrast includes earlier siblings in their original layout and its
-own background effects. Supported static descendant clips and masks apply to
-their owner's paint and to the corresponding contrast samples; enclosing group
-boundaries apply again at their own scope. These boundaries share the top-level
-group's parent-local placement plane, with percentages resolved against the
-original canvas. Inspection intersects each layer or group box with only its own
-finite boundary before mapping it to world space. Descendant boxes remain
-conservative and are not cut by enclosing group boundaries; inverted-mask holes
-also retain conservative bounds while painted-alpha checks use the actual cutout.
-Position suggestions identify parent-local fields or the containing group's
-layout instead of assigning world coordinates to them.
-Ancestor geometry animation prevents a static cover from being called permanent;
-opacity is not inherited. Time-sampled diagnostics and unsupported parent raster
-combinations are not supported yet.
-
-!!! note
-    The contrast check compares text against everything it is drawn on, including a `Background` effect the text layer carries itself, so dark text on its own bright pill is measured against that pill. It samples the settled composition, so a caption or headline over footage is judged against the clip's first frame rather than its brightest one.
+!!! note "Contrast and Alignment Checks"
+    - **Contrast checks** sample text against the composited background beneath it, including any `Background` pill effects attached to the text layer.
+    - **Near-alignment** flags layers that are almost aligned (within 3px) so you can snap them cleanly without guessing coordinates.
 
 ## The `quickthumb` CLI
 
@@ -367,28 +357,14 @@ Its seek position is independent of presenter/audience synchronization.
   old frame until the requested frame is ready. Broken edits show an error and
   recover after the next save
 
-The preview uses the export defaults: a black opaque matte and three-second
-settled hold unless the Deck supplies its own slide durations or advance timing.
-Transitions, color tracks, motion paths, and other supported raster effects use
-canonical timing, independently of HTML's capability fallbacks. No authored
-models, JSON schema fields, inspection results, or export capabilities change.
-Full frames match canonical **standard-quality** pixels at the requested instant;
-GIF palette quantization, lossy video encoding, export frame grids, odd-dimension
-video cropping, and optional high-quality/reduced-motion export settings can
-produce different encoded playback pixels. Audio is not played.
+The timeline scrubber renders instantaneous frame previews matching your export timing:
 
-Proxy pixels are an approximation for motion review. Initial source preparation
-still renders native layer images. Video decoding, changing color/component
-sources, backdrop-dependent layers, and other source rendering can retain native
-costs. Slides with video captions and keyed Morph transitions render natively
-before reduction to preserve their layout. The page reports these latter
-fallbacks; exceptionally complex documents can still be slow. Each source keeps
-at most one proxy plan and one full plan, created lazily and released on reload
-or server shutdown; total memory still depends on the document's layers/slides.
+- **Proxy mode**: Renders downscaled frames (up to 640px) for smooth, rapid seeking.
+- **Full mode**: Renders full-resolution frames matching standard export quality.
+- Note that audio playback is disabled during timeline scrubbing.
 
-As with slideshow serving, Python sources execute local code. Serve trusted files
-and keep the default loopback host unless you intend to expose the preview to
-your network. The server is a local authoring tool, not a production web service.
+!!! tip "Local Security"
+    `quickthumb serve` runs local Python and JSON files on your machine. Keep the default loopback address (`127.0.0.1`) when previewing untrusted content.
 
 ### Variable substitution
 

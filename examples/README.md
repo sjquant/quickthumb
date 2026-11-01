@@ -4,35 +4,70 @@ Runnable scripts that use the current quickthumb API. Outputs are written in
 this folder or the `output/` subdirectory noted below. The [cookbook](https://quickthumb.solaqua.dev/cookbook/)
 shows the thumbnail examples with their images.
 
-Run them from the repository root:
+For a first example using only the base package and built-in font, run:
+
+```bash
+uv run python examples/episode_cards.py
+```
+
+It writes `episode-12.png`, `episode-13.png`, and `episode-14.png` in the current
+directory, replacing those files on subsequent runs. Change a row in `episodes`
+to render new content with the same layout.
+
+Run the other scripts from the repository root:
 
 ```bash
 uv run python examples/youtube_thumbnail_01.py
 ```
 
-The scripts set `QUICKTHUMB_FONT_DIR` to `assets/fonts` and
+The thumbnail and social image recipes below set `QUICKTHUMB_FONT_DIR` to `assets/fonts` and
 `QUICKTHUMB_DEFAULT_FONT` to `Roboto`, and load photos from `assets/images`, so
 they need nothing from the network unless noted below.
 
 ## Thumbnails and social images
 
-| Script | Output | What it shows | Needs |
+| Script | Output | Use it to… | Needs |
 | --- | --- | --- | --- |
-| `youtube_thumbnail_01.py` | 1280×720 PNG | Photo with a side gradient, a three-size `TextPart` headline, two rotated cards | |
-| `youtube_thumbnail_02.py` | 1280×720 PNG | One large question over a desaturated photo; each line its own layer | |
-| `youtube_talking_head.py` | 1280×720 PNG | Headline beside a cut-out portrait pinned to the bottom-right corner | `rembg` extra, network |
-| `youtube_reaction.py` | 1280×720 PNG | Big word and number, a cut-out portrait, a radial glow, a faint `#1` | `rembg` extra |
-| `youtube_tutorial_explainer.py` | 1280×720 PNG | No photos; a code snippet "highlighted" with `TextPart` colors | |
-| `instagram_news_card.py` | 1080×1080 PNG | Label from a text `Background` effect, serif headline, percentage positions | |
-| `podcast_interview_promo.py` | 1280×720 PNG | Full-bleed portrait, a gradient that makes room for text, a webfont URL | network (first run) |
-| `shorts_cover_agent.py` | 1080×1920 PNG | The whole design in `shorts_cover_agent.json`, rendered with `Canvas.from_json()` | |
-| `launch_announcement.py` | 1280×720 PNG | Auto-layout groups, theme tokens, and `diagnose()` before rendering, from `launch_announcement.json` | `svg` extra |
-| `social_preview.py` | 1200×630 PNG | The docs site's link preview card, written to `docs/assets/brand/social-preview.png` | |
+| `youtube_thumbnail_01.py` | 1280×720 PNG | Compare before-and-after results on a video cover | |
+| `youtube_thumbnail_02.py` | 1280×720 PNG | Put a single question at the center of a video cover | |
+| `youtube_talking_head.py` | 1280×720 PNG | Introduce a talking-head video with a headline and portrait | `rembg` extra, network |
+| `youtube_reaction.py` | 1280×720 PNG | Highlight a number or reaction beside a portrait | `rembg` extra |
+| `youtube_tutorial_explainer.py` | 1280×720 PNG | Give a coding tutorial a cover without a photograph | |
+| `instagram_news_card.py` | 1080×1080 PNG | Pair a news headline with a photo for a square social post | |
+| `podcast_interview_promo.py` | 1280×720 PNG | Introduce a podcast episode and its guest | network (first run) |
+| `shorts_cover_agent.py` | 1080×1920 PNG | Render a vertical video cover from JSON | |
+| `launch_announcement.py` | 1280×720 PNG | Reuse a release card with new copy and brand colors | `svg` extra |
+| `social_preview.py` | 1200×630 PNG | Generate the docs site's link preview card | |
 
 Extras install with `uv run --extra <name> python examples/<script>.py`. The
 `rembg` extra requires Python 3.11 or later.
 
 ## Decks and video
+
+### `cleaner_future.py`
+
+The homepage's creator thumbnail, four-slide presentation, and animated Earth
+video, composed from bundled AI-generated source images. Run
+`uv run --no-default-groups python examples/cleaner_future.py --output-dir /tmp/cleaner-future --video`.
+Video requires FFmpeg; add `--pptx` and `--extra pptx` for PowerPoint. Outputs
+with the same names in the chosen directory are replaced.
+
+### `orbit_atlas.py`
+
+Two thumbnails, a four-slide deck, and a 17-second 1280×720 video with sound for a
+fictional mapping studio, composed from bundled AI-generated source images. The video
+combines image pans inside a mask, drawn paths with riders, spring-driven bars, counters, and images of the script's own
+output, cut to [Fupi's CC0 "Synthwave House Loop"](https://opengameart.org/content/synthwave-house-loop) retimed to 128 BPM. Run
+`uv run --no-default-groups python examples/orbit_atlas.py --output-dir /tmp/orbit-atlas`.
+Video requires FFmpeg (`--stills` skips it); add `--pptx` and `--extra pptx` for
+PowerPoint. Outputs with the same names in the chosen directory are replaced.
+
+### `creative_starter.py`
+
+A small, self-contained introduction to images, presentations, and animation.
+Run `python examples/creative_starter.py` from the repository root. It writes `creative-starter.png`, a two-slide `creative-starter.html`,
+and `creative-starter.gif`, replacing those files on subsequent runs. Only the
+base package and its built-in font are needed.
 
 ### `motion_blur.py`
 

@@ -4,9 +4,25 @@ description: Browse ready-to-run quickthumb recipes for YouTube thumbnails, Inst
 
 # Cookbook
 
-Each image below was rendered by a script in the repository's `examples/` folder, and each recipe page shows that exact script.
+Choose an image, presentation, or video to make. Each preview comes from the
+example linked with it; adapt its text, images, and colors for your own work.
 
-## Gallery
+## Presentations and video
+
+<div class="qt-gallery" markdown>
+<figure markdown="span">
+[![Orbit Atlas presentation cover](../assets/home/orbit-slide-1.webp)](decks-and-video.md#orbit-atlas)
+<figcaption>Presentation and slides</figcaption>
+</figure>
+<figure markdown="span">
+[![Orbit Atlas video preview](../assets/home/orbit-film-poster.webp)](decks-and-video.md#orbit-atlas)
+<figcaption>Animated video</figcaption>
+</figure>
+</div>
+
+[Explore presentation and video examples →](decks-and-video.md)
+
+## Images and graphics
 
 <div class="qt-gallery qt-gallery--cookbook" markdown>
 <figure markdown="span">
@@ -47,22 +63,16 @@ Each image below was rendered by a script in the repository's `examples/` folder
 </figure>
 </div>
 
-## Recipes
+## More ways to create
 
-| Recipe | Size | What it shows |
-| --- | --- | --- |
-| [YouTube Thumbnails](youtube-thumbnail.md) | 1280×720 | Five layouts: before/after cards, a big question, talking head, reaction, tutorial |
-| [Instagram Card](instagram-card.md) | 1080×1080 | A label built from a text `Background` effect, a serif headline, percentage positions |
-| [Podcast Promo](podcast-promo.md) | 1280×720 | A full-bleed portrait, a gradient that makes room for text, a webfont from a URL |
-| [Shorts / Vertical Cover](shorts-cover.md) | 1080×1920 | The whole design as a JSON spec, rendered with `Canvas.from_json()` |
-| [Launch Announcement](launch-announcement.md) | 1280×720 | Auto-layout groups, theme tokens, and `diagnose()` before rendering |
-| [AI Workflow](ai-workflow.md) | Any | Prompting an LLM for a spec, validating it, rendering, and iterating |
-| [Webfonts & Background Removal](webfonts-rembg.md) | Any | Fonts from Google Fonts or a URL, and `remove_background` |
+- [Render your first cards](../getting-started.md): reuse one layout without cloning the repository.
+- [AI workflow](ai-workflow.md): generate, validate, and render a JSON layout.
+- [Webfonts and background removal](webfonts-rembg.md): add a typeface or cut out a portrait.
 
 ## Running the recipes
 
-The scripts use fonts and photos bundled in the repository, so run them from a
-clone:
+Most recipes use fonts and photos bundled in the repository. Install
+[uv](https://docs.astral.sh/uv/), then run them from a clone:
 
 ```bash
 git clone https://github.com/sjquant/quickthumb

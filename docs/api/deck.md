@@ -73,7 +73,7 @@ result = deck.export("slides.png")
 print(result.written_paths)
 ```
 
-See [Recommended output API](../exports.md#recommended-output-api)
+See [Recommended output API](../reference/export-methods.md#recommended-output-api)
 for the result fields, the capability preflight, and how `export()` relates to
 the methods below.
 
@@ -124,7 +124,7 @@ audio looping. Supply its soundtrack as `AudioTrack(path="music.mp3", loop=True)
 boolean, default `False`); all other output targets reject this option.
 Both use a strict finite nonnegative `hold` (default 3 seconds), omitted from
 serialized options when equal to its default. Both accept `workers` (a strict
-integer from 1 to 8, default 1) and `render_quality="standard"` or `"high"` for rendering. See [parallel animated rendering](../exports.md#parallel-animated-rendering)
+integer from 1 to 8, default 1) and `render_quality="standard"` or `"high"` for rendering. See [parallel animated rendering](../reference/export-frames.md#parallel-animated-rendering)
 for spawn setup and supported inputs. Format-specific options are rejected when used with the other animated format.
 
 ### `.to_html()`
@@ -154,7 +154,7 @@ pptx_bytes = deck.to_pptx()  # requires quickthumb[pptx]
 
 ### `.to_gif(...)` / `.to_webm(...)` / `.to_mov(...)`
 
-Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../exports.md#animated-gif-video) for the timing model). `.to_webm()`/`.to_mov()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
+Return the deck as an animation: each slide plays its layer animations, holds its settled state, and its transition animates the change into it (see [Animated GIF & video](../reference/export-animation.md#animated-gif-video) for the timing model). `.to_webm()`/`.to_mov()` require the `ffmpeg` binary on `PATH` (or named by `QUICKTHUMB_FFMPEG`).
 
 ```python
 gif_bytes = deck.to_gif(fps=20, hold=3.0, loop=0, matte="#000000")
@@ -174,14 +174,14 @@ zero is still valid for Deck GIF and silent image sequences. Deck GIF ignores
 per-slide narration and explicit durations.
 
 The keyword-only `transparent` flag on `.to_webm()` and `.to_mov()` skips only the export matte;
-authored backgrounds stay visible. See [transparent WebM](../exports.md#transparent-webm)
+authored backgrounds stay visible. See [transparent WebM](../reference/export-transparency.md#transparent-webm)
 for codec, alpha decoding and transition details.
 
 `.to_mov()` uses the same parameters and timing as `.to_webm()`, with fixed
 ProRes 4444 video and AAC audio. It retains odd and one-pixel dimensions.
 The RGBA source remains 8-bit; 16-bit alpha coding can decode with one-level
 8-bit alpha differences, and color is lossy 4:4:4 YUV. See
-[ProRes MOV](../exports.md#prores-4444-mov) for the measured conversion limits
+[ProRes MOV](../reference/export-transparency.md#prores-4444-mov) for the measured conversion limits
 and encoder requirements. `render()` and `export()` accept `.mov` with
 `VideoOptions` for both opaque and transparent output.
 
@@ -196,7 +196,7 @@ WebP preserves alpha and accepts `lossless=True`; lossy WebP accepts quality.
 PNG and lossless WebP preserve the renderer's exact RGBA8 pixels. Opaque WebP
 files may decode as RGB; manifest mode describes logical RGBA decoding.
 The receipt reports actual frame count, timing, encoding and destination.
-See [image sequences](../exports.md#image-sequences) for validation, per-format
+See [image sequences](../reference/export-frames.md#image-sequences) for validation, per-format
 metadata and atomic no-overwrite publication.
 
 ### `.to_mp4(...)`

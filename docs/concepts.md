@@ -1,5 +1,5 @@
 ---
-description: How quickthumb works: a canvas of ordered layers, positions and alignment, effects, rich text, auto layout, JSON specs, and validation.
+description: "How quickthumb works: a canvas of ordered layers, positions and alignment, effects, rich text, auto layout, JSON specs, and validation."
 ---
 
 # Core Concepts
@@ -36,7 +36,7 @@ background first, details last.
 | `.svg()` | An SVG file such as an icon or logo (needs the `svg` extra) | [SVG](api/svg.md) |
 | `.video()` | A video clip, for animated exports | [Video](api/video.md) |
 | `.chart()`, `.qr_code()` | A bar or line chart, or a QR code | [Data visualizations](api/data-visualizations.md) |
-| `.counter()` | A number that counts from one value to another | [Canvas](api/canvas.md) |
+| `.counter()` | A number that counts from one value to another | [Canvas](api/canvas.md#animated-counters) |
 | `.group()` | A row or column that positions its children for you | [Group](api/group.md) |
 | `.outline()` | A border around the edge of the canvas | [Outline](api/outline.md) |
 | `.custom(fn)` | Your own function that draws on the Pillow image | [Canvas](api/canvas.md) |
@@ -218,20 +218,9 @@ canvas = Canvas(320, 240).path(
 frame = canvas.render_frame(0.75)
 ```
 
-Position, rotation, uniform/axis scale and opacity timelines use the same
-sampler as GIF, video and PNG sequence export. Static `rotation` adds to the
-animated angle; static `opacity` multiplies animated opacity. Curve subdivision
-and 4× regional supersampling follow the sampled device scale, so enlargement
-repaints geometry instead of enlarging a small prepared bitmap. Each renderer
-retains at most one 4 MiB painted source; an individual source exceeding the
-regional pixel budget raises `RenderingError` rather than degrading quality.
-
-Path animation requires track timelines. Dash phase, stroke trim and bounded
-same-topology path morphing share the canonical sampler; see [Path API](api/path.md)
-for correspondence and export limits. Presets, stagger, Group children and transform
-parenting remain unsupported. Supported HTML stroke timelines use native SVG/CSS;
-other animated document paths retain an explicitly reported authored-static PNG
-fallback. Ordinary untransformed paths retain native SVG/HTML output.
+Use track timelines to animate a path. Support varies by output format; presets,
+stagger, Group children and transform parenting are not supported for paths.
+See the [Path API](api/path.md) for animation and export details.
 
 ## Errors and checks
 

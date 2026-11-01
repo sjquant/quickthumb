@@ -1,59 +1,64 @@
 ---
-description: How canonical sampling, GIF/video playback, Deck narration and interactive HTML use time.
+description: Control animation duration, slide transitions, sound, and playback in quickthumb.
 ---
 
 # Animation timing
 
-Use seconds for authored motion, slide durations, holds, video placement and
-caption cues. `sample()` observes the canonical timeline; `export()` reports the
-visual timeline actually encoded. Those measurements serve different purposes.
+Set animation and slide durations in seconds. Export a GIF for a silent loop,
+video for motion with sound, or HTML for an interactive presentation.
 
-## Choose the clock
+## Animate and hold a scene
 
-| Output or observation | Timing contract |
-| --- | --- |
-| `sample()` with no time or fps | One authored-static frame per Canvas/page, matching raster output without seeking an animation endpoint; `duration=0`, frame `time=None`. |
-| `sample(time=...)` | Observe explicit document times. Slide windows are `[start, end)`; an exact boundary belongs to the incoming slide. Times beyond the end show the settled final scene. |
-| `sample(fps=...)` | Observe a uniform grid `0, 1/fps, 2/fps, …` before the timeline end. A zero-length timeline is still observed once at zero. |
-| GIF | Silent, variable frame durations in 10 ms steps; identical frames can coalesce. Default sampling rate 20 fps; supported rate is greater than zero and at most 100 fps. |
-| MP4 / WebM / MOV | Constant-rate encoded frames, including repeated held frames. Default 30 fps; supported rate is greater than zero and at most 120 fps. |
-| HTML | Browser-driven, interactive cues and slide navigation. No encoded fps or fixed total playback duration, and no Deck narration playback. |
-
-`GifOptions.fps` and `VideoOptions.fps` request the sampling density. Moving spans
-are sampled within their own timing boundaries; static spans become held shots.
-Video allocates repeated frames on a cumulative frame clock, while GIF quantizes
-cumulative durations to centiseconds. A canonical uniform sample grid is therefore
-not an index into the encoded file: arbitrary fractional spans, palette/lossy
-encoding and duplicate-frame coalescing can change frame positions or counts.
-
-Read `ExportResult.timing_metrics` after an animated export:
-
-| Field | Meaning |
-| --- | --- |
-| `fps` | The selected sampling rate; for GIF this is not stored frames divided by playback duration. |
-| `frame_count` | Frames actually encoded, after GIF coalescing or video hold repetition. |
-| `duration` | Encoded visual playback seconds: summed GIF delays or video frame count divided by fps. Audio container padding can differ. |
-
-`FrameSequence.duration` instead describes the unquantized canonical timeline.
-HTML returns no fixed playback timing in `timing_metrics`; its zero duration is
-not a claim that its interactive animations take no time.
+This example fades in a shape over one second, then holds the final image for
+two seconds. It writes `timed.gif` in the working directory, replacing any
+existing file with that name:
 
 ```python
 from quickthumb import AnimationSpec, Canvas, GifOptions
 
-canvas = Canvas(160, 90).background(color="#000000").shape(
-    "rectangle", (40, 20), 80, 50, "#FF0000",
+canvas = Canvas(320, 180).background(color="#102030").shape(
+    "rectangle", (80, 40), 160, 100, "#42CEB7",
     animation=AnimationSpec.fade(duration=1),
 )
-samples = canvas.sample(fps=7, hold=0.37)
-result = canvas.export("timed.gif", animation=GifOptions(fps=7, hold=0.37))
-print(samples.duration, len(samples.frames))
-print(result.timing_metrics.model_dump())
+canvas.export("timed.gif", animation=GifOptions(hold=2))
 ```
+
+Use `VideoOptions(hold=2)` for MP4, WebM, or MOV. Video export requires FFmpeg.
+`GifOptions` and `VideoOptions` also accept `fps`; their defaults are 20 and 30
+respectively. GIF has no audio. See [output formats](output-guide.md) for setup.
+
+## Slide duration and transitions
+
+A Deck plays each slide's motion and incoming transition, then holds the settled
+slide for `hold` seconds (three by default). Later slides use a 0.5-second
+crossfade unless you choose another transition; `Cut()` switches immediately.
+
+For Deck video, `slide(duration=...)` sets the slide's total window, including
+its incoming transition and animation. Narration can set the window when no
+explicit duration is supplied. A longer visual animation is allowed to finish;
+narration is trimmed or padded to its scheduled window. GIF ignores slide
+narration and `slide(duration=...)`.
+
+`advance_after` on a transition replaces the usual hold; the slide still waits
+for its animation and any video narration or explicit duration to finish. For
+precise boundary rules, see the [timing reference](reference/timing-details.md#slide-duration-and-transitions).
+
+## Audio, captions and reduced motion
+
+MP4, WebM, and MOV can include supported clip audio, slide narration, and a
+soundtrack. GIF is silent. Video clip captions use times relative to the placed
+clip and are burned into supported video frames.
+
+With `ExportPolicy(reduced_motion=True)`, authored layer motion and transitions
+are suppressed while holds, narration, and caption timing remain. Default Deck
+crossfades can remain. HTML presentations keep interactive click cues, but do
+not play Deck narration and show video layers as static frames. Check your
+export in the destination app.
 
 ## Temporal exposure
 
-Opt into centered motion blur when exporting a Canvas or Deck:
+To add motion blur to GIF, video, or an image sequence, pass `MotionBlur` to the
+corresponding export options:
 
 ```python
 from quickthumb import MotionBlur, VideoOptions
@@ -64,126 +69,27 @@ canvas.export(
 )
 ```
 
-`GifOptions` and `ImageSequenceOptions` accept the same setting. `None` is the
-only off setting; `MotionBlur` accepts 2–64 samples and a positive shutter angle
-up to 360 degrees. The shutter spans `(angle / 360) / fps` seconds around each
-rendered frame. Instants outside the document timeline use its boundary state.
-Hard cuts bound the exposure to the slide on the center's side of the cut;
-an exact cut time belongs to the incoming slide. Smooth transitions participate
-in the exposure, including samples on either side of their start time.
-Video and image-sequence exposure centers follow the output grid `index / fps`;
-GIF centers follow its variable-duration shot clock.
-The encoded-sRGB premultiplied channels are averaged before returning straight
-RGBA, preserving saturated colors in transparent trails.
-
-Exposure also integrates timed captions and appearances. They can contribute
-within half a shutter window of a cue boundary. Authored cue times and playback
-length remain unchanged; GIF delays and video frame counts still follow their
-codec clocks. With zero hold, the last frame is an exposure of motion. Add a hold
-to show an entirely settled frame.
-
-This setting supports Canvas and Deck GIF/video exports and image sequences,
-including `workers`. Each worker computes a complete exposure with the same
-sample times and alpha accumulation as serial rendering. Direct byte helpers
-do not support this setting. `sample()` and `render_frame()` remain instantaneous canonical
-observations. Export receipts identify the requested temporal exposure in their
-capability report; source inspection cannot infer an export-only setting.
+Motion blur is an export setting; HTML and PowerPoint do not reproduce it.
+`MotionBlur` accepts 2–64 samples and a shutter angle greater than 0 and at
+most 360 degrees. See the [motion blur reference](reference/timing-details.md#temporal-exposure)
+for timing, support, and export receipts.
 
 ### Support and receipts
 
-`capabilities_for(target)["motion_blur"]` declares temporal-exposure support:
+Use `result.capability_report` after export to inspect applied motion blur and
+`result.timing_metrics` for encoded playback. See the [support table](reference/timing-details.md#support-and-receipts).
 
-| Target family | Support | Meaning |
-| --- | --- | --- |
-| `video` | full | Canvas/Deck MP4, WebM, MOV and image sequences integrate the exposure. |
-| `raster` | partial, static fallback | Animated GIF integrates it; static raster files have no exposure window. |
-| `html`, `pptx` | unsupported, static fallback | Exposure is ignored; the authored browser/PowerPoint motion remains unchanged. |
+## Choose the clock
 
-`VideoOptions`/`GifOptions` belong to their animated output families; passing
-them to HTML/PPTX raises an option-family error. The capability table does not
-make those options silently accepted. `inspect_motion()` reports source-authored
-features and does not claim that export-only blur was enabled. After an actual
-export, find the `motion_blur` row in `result.capability_report` for the applied
-sample count and angle; `timing_metrics` retains the encoded playback facts.
-Image-sequence results carry the same applied row and their frame/duration facts.
-
-Run [the moving-marker example](https://github.com/sjquant/quickthumb/blob/main/examples/motion_blur.py)
-to write matching OFF/8-sample GIFs. Its scene also drives the controlled
-[sample-cost benchmark](https://github.com/sjquant/quickthumb/blob/main/benchmarks/README.md#temporal-exposure-cost).
-
-## Slide duration and transitions
-
-Layer motion and the incoming transition start on the same slide clock. For
-noninteractive media, `on_click` cues run in sequence like `after_previous`;
-`with_previous` cues overlap. Delays are part of those clocks. Transitions play
-over the previous slide's settled scene; a slide without an explicit transition
-starts instantly on the first slide and uses a 0.5-second crossfade thereafter.
-Use `Cut()` for an immediate boundary.
-
-A slide's exit is determined by the latest applicable boundary:
-
-- With neither a duration override nor `advance_after`, transition and layer
-  motion finish, then the settled scene holds for `hold` seconds (default 3).
-- For Deck video, `slide(duration=...)` sets a total slide window, including its
-  transition and motion. Without an explicit duration, narration supplies that
-  window. Neither trims a longer visual animation; the slide lasts long enough
-  for both. Narration itself is trimmed or padded to its scheduled window.
-- A transition's `advance_after` replaces `hold`: its boundary is counted after
-  the incoming transition. The exit is the latest of that boundary, completed
-  motion and any narration/explicit duration. For example, a one-second animation
-  with `Cut(advance_after=0.1)` ends at one second even when `hold=3`; it does not
-  add a three-second tail.
-
-GIF ignores Deck narration and `slide(duration=...)`; it uses motion,
-transitions, `advance_after` and `hold`. `Deck.sample()` uses the narration-aware
-video schedule, so a narrated Deck's GIF need not match its sampled duration.
-
-The encoder shows the settled state even with `hold=0`, replacing the final
-motion shot when needed rather than always appending a full hold. A static or
-sub-frame slide still needs a representable frame. GIF and video durations can
-therefore differ slightly from the mathematical timeline. Deck video currently
-requires a positive `hold` for slides with neither narration nor an explicit
-positive duration; a zero hold remains valid for Canvas and Deck GIF.
-
-## Audio, captions and reduced motion
-
-MP4/WebM/MOV mix supported clip audio, Deck narration and an optional soundtrack.
-Narration starts at its slide's absolute offset. The soundtrack is trimmed to the
-visual timeline and can loop; audio padding from the codec does not extend the
-reported visual duration. GIF and image sequences carry no audio. Use video when
-the soundtrack or narration must accompany the motion. MP4 exports play layer animations
-and transitions while retaining per-slide narration. For still-slide narration,
-author static canvases and set `deck.transition(Cut())`.
-
-A video layer's `start` is slide-local. Its `trim_start`, `trim_end` and `speed`
-select source media time; caption `start`/`end` are relative to the placed clip,
-not to the original source file. Captions are active over `[start, end)` and are
-burned into the foreground of supported raster/video output. They remain timed
-when reduced motion freezes the clip's picture.
-
-`ExportPolicy(reduced_motion=True)` suppresses authored layer motion and authored
-slide transitions. It retains holds, narration and caption timing; default Deck
-crossfades can remain between slides. Use the actual export receipt for the
-resulting duration, rather than the original motion duration.
-
-HTML keeps `on_click` cues interactive and `after_previous` cues automatic.
-`advance_after` enables conditional auto-advance after the incoming transition;
-it does not turn the presentation into fixed-duration video. Video layers use a
-static fallback in HTML, so their playback/caption timing is not reproduced.
-Check `validate_export()` and the returned fallback diagnostics for the target.
-GIF/video option families, unsupported transparency and codec rate limits fail
-with actionable errors rather than silently selecting another format.
+`sample()` observes the authored timeline; an encoded GIF or video can have a
+slightly different duration or frame count because of its format. HTML is
+interactive rather than a fixed-duration video. See the
+[sampling and timing reference](reference/timing-details.md#choose-the-clock)
+when exact frame times or export metrics matter.
 
 ## Verify playback
 
-The three-slide integration scene in `tests/test_video_layers.py` checks actual
-GIF, MP4 and WebM output: selected pixels against canonical samples, incoming
-transitions, caption start/end windows, encoded timing, and decoded soundtrack
-and narration frequencies. Reduced-motion cases check frozen clip imagery and timed captions. Run it with FFmpeg and ffprobe installed:
-
-```bash
-uv run --locked pytest tests/test_video_layers.py -k motion_package --no-cov
-```
-
-Existing HTML timeline tests execute the JavaScript in Node stage fixtures;
-target-specific browser fidelity remains a separate check.
+Play the exported file and check slide changes, captions, sound, and the final
+hold in the app where it will be shared. For exact timing, inspect
+`result.timing_metrics`; the [timing reference](reference/timing-details.md#verify-playback)
+also describes the project's playback tests.

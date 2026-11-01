@@ -257,6 +257,34 @@ TextPart(
 | `letter_spacing` | `int \| None` | `None` | Letter spacing override. |
 | `effects` | `list[TextEffect]` | `[]` | Per-segment effects: `Stroke`, `Shadow`, `Glow`, `Background`. |
 
+## Text animations
+
+Animate text word-by-word or character-by-character using `RangeSelector`:
+
+```python
+from quickthumb import AnimationSpec, Canvas, KeyframeSpec, PositionTrack, RangeSelector, TimingSpec
+
+canvas = Canvas(800, 400).text(
+    "Words appear one by one",
+    size=48,
+    color="#FFFFFF",
+    position=(50, 150),
+    animation=AnimationSpec.timeline(
+        PositionTrack(keyframes=[
+            KeyframeSpec(time=0, value=(0, 20)),
+            KeyframeSpec(time=0.4, value=(0, 0)),
+        ]),
+        selector=RangeSelector(
+            target="words",  # "words", "lines", or "characters"
+            offset=[KeyframeSpec(time=0, value=-100), KeyframeSpec(time=2, value=100)],
+        ),
+        timing=TimingSpec(duration=2),
+    ),
+)
+```
+
+See [Text range selectors](video.md#text-range-selectors) for selector shapes, timing, and color transitions.
+
 ## Validation rules
 
 - `content` is required and cannot be an empty list.

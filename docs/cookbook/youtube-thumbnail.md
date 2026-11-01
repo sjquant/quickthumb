@@ -7,8 +7,9 @@ description: Five 1280×720 YouTube thumbnail layouts built with quickthumb, eac
 Five 1280×720 layouts. Each image below was rendered by the script under it,
 which lives in the repository's `examples/` folder.
 
-To run one, clone the repository and run the script from its root. The scripts
-load the bundled fonts and photos from `assets/`.
+To run one, install [uv](https://docs.astral.sh/uv/), clone the repository, and
+run the script from its root. The scripts load assets from `assets/` and write
+PNG files in `examples/`, replacing existing files with the same names.
 
 ```bash
 git clone https://github.com/sjquant/quickthumb

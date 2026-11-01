@@ -1,0 +1,23 @@
+<footer class="md-footer qt-footer">
+  <div class="qt-footer-inner">
+    <div>
+      <a class="qt-brand" href="{{ nav.homepage.url | url }}" aria-label="quickthumb home">
+        <img src="{{ 'assets/brand/quickthumb-icon.svg' | url }}" width="28" height="28" alt="">
+        <span>quickthumb</span>
+      </a>
+      <p class="qt-footer-tagline">A Python creative toolkit for images, presentations, and video.</p>
+    </div>
+    <nav class="qt-footer-links" aria-label="Footer">
+      <a href="{{ 'cookbook/' | url }}">Recipes</a>
+      <a href="{{ 'getting-started/' | url }}">Docs</a>
+      <a href="{{ 'installation/' | url }}">Installation</a>
+      <a href="{{ 'changelog/' | url }}">Changelog</a>
+    </nav>
+    <div class="qt-footer-meta">
+      <a class="qt-icon-button" href="{{ config.repo_url }}" aria-label="quickthumb on GitHub">
+        {% include ".icons/material/github.svg" %}
+      </a>
+      <p>© 2024 Seonu Jang · MIT License<br>Made with <a href="https://squidfunk.github.io/mkdocs-material/">Material for MkDocs</a></p>
+    </div>
+  </div>
+</footer>

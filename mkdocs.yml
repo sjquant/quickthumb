@@ -1,5 +1,5 @@
 site_name: quickthumb
-site_description: Programmatic thumbnail and social image generation with layered Python and JSON APIs
+site_description: Create images, presentations, and animated video with Python or JSON.
 site_url: https://quickthumb.solaqua.dev
 site_author: Seonu Jang
 repo_name: sjquant/quickthumb
@@ -34,7 +34,6 @@ theme:
   features:
     - navigation.instant
     - navigation.instant.progress
-    - navigation.tabs
     - navigation.sections
     - navigation.top
     - search.suggest
@@ -52,6 +51,9 @@ hooks:
 exclude_docs: |
   hooks/
 
+extra_javascript:
+  - javascripts/site.js
+
 extra_css:
   - stylesheets/extra.css
 
@@ -65,6 +67,7 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.highlight:
+      pygments_lang_class: true
       anchor_linenums: true
   - pymdownx.inlinehilite
   # Recipes embed the example scripts directly, so the code shown is the code
@@ -79,10 +82,10 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting Started:
+      - Render your first cards: getting-started.md
       - Installation: installation.md
-      - Getting Started: getting-started.md
       - Core Concepts: concepts.md
-      - Exporting to SVG, PPTX, PDF & video: exports.md
+      - Choose an output format: output-guide.md
       - Animation Timing: timing.md
   - API Reference:
       - Overview: api/index.md
@@ -102,12 +105,26 @@ nav:
       - Data visualizations: api/data-visualizations.md
       - Effects: api/effects.md
       - Enums & Gradients: api/enums.md
+  - Advanced Reference:
+      - Export:
+          - Overview: exports.md
+          - Methods and receipts: reference/export-methods.md
+          - Format fidelity and validation: reference/export-validation.md
+          - SVG, HTML, PowerPoint, and PDF: reference/export-documents.md
+          - GIF, video, and narration: reference/export-animation.md
+          - Transparent video: reference/export-transparency.md
+          - Image sequences and render quality: reference/export-frames.md
+          - Assets and reproducibility: reference/export-assets.md
+          - Lottie vectors: reference/export-lottie.md
+      - Animation timing details: reference/timing-details.md
+      - Inspecting complex layouts: reference/inspection-details.md
   - JSON & AI:
       - JSON Schema & AI Workflow: json-schema.md
       - Diagnostics & CLI: diagnostics.md
       - Structured Errors: errors.md
   - Cookbook:
       - Gallery: cookbook/index.md
+      - Presentations and video: cookbook/decks-and-video.md
       - YouTube Thumbnails: cookbook/youtube-thumbnail.md
       - Instagram Card: cookbook/instagram-card.md
       - Podcast Promo: cookbook/podcast-promo.md

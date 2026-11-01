@@ -24,7 +24,7 @@ being importable from another module does not make it a supported entry point.
 
 `export()` is the recommended file boundary: it preflights capability policy and
 returns written paths and diagnostics. Specialist methods have their own return
-values and do not all enforce that policy; see [output API](../exports.md#recommended-output-api).
+values and do not all enforce that policy; see [output API](../reference/export-methods.md#recommended-output-api).
 Keep format-specific options at that boundary rather than calling exporters directly.
 
 Modules beginning with `_`, renderer/context objects, and timeline compilation
