@@ -1,277 +1,178 @@
 ---
-description: Draw filled and stroked SVG paths with a fixed local viewport and explicit document-format fallbacks.
+description: Draw filled and stroked SVG paths with a local viewBox, gradients, dashes, and path animations.
 ---
 
 # Path
 
-`Canvas.path()` draws filled or stroked SVG path data without an SVG
-file or an optional rendering dependency:
+`Canvas.path()` draws filled or stroked vector paths using standard SVG path data (`d`), without requiring an external SVG file or extra dependencies:
 
 ```python
 from quickthumb import Canvas
 
 canvas = Canvas(160, 120).path(
     "M 0 0 H 100 V 100 H 0 Z M 25 25 H 75 V 75 H 25 Z",
-    position=(20, 10), width=120, height=100,
-    view_box=(0, 0, 100, 100), color="#42CEB7", id="frame",
+    position=(20, 10),
+    width=120,
+    height=100,
+    view_box=(0, 0, 100, 100),
+    color="#42CEB7",
 )
 canvas.export("path.png")
 ```
 
-| Parameter | Meaning |
-| --- | --- |
-| `d` | SVG `M/L/H/V/C/S/Q/T/A/Z` commands, absolute or relative. Repeated coordinate sets, compact arc flags and implicit closing for fills are supported. |
-| `position` | Required frame position in canvas pixels or percentages. |
-| `width`, `height` | Required positive frame dimensions in pixels. |
-| `view_box` | Optional `(x, y, width, height)` local coordinate window; defaults to `(0, 0, width, height)`. Its width and height must be positive. |
-| `color` | Flat fill color, default black; `None` disables flat fill. |
-| `fill` | Existing `LinearGradient` or `RadialGradient`; when present it replaces `color`, including when `color=None`. |
-| `stroke`, `stroke_width` | Optional solid stroke color and positive width in local units; width defaults to `1`. |
-| `line_cap` | `"butt"` (default), `"round"` or `"square"` for open endpoints. |
-| `line_join` | `"miter"` (default), `"bevel"` or `"round"` for joined segments. |
-| `miter_limit` | Maximum vertex-to-tip distance divided by half the stroke width; defaults to `4`, must be at least `1`. Longer miters become bevels. |
-| `dash_array` | Optional tuple of nonnegative finite dash/gap lengths in local units. Odd-length tuples repeat once; empty or all-zero tuples draw a solid stroke. |
-| `dash_offset` | Static distance into the repeated pattern, in local units; defaults to `0`. Signed values wrap modulo the pattern cycle. |
-| `id`, `motion_key` | Optional scene identity and cross-scene matching key, using the common layer identity rules. |
-| `rotation`, `opacity`, `anchor`, `animation` | Static angle and opacity, normalized viewport pivot, and position/rotation/scale/opacity track timelines; see [Path motion](../concepts.md#path-motion). |
+## Parameters
 
-The local window maps independently onto the frame's width and height and is
-clipped at its edges. The frame does not fit itself to changing path bounds.
-Inspection reports that fixed frame. The fill uses the **even-odd** rule: an odd
-number of boundary crossings paints, so nested contours make holes regardless
-of their direction. Raster drawing supersamples only the visible painted bounds
-at 4× and downsamples with antialiasing.
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `d` | `str` | **required** | SVG path commands (`M`, `L`, `H`, `V`, `C`, `S`, `Q`, `T`, `A`, `Z`). |
+| `position` | `tuple` | **required** | `(x, y)` position in pixels or percentage strings (`"50%"`). |
+| `width` | `int` | **required** | Frame width in pixels. |
+| `height` | `int` | **required** | Frame height in pixels. |
+| `view_box` | `tuple \| None` | `None` | Local coordinate window `(x, y, width, height)`. Defaults to `(0, 0, width, height)`. |
+| `color` | `str \| None` | `"#000000"` | Flat fill color. Set to `None` for stroke-only paths. |
+| `fill` | `LinearGradient \| RadialGradient \| None` | `None` | Gradient fill. Replaces `color` when provided. |
+| `stroke` | `str \| None` | `None` | Stroke color (hex string). |
+| `stroke_width` | `int \| float` | `1` | Stroke thickness in local units. |
+| `line_cap` | `str` | `"butt"` | Endpoint style: `"butt"`, `"round"`, or `"square"`. |
+| `line_join` | `str` | `"miter"` | Corner join style: `"miter"`, `"bevel"`, or `"round"`. |
+| `miter_limit` | `float` | `4` | Maximum miter ratio before switching to bevel. |
+| `dash_array` | `tuple \| None` | `None` | Dash pattern tuple of lengths `(dash, gap, ...)`. |
+| `dash_offset` | `float` | `0` | Starting phase offset into the dash pattern. |
+| `rotation` | `float` | `0.0` | Rotation in degrees. |
+| `opacity` | `float` | `1.0` | Layer opacity from `0.0` to `1.0`. |
+| `anchor` | `tuple` | `(0.5, 0.5)` | Normalized pivot point for rotation and scaling. |
+| `animation` | `AnimationSpec \| None` | `None` | Timeline animation for motion, trim, dash phase, or morphing. |
 
-`C/S` draw cubic Béziers and `Q/T` draw quadratic Béziers. Smooth commands reflect
-the preceding control point only within their own curve family, following SVG
-rules. Curves are adaptively flattened after mapping to the frame, with a 1/8-pixel
-chord tolerance before supersampling. Excessive plans raise `RenderingError`
-(`path_subdivision_limit`) instead of silently reducing precision; simplify the
-path or reduce its mapped scale.
+## Examples
 
-`A/a` draw rotated elliptical arcs with SVG radius correction. Radii use their
-absolute values; a zero radius draws a line, and identical endpoints omit the
-arc. Large-arc and sweep flags must each be `0` or `1`. Arc subdivision uses the
-same mapped chord tolerance and work limits. Unrepresentable numerical geometry
-raises `RenderingError` (`path_arc_range_limit`) rather than producing invalid pixels.
-
-Strokes are centered on the path and scale with the viewBox, including independent
-horizontal and vertical scaling. `Z` joins the closing seam; returning to the
-start with a line leaves two capped endpoints. Stroke coverage is unioned before
-color is applied, so translucent intersections do not darken. Fill is painted
-first and stroke above it, both clipped to the fixed viewport. Round geometry
-uses the same 1/8-pixel chord tolerance. Excessive stroke geometry raises
-`RenderingError` (`path_stroke_limit`) before output is written.
+### Stroked curves with dashed outline
 
 ```python
-canvas.path("M10 50C30 0 70 100 90 50", (20, 10), 120, 100, None,
-            stroke="#42CEB7", stroke_width=8, line_cap="round",
-            view_box=(0, 0, 100, 100), dash_array=(12, 6), dash_offset=3)
+canvas.path(
+    "M10 50 C30 0 70 100 90 50",
+    position=(20, 10),
+    width=120,
+    height=100,
+    color=None,
+    stroke="#42CEB7",
+    stroke_width=6,
+    line_cap="round",
+    view_box=(0, 0, 100, 100),
+    dash_array=(12, 6),
+    dash_offset=3,
+)
 ```
 
-Dash phase restarts at each subpath. A dash crossing a corner keeps its join;
-painted runs meeting across a closed seam join there. Dash endpoints use
-`line_cap`, including zero-length on entries, and zero-length gaps advance to the
-next entry. Square dots follow the path tangent. Negative or nonfinite lengths,
-nonfinite offsets and overflowing cycle totals are rejected before admission.
-Patterns are limited to 65,536 entries; excessive transitions or emitted geometry
-raise `RenderingError` (`path_dash_limit`) before writing output. Use longer dash
-intervals or simplify the path.
+### Gradient fill with cutouts
 
-Gradient coordinates use the fixed frame, matching shape fills: linear angle `0`
-runs left-to-right and `90` top-to-bottom; radial `center` is normalized to the
-frame. `view_box` maps the path geometry into that field. Paint bounds and canvas
-clipping crop the field without stretching or restarting it. Existing gradient
-stops support alpha, which is multiplied by the path's even-odd coverage before
-compositing. Stroke remains a separate solid color.
+Paths use the **even-odd fill rule**: overlapping internal contours naturally create cutouts or holes.
 
 ```python
 from quickthumb import LinearGradient
 
-canvas.path("M10 10H90V90H10Z", (20, 10), 120, 100, None,
-            view_box=(0, 0, 100, 100),
-            fill=LinearGradient(angle=30, stops=[("#42CEB780", 0), ("#315D8EFF", 1)]))
+canvas.path(
+    "M10 10 H90 V90 H10 Z M30 30 H70 V70 H30 Z",
+    position=(20, 10),
+    width=120,
+    height=100,
+    color=None,
+    fill=LinearGradient(angle=45, stops=[("#42CEB7", 0), ("#315D8E", 1)]),
+    view_box=(0, 0, 100, 100),
+)
 ```
 
-Track timelines, static `rotation`/`opacity` and normalized `anchor` are supported.
-Static rotation adds to the animated angle, and static opacity multiplies
-animated opacity. Curve subdivision and 4× regional supersampling follow the
-sampled device scale. Each renderer retains at most one 4 MiB painted source;
-a source exceeding the regional pixel budget raises `RenderingError`.
-Parent links, grouping and composition controls are not accepted yet.
-JSON uses `type="path"` and round-trips through `PathLayer`.
-The runnable [path layer example](https://github.com/sjquant/quickthumb/blob/main/examples/path_layer.py)
-combines Bézier curves, arcs, a gradient, stroke and an even-odd hole, then scales
-the viewport from 1× to 4× over two seconds. Its PNG is the authored still;
-the GIF plays the enlargement and the JSON preserves the complete source.
+## Path Animations
 
-PNG and canonical samples draw the path at its sampled transform. Untransformed
-paths in SVG and HTML use native SVG with even-odd fill, fixed viewport clipping,
-gradients and local stroke controls. Transform timelines use a declared authored-static
-PNG fallback. Supported HTML stroke timelines use the native adapter described below.
-HTML keeps each slide's gradient resources independent.
+### Animated dash phase (Marching ants)
 
-Very large, tiny or poorly conditioned coordinates use a declared raster fallback
-when native numeric range or 1/8-pixel coordinate precision cannot be preserved.
-Gradient stops outside `0..1` also use raster output to retain their existing
-interpolation. `validate_export()` and `ExportResult` give the actual per-layer
-route and reason. `ExportPolicy(unsupported_motion="error")` permits native paths
-and rejects a required fallback before writing.
-
-Untransformed PDF paths emit editable native curves, converting quadratics exactly and elliptical arcs
-to cubic curves bounded to 1/8 device pixel. It preserves even-odd clipping, local
-strokes and opaque frame gradients. Translucent gradient stops and paths exceeding
-the bounded cubic conversion use a declared raster fallback. Degenerate strokes
-and mixed zero-length dash patterns also use raster output to preserve cap pixels.
-Paths with static rotation/opacity or animation use the same authored-static PNG
-fallback in PDF as SVG/HTML. PPTX embeds an authored-static raster image.
-
-## Animated dash phase
-
-`DashOffsetTrack` (`type="dash_offset"` in JSON) animates stroke phase in local
-SVG/viewBox distance units. The sampled phase is added to authored `dash_offset`;
-negative offsets and odd-length dash patterns retain the static painter's cycle
-rules. Keyframes use the shared easing, outgoing holds, and local timeline clock.
-Tracks replace the relative phase by default; `blend="add"` composes additional
-phase tracks in event order. Only Path layers accept this track.
+Animate `DashOffsetTrack` to create a crawling dashed-line effect:
 
 ```python
 from quickthumb import AnimationSpec, DashOffsetTrack, KeyframeSpec, TimingSpec
 
-phase = AnimationSpec.timeline(
-    DashOffsetTrack(keyframes=[KeyframeSpec(time=0, value=0),
-                               KeyframeSpec(time=1, value=12)]),
-    timing=TimingSpec(duration=1), easing="linear",
+phase_animation = AnimationSpec.timeline(
+    DashOffsetTrack(keyframes=[
+        KeyframeSpec(time=0, value=0),
+        KeyframeSpec(time=1, value=20),
+    ]),
+    timing=TimingSpec(duration=1),
+    easing="linear",
 )
-canvas.path("M0 10H100", (10, 10), 100, 20, None,
-            stroke="#42CEB7", dash_array=(5, 3), dash_offset=2, animation=phase)
+
+canvas.path(
+    "M0 10 H100",
+    position=(10, 10),
+    width=200,
+    height=20,
+    color=None,
+    stroke="#42CEB7",
+    dash_array=(6, 4),
+    animation=phase_animation,
+)
 ```
 
-Canonical samples, raster frames, GIF, video, and PNG sequences use the effective
-phase; `inspect_motion()` reports it alongside the authored static phase. SVG,
-PDF, and PPTX retain their declared authored-static fallback for animated Paths.
-HTML supports the bounded native stroke adapter described below. Path morphing uses the raster contract below.
+### Stroke trim (Self-drawing line)
 
-## Stroke trim
-
-`trim_start` and `trim_end` select normalized `0..1` positions along the total
-local SVG/viewBox arc length, in contour order. Move commands add no distance and
-never connect contours. The default `0, 1` retains the entire stroke, regardless
-of offset; equal endpoints and `1, 0` retain no stroke. When start exceeds end,
-the interval wraps across the end of the complete path.
-
-`trim_offset` shifts both endpoints in normalized turns and wraps modulo one;
-negative and multiple-turn values are supported. A retained full closed contour
-keeps its closing join. A partial closed contour becomes open, with the authored
-caps at its cut endpoints; a wrapped selection through its closing seam keeps
-that seam as an interior join. Partial trims omit zero-length contours. Fill and
-gradient coverage remain authored and untrimmed. Dashes apply after trimming and
-restart with `dash_offset` at each retained run.
-
-Lengths use the existing adaptive curve subdivision with a 1/8-device-pixel chord
-tolerance. The 65,536-point geometry budget still applies; unrepresentable length
-or cuts raise `RenderingError` (`path_trim_limit`) rather than emitting cap dots.
+Use `TrimEndTrack` to progressively draw a line or outline from start to finish:
 
 ```python
-from quickthumb import TrimEndTrack
+from quickthumb import AnimationSpec, KeyframeSpec, TimingSpec, TrimEndTrack
 
-reveal = AnimationSpec.timeline(
-    TrimEndTrack(keyframes=[KeyframeSpec(time=0, value=0),
-                            KeyframeSpec(time=1, value=1)]),
-    timing=TimingSpec(duration=1), easing="linear",
+draw_outline = AnimationSpec.timeline(
+    TrimEndTrack(keyframes=[
+        KeyframeSpec(time=0, value=0.0),
+        KeyframeSpec(time=1.5, value=1.0),
+    ]),
+    timing=TimingSpec(duration=1.5),
+    easing="ease_in_out",
 )
-canvas.path("M0 10Q50 -10 100 10", (10, 10), 200, 40, None,
-            view_box=(0, -10, 100, 20), stroke="#42CEB7", animation=reveal)
+
+canvas.path(
+    "M0 20 Q50 -10 100 20",
+    position=(20, 20),
+    width=200,
+    height=60,
+    view_box=(0, -10, 100, 30),
+    color=None,
+    stroke="#42CEB7",
+    stroke_width=4,
+    animation=draw_outline,
+)
 ```
 
-`TrimStartTrack` and `TrimEndTrack` replace their authored normalized boundaries.
-`TrimOffsetTrack` adds its sampled relative turns to authored `trim_offset`; its
-tracks replace that relative offset by default, with `blend="add"` for ordered
-composition. JSON types are `trim_start`, `trim_end`, and `trim_offset`. Only Path
-layers accept these tracks. Shared easing, outgoing holds, and local clocks apply;
-boundary easing stays within `0..1`. Inspection reports effective trim values.
+- `TrimStartTrack` and `TrimEndTrack`: Normalized endpoints (`0.0` to `1.0`) along the path's total length.
+- `TrimOffsetTrack`: Shifts the trimmed interval along the path.
 
-Canonical samples, GIF/video and PNG sequences use sampled trim geometry through
-the adaptive Path source. Static trims in SVG/PDF and all PPTX paths use a declared
-raster fallback. HTML supports the bounded native stroke adapter below; other
-animated document paths retain authored trim values. Path morphing is described below.
+### Path morphing
 
-## Native HTML stroke motion
-
-HTML can animate one canonical stroke-property timeline on a single nondegenerate
-contour using native SVG `stroke-dasharray` and `stroke-dashoffset`. Dash-offset
-motion preserves the authored local dash pattern, including odd patterns and
-negative phases. Fill and gradient paint use a separate, untrimmed SVG path.
-
-Native trim requires an open contour with butt caps, no authored dash pattern,
-and an ordered, nonwrapping window throughout the animation. Trim start/end and
-relative offset tracks can combine within those bounds. Closed trim contours,
-wrapped windows, trim plus dash painting, transform tracks, lists of animation
-specs, and overshooting easing retain an explicit authored-static raster fallback.
-Static trim uses the same admission rules. PPTX keeps its static raster route.
-
-The existing HTML runtime drives native stroke CSS keyframes sampled from the
-canonical timeline at 120 Hz, retaining every authored knot and outgoing hold
-boundary. Delays and triggers use the existing timeline clock. Between samples,
-CSS interpolates linearly; this is a bounded approximation of easing and curve
-length, rather than an exact browser/raster pixel guarantee. The plan permits at
-most 4097 stops (about 34 seconds without additional knots). Exceeding that plan
-uses the declared static fallback.
-
-The generic HTML capability matrix reports partial support. Each admitted layer
-reports its actual native SVG/CSS route and sampled timing limit; rejected layers
-report the fallback reason. Strict export policy accepts admitted native routes
-and rejects combinations requiring raster fallback before writing output.
-
-## Path morphing
-
-`PathMorphTrack` (`type="path_morph"`) accepts SVG `d` strings in ordinary
-`KeyframeSpec` values. It replaces path geometry in the fixed authored viewport;
-paint, trim, dash phase, opacity and transforms keep their existing semantics.
-The canonical sampler applies the shared local clock, per-segment easing and
-outgoing holds. Easing progress is clamped to `0..1`. At authored keyframe
-boundaries it returns the original `d` string, retaining the original curves.
-Inspection exposes authored and effective geometry as `path_morph`.
+Smoothly transform one vector shape into another using `PathMorphTrack`:
 
 ```python
-from quickthumb import PathMorphTrack
+from quickthumb import AnimationSpec, KeyframeSpec, PathMorphTrack, TimingSpec
 
-change = AnimationSpec.timeline(
+morph = AnimationSpec.timeline(
     PathMorphTrack(keyframes=[
-        KeyframeSpec(time=0, value="M10 10H50V50H10Z"),
-        KeyframeSpec(time=1, value="M20 20H60V60H20Z"),
-    ]), timing=TimingSpec(duration=1), easing="linear",
+        KeyframeSpec(time=0, value="M10 10 H50 V50 H10 Z"),
+        KeyframeSpec(time=1, value="M20 20 H60 V60 H20 Z"),
+    ]),
+    timing=TimingSpec(duration=1),
+    easing="ease_in_out",
 )
-canvas.path("M10 10H50V50H10Z", (10, 10), 100, 100, animation=change)
+
+canvas.path(
+    "M10 10 H50 V50 H10 Z",
+    position=(10, 10),
+    width=100,
+    height=100,
+    color="#42CEB7",
+    animation=morph,
+)
 ```
 
-Correspondence uses the existing local SVG curve subdivision, then 256 equally
-spaced arc-length points per contour. Contours match in document order. Closed
-contours preserve winding and nesting; cyclic start alignment minimizes matched
-point distances, choosing the lowest shift when scores tie. Open contours retain
-authored direction and endpoints. Intermediate geometry is a polyline, with
-collinear interior points omitted, painted through the existing adaptive Path
-source and its single-entry cache.
+For smooth morphing, both keyframes should have a matching number of non-intersecting contours.
 
-This bounded subset requires 1–16 nondegenerate, noncrossing contours with matching
-count, order, open/closed status, winding and nesting. Touching or self-crossing
-contours are refused. A contour may use at most 256 locally subdivided vertices;
-the correspondence plan permits at most 4096 total sampled points and one million
-edge-pair checks. Resampling must retain each subdivided vertex within ¼ local SVG
-unit of its corresponding arc interval; otherwise admission fails. These local
-limits do not promise subpixel accuracy after enlargement. Endpoint geometry stays
-exact; intermediate contour positions interpolate linearly after easing.
+## Export Support
 
-Incompatible authored geometry raises `ValidationError` with code
-`path_morph_topology`. An intermediate sample that degenerates, intersects, touches,
-or changes winding/nesting raises `RenderingError` with that code before painting.
-The sampler does not silently reorder contours, reverse winding, crossfade, or
-substitute another topology. Endpoint geometry and correspondence plans use bounded
-caches; rendered frames still retain only the existing one-entry Path source.
-
-Morph timelines render in canonical samples, GIF/video, and serial/worker PNG
-sequences. HTML, SVG, PDF and PPTX retain explicit authored-static raster fallback
-for this feature. The runnable
-[path morph example](https://github.com/sjquant/quickthumb/blob/main/examples/path_morph.py)
-uses one logo geometry twice: trim reveals its outline, `OpacityTrack` fades in
-its fill, then both layers morph together into a circle.
+- **Raster & Video (PNG, GIF, MP4, WebM)**: Full native support for all paths, dashes, trims, and morph animations.
+- **HTML**: Native SVG rendering with CSS stroke animations for open paths. Complex morphs fall back to rendered stills.
+- **PDF & PPTX**: Exported as native vector curves where supported, or crisp rendered fragments for complex animated layouts.

@@ -171,35 +171,13 @@ canvas = Canvas(320, 180, registry=registry).plugin(
 canvas.export("badge.png")
 ```
 
-The callback receives a detached params dictionary and `context.size`. It must
-return exactly `width * height * 4` raw RGBA8 bytes with straight alpha; it never
-receives the backdrop or an output file. Declare byte inputs as
-`assets={"texture": "assets/texture.png"}` on the layer and read them with
-`context.read_asset("texture")`. Only declared names are accepted. Reads use the
-shared asset resolver's cache, offline policy and remote download limits.
-Plugin code remains trusted Python: the helper is not a filesystem or process
-sandbox.
-
-Canvas/Deck still and timed sampling, animation output and groups share the
-canonical renderer. By default SVG, HTML, PDF and PPTX embed plugin pixels as PNG
-fragments. Capability and export reports identify the renderer/version and fallback.
-`ExportPolicy(unsupported_motion="error")` rejects that fallback before writing;
-PPTX can also require native output per layer with `pptx={"badge": "native"}`.
-No time argument or animation callback is provided: the callback supplies static
-content, while group motion and slide transitions animate its composition.
-`workers>1` rejects plugins because process-local callables are not serialized.
+The `raster` callback receives a params dict and `context.size`, returning raw RGBA8 bytes (`width * height * 4`). Declare external assets via `assets={"texture": "assets/texture.png"}` on the layer and access them with `context.read_asset("texture")`.
 
 ### Optional native SVG
 
-Register `svg=` alongside the required `raster=` callback. Both receive detached
-params and the same `PluginRenderContext`; SVG returns a complete static SVG
-string. `registry.capabilities("badge", "1")` discovers registered implementations
-without executing callbacks. Replacing/unregistering a registration removes its
-old callbacks. Callbacks remain trusted Python and are never serialized.
+For vector outputs, register an optional `svg=` callback returning an SVG string:
 
 ```python
-from quickthumb import ExportPolicy
-
 def badge_svg(params, context):
     width, height = context.size
     return (
@@ -207,43 +185,11 @@ def badge_svg(params, context):
         f'<rect width="{width}" height="{height}" fill="{params["color"]}"/></svg>'
     )
 
-registry.register("badge", "1", replace=True, raster=badge, svg=badge_svg)
-result = canvas.export("badge.svg", policy=ExportPolicy(fidelity={"svg": {
-    "pixel_tolerance": 0, "max_different_pixel_ratio": 0, "min_hash_similarity": 1,
-}}))
+registry.register("badge", "1", raster=badge, svg=badge_svg)
 ```
 
-Explicit limits enable a Cairo comparison of the plugin's local RGBA region,
-including opacity. Only an exact/tolerated candidate becomes an isolated
-`data:image/svg+xml` image. Local measurements and reasons belong to executed
-plugin/representation diagnostics; `pixel_metrics.fidelity` separately measures
-the final whole SVG. This observes Cairo, not every SVG viewer. Validation alone
-reports an unmeasured candidate.
+In formats that don't support native SVG plugins, the layer automatically falls back to rendering via its `raster` callback.
 
-Absent limits/callbacks, rejected candidates and atomic clip/mask/parent
-composites retain canonical PNG pixels with a reason. Strict unsupported-motion
-policy fails before replacing output when a fallback is needed. The existing
-explicit fidelity policy requires Cairo even if the selected route is PNG.
-Only internal `#` references are accepted: external/data URI resources, imports,
-scripts, foreign HTML and SVG animation are rejected. Derive geometry/paint from
-declared `read_asset()` bytes instead. HTML/PDF/PPTX have no native plugin hook.
-
-`prefetch_assets()` resolves every declared plugin asset without running the
-callback. Shared exports resolve them before writing, including declarations the
-callback does not read. Prefetch/export and observed inspection manifests report
-these references with `asset_type="plugin"`, the original source, cache identity,
-SHA-256 and normal local/network/fresh/stale status. Repeated remote reads on the
-same document use its first resolved bytes; new documents follow the shared
-cache's refresh/offline policy. Local files remain caller-owned and must stay
-unchanged through export. Multiple declared names for one source share one
-manifest entry; the names remain in the layer's JSON.
-
-Plugin assets are opaque bytes, not automatically validated images or selected
-font faces. Declaring a font file records its bytes, not any font selection or
-shaping a callback performs itself. The callback owns decoding and any resources
-it opens. Inspection reports observed state and may run the callback as part of
-normal diagnostics; it does not promise to prefetch unused references.
-Both Canvas and Deck inspection use the same plugin rendering and asset records.
 
 ### Plugin params Schema v1
 
