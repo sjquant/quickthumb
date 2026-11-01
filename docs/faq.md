@@ -114,7 +114,8 @@ The format comes from the file extension you pass to `render()`:
 | Web | HTML | |
 | Animation | GIF, MP4, WebM | `ffmpeg` for MP4 and WebM |
 
-See [Exporting](exports.md) for what each format keeps and loses.
+See [Choose an output format](output-guide.md) for a first export and the
+[export reference](exports.md) for what each format keeps and loses.
 
 ### Can I set `quality` for a PNG?
 

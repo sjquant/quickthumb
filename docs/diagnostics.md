@@ -6,6 +6,12 @@ description: Find layout and legibility problems with canvas.diagnose(), and lin
 
 quickthumb can check a design for common layout and legibility problems without rendering a file: from Python with `canvas.diagnose()`, or from the terminal with `quickthumb lint`.
 
+To check a design in Python, start with the example below. For a JSON file,
+[install the CLI and run `quickthumb lint`](#quickthumb-lint). Use
+[`quickthumb doctor`](#quickthumb-doctor) to check export dependencies, or
+[`quickthumb render`](#quickthumb-render) to write an output. The detailed
+finding rules and other CLI commands are below.
+
 ## `canvas.diagnose()`
 
 Returns a `DiagnosticReport` whose `findings` list contains `Diagnostic` entries. An empty list means the checks found no issues; it does not guarantee visual quality or catch every problem. Review the rendered result as well.

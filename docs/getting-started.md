@@ -82,5 +82,5 @@ not establish that a design looks good.
 - [Core Concepts](concepts.md): understand layers, effects, and positioning.
 - [Auto Layout](api/group.md): arrange changing content in rows and columns.
 - [JSON & AI Workflow](json-schema.md): load and validate layouts as JSON.
-- [Exporting](exports.md): save other formats and inspect export results.
+- [Choose an output format](output-guide.md): create images, presentations, and animation.
 - [API Reference](api/index.md): look up a class or parameter.

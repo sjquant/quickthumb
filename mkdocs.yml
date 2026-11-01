@@ -85,7 +85,8 @@ nav:
       - Render your first cards: getting-started.md
       - Installation: installation.md
       - Core Concepts: concepts.md
-      - Exporting to SVG, PPTX, PDF & video: exports.md
+      - Choose an output format: output-guide.md
+      - Export reference: exports.md
       - Animation Timing: timing.md
   - API Reference:
       - Overview: api/index.md
