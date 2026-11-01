@@ -1,6 +1,6 @@
 ---
-title: quickthumb · thumbnails from code
-description: Create thumbnails and social images in Python or JSON. Build a layout once, then update the content for your next post.
+title: quickthumb · visuals from code
+description: Create images, presentations, and animated videos from Python or JSON.
 template: home.html
 hide:
   - navigation
@@ -11,45 +11,116 @@ hide:
 <div class="qt-container qt-hero-layout" markdown>
 <div class="qt-hero-copy" markdown>
 
-<h1 id="qt-heading">Thumbnails,<br>from code.</h1>
+<p class="qt-eyebrow">A Python creative toolkit</p>
 
-<p class="qt-hero-description">Build a layout once. Update the content for your next post.</p>
+<h1 id="qt-heading">Make visuals<br>with code.</h1>
+
+<p class="qt-hero-description">Create images, presentations, and animated videos from reusable layouts.</p>
 
 <div class="qt-actions" markdown>
-[Get started <span aria-hidden="true">→</span>](getting-started.md){ .qt-button .qt-button-white }
-[Browse recipes](cookbook/index.md){ .qt-button .qt-button-outline }
-</div>
-
-<div class="qt-install">
-<code>python -m pip install quickthumb</code>
-<button type="button" class="qt-icon-button" data-qt-copy="python -m pip install quickthumb" aria-label="Copy install command"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="8" y="6" width="12" height="15" rx="2"/><path d="M16 3H6a2 2 0 0 0-2 2v12"/></svg></button>
-<span class="qt-copy-status" role="status"></span>
+[Get started <span aria-hidden="true">→</span>](#get-started){ .qt-button .qt-button-white }
+[Explore examples](cookbook/index.md){ .qt-button .qt-button-outline }
 </div>
 
 </div>
-<div class="qt-artwork" aria-label="Made with quickthumb" markdown>
+<div class="qt-artwork" aria-label="Examples made with quickthumb" markdown>
 
-[![YouTube cover with a portrait: AI tools, what actually works](assets/examples/youtube_talking_head.png)](cookbook/youtube-thumbnail.md#talking-head){ .qt-art .qt-art-back }
-[![Commentary thumbnail with a surprised portrait: Viral, 12.4 million views](assets/examples/youtube_reaction.png)](cookbook/youtube-thumbnail.md#reaction){ .qt-art .qt-art-front }
-[![Podcast cover with a guest portrait: Signal to Noise](assets/examples/podcast_interview_promo.png)](cookbook/podcast-promo.md){ .qt-art .qt-art-bottom }
+[![A talking-head video thumbnail](assets/examples/youtube_talking_head.png)](cookbook/youtube-thumbnail.md#talking-head){ .qt-art .qt-art-back }
+[![A commentary thumbnail with a portrait](assets/examples/youtube_reaction.png)](cookbook/youtube-thumbnail.md#reaction){ .qt-art .qt-art-front }
+[![Cover of the Vela investor presentation](assets/home/investor-slide-1.png)](cookbook/decks-and-video.md#investor-deck){ .qt-art .qt-art-bottom }
 
 </div>
 </div>
 </section>
 
-<section class="qt-example qt-container" aria-labelledby="qt-example-heading" markdown>
+<section class="qt-story" aria-labelledby="images-heading" markdown>
+<div class="qt-container qt-story-grid" markdown>
+<div class="qt-story-copy" markdown>
 
-<h2 id="qt-example-heading">One layout. Three episodes.</h2>
+<p class="qt-kicker">Images &amp; graphics</p>
 
-<p class="qt-section-description">Create a thumbnail once, update the content, and generate a full series.</p>
+## Compose images. { #images-heading }
 
-<div class="qt-example-layout" markdown>
-<div class="qt-example-code" markdown>
+Combine text, photos, and shapes into thumbnails, social graphics, and more. Your layout stays in code, ready to adapt.
 
+[See image examples →](cookbook/index.md){ .qt-story-link }
+
+</div>
+<div class="qt-visual qt-image-pair" markdown>
+
+![A commentary thumbnail with a portrait](assets/examples/youtube_reaction.png)
+![A podcast guest promotion](assets/examples/podcast_interview_promo.png)
+
+</div>
+</div>
+</section>
+
+<section class="qt-story qt-story-tinted" aria-labelledby="slides-heading" markdown>
+<div class="qt-container qt-story-grid" markdown>
+<div class="qt-story-copy" markdown>
+
+<p class="qt-kicker">Presentations</p>
+
+## Build presentations. { #slides-heading }
+
+Bring canvases together in a deck with transitions and speaker notes. Export a presentation for the browser or PowerPoint.
+
+[Explore the investor deck →](cookbook/decks-and-video.md#investor-deck){ .qt-story-link }
+
+</div>
+<div class="qt-visual qt-deck-preview" markdown>
+
+![Vela investor deck cover](assets/home/investor-slide-1.png)
+
+<div class="qt-slide-strip" markdown>
+![Vela deck workflow slide](assets/home/investor-slide-4.png)
+![Vela deck traction slide with illustrative data](assets/home/investor-slide-6.png)
+</div>
+
+</div>
+</div>
+</section>
+
+<section class="qt-story" aria-labelledby="motion-heading" markdown>
+<div class="qt-container qt-story-grid" markdown>
+<div class="qt-story-copy" markdown>
+
+<p class="qt-kicker">Video &amp; animation</p>
+
+## Bring ideas to motion. { #motion-heading }
+
+Animate layers, transition between scenes, and add narration and music. Render a video or share an animated GIF.
+
+[Explore the product reel →](cookbook/decks-and-video.md#product-reel){ .qt-story-link }
+
+</div>
+<div class="qt-visual qt-video-preview">
+<video controls playsinline preload="none" poster="assets/home/product-hype-reel-poster.png" aria-label="Product hype reel generated with quickthumb">
+<source src="assets/home/product-hype-reel.mp4" type="video/mp4">
+Your browser does not support video. <a href="assets/home/product-hype-reel.mp4">Download the product reel</a>.
+</video>
+</div>
+</div>
+</section>
+
+<section class="qt-story qt-story-tinted" aria-labelledby="reuse-heading" markdown>
+<div class="qt-container qt-story-grid" markdown>
+<div class="qt-story-copy" markdown>
+
+<p class="qt-kicker">Reusable by design</p>
+
+## Create once. Reuse everywhere. { #reuse-heading }
+
+Keep your design in Python or JSON. Change the content and generate a new series without rebuilding each visual by hand.
+
+[See the complete example →](getting-started.md){ .qt-story-link }
+
+</div>
+<div class="qt-visual qt-reuse" markdown>
 <div class="qt-code-window" markdown>
-<div class="qt-code-title" markdown="span"><span class="qt-code-dots" aria-hidden="true"><i></i><i></i><i></i></span> [episode_cards.py](getting-started.md "See the full Python example")</div>
+<div class="qt-code-title" markdown="span"><span class="qt-code-dots" aria-hidden="true"><i></i><i></i><i></i></span> episode_cards.py</div>
 
-```python linenums="1"
+```python
 episodes = [
     (12, "Ship your first release", "#FF4B1F"),
     (13, "Make room for better work", "#FFD400"),
@@ -62,57 +133,43 @@ for episode, title, accent in episodes:
 ```
 
 </div>
-</div>
-<div class="qt-example-arrow" aria-hidden="true">→</div>
-<div class="qt-example-results" markdown>
-<p class="qt-output-label">Generates</p>
-<div class="qt-episode-grid" markdown>
-<figure markdown="span">
-![Episode 12: Ship your first release](assets/home/episode-12.png)
-<figcaption>episode-12.png</figcaption>
-</figure>
-<figure markdown="span">
-![Episode 13: Make room for better work](assets/home/episode-13.png)
-<figcaption>episode-13.png</figcaption>
-</figure>
-<figure markdown="span">
-![Episode 14: Build less. Finish more.](assets/home/episode-14.png)
-<figcaption>episode-14.png</figcaption>
-</figure>
+<div class="qt-reuse-results" markdown>
+![Episode 12 card](assets/home/episode-12.png)
+![Episode 13 card](assets/home/episode-13.png)
+![Episode 14 card](assets/home/episode-14.png)
 </div>
 </div>
 </div>
-
 </section>
 
-<section class="qt-next qt-container" aria-label="Explore quickthumb" markdown>
+<section class="qt-story" id="get-started" aria-labelledby="start-heading" markdown>
+<div class="qt-container qt-story-grid" markdown>
+<div class="qt-story-copy" markdown>
 
-<div markdown>
+<p class="qt-kicker">Get started</p>
 
-### Find your next layout
+## A few lines of code. { #start-heading }
 
-Thumbnails, social cards, and podcast covers, with the source for every design.
+Install quickthumb, then create your first image with the built-in font. Python 3.11 or later required.
 
-[Browse the cookbook →](cookbook/index.md)
-
-</div>
-<div markdown>
-
-### Build with changing content
-
-Fit longer titles, arrange layers, and load layouts from Python or JSON.
-
-[Explore the API →](api/index.md)
+[Continue with the guide →](getting-started.md){ .qt-story-link }
 
 </div>
-<div markdown>
+<div class="qt-visual" markdown>
 
-### Check and export
+```bash
+python -m pip install quickthumb
+```
 
-Check for common layout problems, then export images, slides, or video.
+```python
+from quickthumb import Canvas
 
-[See export options →](exports.md)
+canvas = Canvas(1280, 720).background(color="#155BD7")
+canvas = canvas.text("Hello, quickthumb", size=96,
+                     color="#FFFFFF", position=(64, 280))
+canvas.render("hello.png")
+```
 
 </div>
-
+</div>
 </section>

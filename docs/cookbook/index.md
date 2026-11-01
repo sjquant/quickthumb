@@ -6,6 +6,7 @@ description: Browse ready-to-run quickthumb recipes for YouTube thumbnails, Inst
 
 Choose a layout for the content you publish, then adapt its text, images, and colors.
 Each preview was rendered by the exact script shown on its recipe page.
+For complete presentations and animated videos, see [Presentations and video](decks-and-video.md).
 For a small example that renders several cards from one layout, start with
 [Render your first cards](../getting-started.md).
 

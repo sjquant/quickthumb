@@ -1,5 +1,5 @@
 site_name: quickthumb
-site_description: Reusable thumbnail and social image layouts in Python or JSON. Update the content to generate the next image.
+site_description: Create images, presentations, and animated video with Python or JSON.
 site_url: https://quickthumb.solaqua.dev
 site_author: Seonu Jang
 repo_name: sjquant/quickthumb
@@ -111,6 +111,7 @@ nav:
       - Structured Errors: errors.md
   - Cookbook:
       - Gallery: cookbook/index.md
+      - Presentations and video: cookbook/decks-and-video.md
       - YouTube Thumbnails: cookbook/youtube-thumbnail.md
       - Instagram Card: cookbook/instagram-card.md
       - Podcast Promo: cookbook/podcast-promo.md

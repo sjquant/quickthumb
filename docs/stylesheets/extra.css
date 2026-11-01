@@ -346,3 +346,40 @@ body:has(.qt-drawer[open]), body:has(#__search:checked) { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }
+
+/* Home story: one idea and one real example per section. */
+.qt-eyebrow, .qt-kicker { font-size: 13px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+.qt-eyebrow { color: #d1e2ff; margin: 0 0 18px; }
+.qt-story { padding-block: 100px; }
+.qt-story-tinted { background: #edf5ff; }
+[data-md-color-scheme="slate"] .qt-story-tinted { background: #13243c; }
+.qt-story-grid { display: grid; grid-template-columns: minmax(250px, .85fr) minmax(0, 1.55fr); align-items: center; gap: clamp(40px, 7vw, 110px); }
+.qt-story-copy { max-width: 410px; }
+.qt-home .qt-story h2 { color: var(--md-default-fg-color); font-size: clamp(34px, 3.2vw, 48px); font-weight: 800; letter-spacing: -1.5px; line-height: 1.12; margin: 0 0 20px; }
+.qt-story-copy > p:not(.qt-kicker) { color: var(--qt-muted); font-size: 19px; line-height: 1.6; margin: 0 0 26px; }
+.qt-story-copy .qt-kicker { color: var(--md-typeset-a-color); margin: 0 0 15px; }
+.qt-story-link { display: inline-block; font-size: 16px; font-weight: 700; }
+.qt-visual { min-width: 0; }
+.qt-visual img { display: block; width: 100%; height: auto; border-radius: 6px; }
+.qt-image-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: center; }
+.qt-image-pair > p { margin: 0; }
+.qt-image-pair img, .qt-deck-preview img { box-shadow: 0 12px 32px #12284a1a; }
+.qt-deck-preview > p, .qt-slide-strip > p, .qt-reuse-results > p { margin: 0; }
+.qt-slide-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+.qt-video-preview { display: flex; justify-content: center; padding: 24px; border-radius: 12px; background: #0d1c32; }
+.qt-video-preview video { display: block; width: auto; max-width: 100%; height: min(520px, 70vh); border-radius: 6px; }
+.qt-reuse { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, .7fr); align-items: center; gap: 18px; }
+.qt-reuse-results { display: grid; gap: 10px; }
+.qt-story .highlight { margin: 0 0 14px; }
+.qt-story .qt-code-window .highlight { margin: 0; }
+@media (max-width: 767px) {
+    .qt-story { padding-block: 64px; }
+    .qt-story-grid { grid-template-columns: 1fr; gap: 30px; }
+    .qt-story-copy { max-width: none; }
+    .qt-home .qt-story h2 { font-size: 34px; letter-spacing: -1px; margin-bottom: 14px; }
+    .qt-story-copy > p:not(.qt-kicker) { font-size: 17px; margin-bottom: 20px; }
+    .qt-image-pair { gap: 10px; }
+    .qt-reuse { grid-template-columns: 1fr; }
+    .qt-reuse-results { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .qt-video-preview video { max-height: 480px; }
+}
