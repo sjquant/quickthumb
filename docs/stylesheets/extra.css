@@ -216,7 +216,6 @@ body:has(.qt-drawer[open]), body:has(#__search:checked) { overflow: hidden; }
 .qt-art-back { top: 0; right: -1%; transform: rotate(8deg); z-index: 1; }
 .qt-art-front { top: 130px; left: -2%; transform: rotate(3deg); z-index: 3; }
 .qt-art-bottom { bottom: 0; right: -2%; transform: rotate(9deg); z-index: 2; }
-.qt-art:is(:hover, :focus-visible) { z-index: 4; }
 .qt-home .qt-example { padding-top: 40px; padding-bottom: 48px; }
 .qt-home .qt-example h2 { font-size: 40px; line-height: 1.2; letter-spacing: -1.4px; margin: 0 0 6px; font-weight: 800; }
 .qt-section-description { color: var(--qt-muted); font-size: 20px; margin: 0 0 28px; }
