@@ -38,14 +38,14 @@ optional renderers. The example needs no font or image downloads after installat
 Some features need extra packages. Install them by name, for example
 `pip install "quickthumb[svg,pdf]"`.
 
-| Extra | Adds | Needed for |
-| --- | --- | --- |
-| `svg` | cairosvg | `canvas.svg(...)` layers. Without it, rendering an SVG layer raises `RenderingError`. Exporting *to* SVG doesn't need it. |
-| `pdf` | reportlab, fonttools, pypdfium2 | PDF export and opt-in PDF fidelity observation |
-| `pptx` | python-pptx | `.to_pptx()` and `render("out.pptx")` |
-| `lottie` | fonttools | Self-contained supported text outlines in Canvas `.lot` exports; shape-only Lottie does not need this extra |
-| `rembg` | rembg, onnxruntime | `remove_background=True` on image layers. Requires Python 3.11+; downloads a model of about 170 MB on first use. |
-| `cli` | typer, watchfiles, jinja2 | The `quickthumb` command: `render`, `lint`, `watch`, `serve`, `doctor`, and more |
+| Extra | Use it for |
+| --- | --- |
+| `svg` | Drawing SVG files as layers. Exporting *to* SVG does not need this extra. |
+| `pdf` | PDF export and optional PDF fidelity checks. |
+| `pptx` | PowerPoint export. |
+| `lottie` | Supported text outlines in Canvas Lottie exports; shape-only Lottie does not need it. |
+| `rembg` | Removing image backgrounds. The first use downloads a model of about 170 MB. |
+| `cli` | The `quickthumb` command, including `render`, `lint`, `watch`, and `doctor`. |
 
 MP4, WebM, and MOV export also need [ffmpeg](https://ffmpeg.org/), which is a system
 program rather than a Python package:
@@ -57,11 +57,9 @@ sudo apt install ffmpeg  # Debian / Ubuntu
 
 MOV requires an FFmpeg build with the `prores_ks` encoder.
 
-Rendering SVG layers uses CairoSVG and its native Cairo library; installing the
-Python extra does not install system libraries. The optional SVG fidelity
-observer also uses CairoSVG. See [CairoSVG installation](https://cairosvg.org/documentation/)
-for platform requirements. The `pdf` extra includes PDFium bindings for PDF
-observation; plain PNG output needs neither renderer.
+SVG layers also need the native Cairo library; the Python extra does not install
+system libraries. See [CairoSVG installation](https://cairosvg.org/documentation/)
+for platform requirements.
 
 ## Check your environment
 

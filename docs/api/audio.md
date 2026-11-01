@@ -1,7 +1,7 @@
 # Audio-reactive authoring
 
 `quickthumb.audio.analyze_audio(path, cache_dir=None)` analyzes a local audio
-source ahead of authoring. It returns a validated `AudioAnalysis` record with
+source ahead of authoring; it requires FFmpeg. It returns a validated `AudioAnalysis` record with
 transient onset times and source-relative RMS amplitudes. Onsets identify sharp
 increases in loudness; they are **not** a musical beat grid or a tempo estimate.
 
@@ -35,16 +35,20 @@ not a claim of live audio synchronization in either format.
 ## Source clock and RMS
 
 All times are seconds from the beginning of the first decoded audio stream.
-Analysis uses mono audio resampled to 8 kHz and contiguous 160-sample (20 ms)
-windows. `rms[i]` is the linear RMS amplitude of the window starting at `i * 0.02`;
-the final window may be shorter. Values are source amplitudes, not normalized
-per track. Silence has zero RMS and no onsets.
+Values describe source amplitude; silence has zero RMS and no onsets.
+Check `onsets` before indexing because a track can have none.
 
-The versioned detector requires an RMS attack above 0.01 and twice both the
-previous window and the mean of the previous ten windows, with at least 100 ms
-between anchors. Reference transients are tested within one 20 ms window;
-gradual attacks and musical offbeats need not produce anchors. An onset index
-can be absent: check `onsets` before indexing.
+??? info "Analysis resolution and onset detection"
+    Analysis uses mono audio resampled to 8 kHz and contiguous 160-sample (20 ms)
+    windows. `rms[i]` is the linear RMS amplitude of the window starting at `i * 0.02`;
+    the final window may be shorter. Values are source amplitudes, not normalized
+    per track. Silence has zero RMS and no onsets.
+
+    The versioned detector requires an RMS attack above 0.01 and twice both the
+    previous window and the mean of the previous ten windows, with at least 100 ms
+    between anchors. Reference transients are tested within one 20 ms window;
+    gradual attacks and musical offbeats need not produce anchors. An onset index
+    can be absent: check `onsets` before indexing.
 
 Export gain, soundtrack looping/fade-out, narration and other mixed audio do not
 change this source analysis. Deck timing is slide-local: authors must translate

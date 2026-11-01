@@ -93,8 +93,11 @@ canvas.path("M10 10H90V90H10Z", (20, 10), 120, 100, None,
             fill=LinearGradient(angle=30, stops=[("#42CEB780", 0), ("#315D8EFF", 1)]))
 ```
 
-Track timelines, static `rotation`/`opacity` and normalized `anchor` are supported;
-see [Path motion](../concepts.md#path-motion) for transform and source limits.
+Track timelines, static `rotation`/`opacity` and normalized `anchor` are supported.
+Static rotation adds to the animated angle, and static opacity multiplies
+animated opacity. Curve subdivision and 4× regional supersampling follow the
+sampled device scale. Each renderer retains at most one 4 MiB painted source;
+a source exceeding the regional pixel budget raises `RenderingError`.
 Parent links, grouping and composition controls are not accepted yet.
 JSON uses `type="path"` and round-trips through `PathLayer`.
 The runnable [path layer example](https://github.com/sjquant/quickthumb/blob/main/examples/path_layer.py)

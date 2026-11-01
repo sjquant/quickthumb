@@ -94,11 +94,10 @@ files with those names. Video needs FFmpeg on
 `PATH` or in `QUICKTHUMB_FFMPEG`; pass `--stills` to skip it. For PowerPoint, add
 `--extra pptx` to `uv run` and `--pptx` to the script.
 
-The HTML and PowerPoint decks can simplify text entrances: in HTML, a headline rises as one block without
-fading in. `Deck.export()` reports affected layers in
-`ExportResult.fallback_diagnostics`, and that list can include entrances that still
-play, so check a deck in its target app if an entrance matters. See the [complete source](https://github.com/sjquant/quickthumb/blob/main/examples/orbit_atlas.py)
-and [animation timing](../timing.md).
+Text entrances can look different in HTML and PowerPoint. Check the deck in its
+target app; see [export details](../exports.md) for fallbacks and the
+[complete source](https://github.com/sjquant/quickthumb/blob/main/examples/orbit_atlas.py)
+to adapt the example.
 
 ## Investor deck
 
