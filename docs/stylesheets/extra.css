@@ -92,12 +92,15 @@ body:has(.qt-drawer[open]), body:has(#__search:checked) { overflow: hidden; }
     transform: translateX(-50%);
     transition: none;
 }
-.qt-header .md-search__form { background: var(--qt-surface); color: var(--md-default-fg-color); border-radius: 8px 8px 0 0; }
+.qt-header .md-search__form { height: 56px; background: var(--qt-surface); color: var(--md-default-fg-color); border-radius: 8px 8px 0 0; }
+.qt-header .md-search__form:focus-within { box-shadow: 0 0 0 2px #87b5ff; }
 .qt-header .md-search__input { color: var(--md-default-fg-color); height: 56px; font-size: 17px; }
+.qt-header .md-search__input:focus-visible { outline: none; }
+.qt-header .md-search__suggest { font-size: 17px; }
 .qt-header .md-search__input::placeholder { color: var(--qt-muted); }
 .qt-header .md-search__icon { color: var(--qt-muted); top: 16px; }
-.qt-header .md-search__output { color: var(--md-default-fg-color); background: var(--qt-surface); border-radius: 0 0 8px 8px; }
-.qt-header .md-search__scrollwrap { max-height: calc(100dvh - 200px); }
+.qt-header .md-search__output { top: 100%; bottom: auto; width: 100%; height: auto; color: var(--md-default-fg-color); background: var(--qt-surface); border-radius: 0 0 8px 8px; }
+.qt-header .md-search__scrollwrap { width: 100%; height: auto; max-height: calc(100dvh - 200px); }
 
 /* Mobile navigation is a native modal drawer on the right. */
 .qt-drawer {
