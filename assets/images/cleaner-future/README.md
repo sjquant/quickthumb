@@ -1,7 +1,7 @@
 # Cleaner Future source images
 
 These images were generated with the built-in image generation tool for the
-`examples/cleaner_future.py` example. Text, shapes, layouts, and animation are
+`examples/cleaner_future.py` example, and `examples/orbit_atlas.py` reuses them. Text, shapes, layouts, and animation are
 added by quickthumb rather than baked into these source images.
 
 - `mountains.png`: “Photorealistic landscape photograph for a sustainability presentation: serene turquoise alpine lake, green forest, snow-capped mountains under a clear bright blue sky, crisp natural daylight, professional environmental campaign photography, wide horizontal 16:9 composition, no text, no logos, no watermark.”

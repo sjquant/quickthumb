@@ -50,6 +50,32 @@ The video animates the headline and accent over a still Earth image; it has no
 audio. See the [complete source](https://github.com/sjquant/quickthumb/blob/main/examples/cleaner_future.py)
 and the [export guide](../exports.md) for format details and fallbacks.
 
+## Orbit Atlas
+
+One script renders two thumbnails, a four-slide deck, and a video with sound for a
+fictional mapping studio. All figures are illustrative. The photographs are bundled
+source images; the type, shapes, and motion are quickthumb layers.
+
+<video controls playsinline preload="none" poster="../../assets/home/orbit-film-poster.webp">
+<source src="../../assets/home/orbit-film.mp4" type="video/mp4">
+Your browser does not support video. <a href="../../assets/home/orbit-film.mp4">Download the video</a>.
+</video>
+
+![A creator pointing at Earth beside the headline I mapped the planet with Python](../assets/home/orbit-thumbnail-planet.webp)
+
+![The Orbit Atlas deck cover beside a mountain lake](../assets/home/orbit-slide-1.webp)
+
+```bash
+uv run --no-default-groups python examples/orbit_atlas.py --output-dir /tmp/orbit-atlas
+```
+
+The script writes `orbit-thumbnail-planet.webp`, `orbit-thumbnail-visuals.webp`, four
+`orbit-slide-*.webp` files, `orbit-deck.html`, `orbit-film.mp4`, and
+`orbit-film-poster.webp`, replacing files with those names. Video needs FFmpeg on
+`PATH`; pass `--stills` to skip it. For PowerPoint, add `--extra pptx` to `uv run`
+and `--pptx` to the script. See the [complete source](https://github.com/sjquant/quickthumb/blob/main/examples/orbit_atlas.py)
+and [animation timing](../timing.md).
+
 ## Investor deck
 
 The Vela example builds ten slides with transitions and speaker notes. All

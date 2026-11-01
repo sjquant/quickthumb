@@ -52,6 +52,16 @@ video, composed from bundled AI-generated source images. Run
 Video requires FFmpeg; add `--pptx` and `--extra pptx` for PowerPoint. Outputs
 with the same names in the chosen directory are replaced.
 
+### `orbit_atlas.py`
+
+Two thumbnails, a four-slide deck, and a 17-second 1280×720 video with sound for a
+fictional mapping studio. The video combines image pans inside an animated mask,
+drawn paths with riders, spring-driven bars, counters, and images of the script's own
+output, cut to a 128 BPM soundtrack. Run
+`uv run --no-default-groups python examples/orbit_atlas.py --output-dir /tmp/orbit-atlas`.
+Video requires FFmpeg (`--stills` skips it); add `--pptx` and `--extra pptx` for
+PowerPoint. Outputs with the same names in the chosen directory are replaced.
+
 ### `creative_starter.py`
 
 A small, self-contained introduction to images, presentations, and animation.
