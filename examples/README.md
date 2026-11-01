@@ -44,6 +44,13 @@ Extras install with `uv run --extra <name> python examples/<script>.py`. The
 
 ## Decks and video
 
+### `creative_starter.py`
+
+A small, self-contained introduction to images, presentations, and animation.
+Run `python examples/creative_starter.py` from the repository root. It writes `creative-starter.png`, a two-slide `creative-starter.html`,
+and `creative-starter.gif`, replacing those files on subsequent runs. Only the
+base package and its built-in font are needed.
+
 ### `motion_blur.py`
 
 Exports the same fast moving marker at 12 fps with motion blur off and with

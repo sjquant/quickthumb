@@ -4,7 +4,21 @@ description: Run complete quickthumb examples for a presentation and an animated
 
 # Presentations and video
 
-These examples are made with the same Canvas and Deck APIs. Their scripts,
+Start with this small example: it renders one image, a two-slide browser
+presentation, and an animated GIF using the base package and built-in font.
+Save it as `creative_starter.py` and run it in the directory where you want the
+files; it replaces files with the same names.
+
+```python
+--8<-- "examples/creative_starter.py"
+```
+
+```bash
+python -m pip install quickthumb
+python creative_starter.py
+```
+
+The complete examples below use the same Canvas and Deck APIs. Their scripts,
 fonts, images, and audio are in the repository. Clone it to run them:
 
 ```bash
