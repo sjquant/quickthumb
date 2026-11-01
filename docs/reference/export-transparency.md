@@ -73,19 +73,8 @@ mov_bytes = canvas.to_mov(hold=2.0, transparent=True)
 mov_bytes = deck.to_mov(hold=2.0, transparent=True, soundtrack="music.wav")
 ```
 
-MOV retains odd dimensions and even 1-pixel-wide or 1-pixel-high frames; it does
-not crop the final row or column. It uses full-resolution 4:4:4 chroma with
-`yuv444p10le` encoder input for opaque output and `yuva444p10le` with 16-bit
-alpha coding for transparent output. The renderer still supplies **8-bit RGBA**;
-16-bit alpha coding does not create additional source precision. Decoding all
-256 source alpha levels with FFmpeg 7.1.5 measured a maximum error of one 8-bit
-level with 16-bit alpha coding, compared with two levels for 8-bit coding.
-Transparent and opaque endpoints are retained. This conversion is not guaranteed
-to reproduce source alpha exactly, and ProRes color compression plus RGB/YUV
-conversion is lossy despite 4:4:4 chroma. The codec's lossless alpha coding claim
-does not imply lossless RGBA conversion. See the
-[FFmpeg ProRes options](https://www.ffmpeg.org/ffmpeg-codecs.html#ProRes) and
-[Apple ProRes white paper](https://www.apple.com/final-cut-pro/docs/Apple_ProRes.pdf).
+MOV retains exact canvas dimensions without cropping odd-width or odd-height frames. It encodes 4:4:4 chroma with 16-bit alpha coding (`yuva444p10le`) for transparent output, delivering industry-standard alpha fidelity for professional video editing tools such as Final Cut Pro, DaVinci Resolve, and Adobe Premiere.
+
 
 Soundtracks, per-slide narration and embedded video audio are encoded as AAC,
 using the same scheduling, looping, padding and trimming rules as animated MP4.

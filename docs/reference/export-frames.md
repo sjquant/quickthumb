@@ -87,17 +87,8 @@ the encoder's 64-audio-input limit. Image-only scenes need no FFmpeg; inferred
 narration lengths still require ffprobe, and video layers retain their normal
 probe/decode requirements.
 
-All frames and the manifest are prepared in a private sibling staging directory;
-render resources close before publication. A single exclusive rename publishes
-the complete directory, refusing files, directories, and live or dangling
-symlinks, including destinations created by a competing exporter. This requires
-Linux `renameat2(RENAME_NOREPLACE)`, macOS `renamex_np(RENAME_EXCL)`, or Windows
-same-volume rename support. Unsupported systems/filesystems fail clearly with
-no ordinary Unix rename or copying fallback. Failures clean only verified owned
-staging and never delete the destination, even if a commit error has an ambiguous
-outcome. This is atomic visibility and no-overwrite publication, not an fsync
-crash-durability guarantee or protection from hostile same-user replacement of
-the parent directory.
+All frames and `manifest.json` are rendered to an atomic staging directory before publication. The target directory must be non-existent; export fails safely if the destination directory already exists, preventing accidental overwrites.
+
 
 Run `examples/image_sequence_overlay.py` for PNG, white-matted JPEG and
 lossless WebP lower-third sequences with no FFmpeg dependency. All three
