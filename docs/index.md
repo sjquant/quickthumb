@@ -25,9 +25,9 @@ hide:
 </div>
 <div class="qt-artwork" aria-label="Examples made with quickthumb" markdown>
 
-[![Python for creators thumbnail](assets/home/python-for-creators.png)](cookbook/decks-and-video.md#cleaner-future){ .qt-art .qt-art-front }
+[![Creator thumbnail: I mapped the planet with Python](assets/home/orbit-thumbnail-planet.webp)](cookbook/decks-and-video.md#orbit-atlas){ .qt-art .qt-art-front }
 [![Podcast guest promotion](assets/examples/podcast_interview_promo.png)](cookbook/podcast-promo.md){ .qt-art .qt-art-back }
-[![Cover of the Cleaner Future presentation](assets/home/cleaner-future-1.png)](cookbook/decks-and-video.md#cleaner-future){ .qt-art .qt-art-bottom }
+[![Cover of the Orbit Atlas presentation](assets/home/orbit-slide-1.webp)](cookbook/decks-and-video.md#orbit-atlas){ .qt-art .qt-art-bottom }
 
 </div>
 </div>
@@ -43,27 +43,28 @@ hide:
 
 Combine text, photos, and shapes into thumbnails, social graphics, and more. Your layout stays in code, ready to adapt.
 
-[See the complete example →](cookbook/decks-and-video.md#cleaner-future){ .qt-story-link }
+[See the complete example →](cookbook/decks-and-video.md#orbit-atlas){ .qt-story-link }
 
 </div>
 <div class="qt-visual qt-image-pair" markdown>
 
-![Python for creators thumbnail made with quickthumb](assets/home/python-for-creators.png)
+![Creator thumbnail: I mapped the planet with Python](assets/home/orbit-thumbnail-planet.webp)
 
 <div class="qt-code-window" markdown>
-<div class="qt-code-title" markdown="span"><span class="qt-code-dots" aria-hidden="true"><i></i><i></i><i></i></span> cleaner_future.py · excerpt</div>
+<div class="qt-code-title" markdown="span"><span class="qt-code-dots" aria-hidden="true"><i></i><i></i><i></i></span> orbit_atlas.py · excerpt</div>
 
 ```python
-canvas = Canvas(1280, 720)
-canvas.image("creator.png", (0, 0), 1280, 720,
-             fit="cover")
-canvas.text("PYTHON", position=(720, 110),
-            font=HEAVY, size=118, color="#FFFFFF")
-canvas.shape("rectangle", (710, 380), 515, 132,
-             "#FFD400", rotation=-3)
-canvas.text("CREATORS", position=(733, 399),
-            font=HEAVY, size=88, color="#111923",
-            rotation=-3)
+canvas = Canvas(WIDTH, HEIGHT).image(
+    CREATOR, (0, 0), WIDTH, HEIGHT, fit="cover"
+)
+canvas.text(
+    "I MAPPED\nTHE PLANET", position=(716, 58),
+    font=HEAVY, size=86, color=WHITE,
+)
+canvas.shape("rectangle", (722, 252), 486, 104,
+             YELLOW, rotation=-3)
+canvas.text("WITH PYTHON", position=(756, 270),
+            font=HEAVY, size=62, color="#111923", rotation=-3)
 ```
 
 </div>
@@ -82,17 +83,17 @@ canvas.text("CREATORS", position=(733, 399),
 
 Bring canvases together in a deck with transitions and speaker notes. Export a presentation for the browser or PowerPoint.
 
-[Explore the presentation →](cookbook/decks-and-video.md#cleaner-future){ .qt-story-link }
+[Explore the presentation →](cookbook/decks-and-video.md#orbit-atlas){ .qt-story-link }
 
 </div>
 <div class="qt-visual qt-deck-preview" markdown>
 
-![Cleaner Future presentation cover with mountains and a lake](assets/home/cleaner-future-1.png)
+![Orbit Atlas presentation cover with mountains and a lake](assets/home/orbit-slide-1.webp)
 
 <div class="qt-slide-strip" markdown>
-![Cleaner Future opportunity slide](assets/home/cleaner-future-2.png)
-![Cleaner Future vision slide](assets/home/cleaner-future-3.png)
-![Cleaner Future closing slide](assets/home/cleaner-future-4.png)
+![Orbit Atlas coverage chart](assets/home/orbit-slide-2.webp)
+![Orbit Atlas metrics slide](assets/home/orbit-slide-3.webp)
+![Orbit Atlas closing slide](assets/home/orbit-slide-4.webp)
 </div>
 
 </div>
@@ -109,13 +110,13 @@ Bring canvases together in a deck with transitions and speaker notes. Export a p
 
 Animate layers and render a video or GIF. Add transitions, narration, and music as your story grows.
 
-[Explore the video example →](cookbook/decks-and-video.md#cleaner-future){ .qt-story-link }
+[Explore the video example →](cookbook/decks-and-video.md#orbit-atlas){ .qt-story-link }
 
 </div>
 <div class="qt-visual qt-video-preview">
-<video controls playsinline preload="none" poster="assets/home/brighter-planet-poster.png" aria-label="A brighter planet animation generated with quickthumb">
-<source src="assets/home/brighter-planet.mp4" type="video/mp4">
-Your browser does not support video. <a href="assets/home/brighter-planet.mp4">Download the animation</a>.
+<video controls playsinline preload="none" poster="assets/home/orbit-film-poster.webp" aria-label="Orbit Atlas animation generated with quickthumb">
+<source src="assets/home/orbit-film.mp4" type="video/mp4">
+Your browser does not support video. <a href="assets/home/orbit-film.mp4">Download the animation</a>.
 </video>
 </div>
 </div>
