@@ -1,102 +1,117 @@
 ---
 title: quickthumb · thumbnails from code
-description: Turn changing content into consistent images. Define a reusable thumbnail or social card layout in Python or JSON, then render it with new content.
+description: Create thumbnails and social images in Python or JSON. Build a layout once, then update the content for your next post.
 template: home.html
 hide:
   - navigation
   - toc
 ---
 
-<section class="qt-hero" markdown>
+<section class="qt-hero" aria-labelledby="qt-heading" markdown>
+<div class="qt-container qt-hero-layout" markdown>
+<div class="qt-hero-copy" markdown>
 
-# Thumbnails, from code
+<h1 id="qt-heading">Thumbnails,<br>from code.</h1>
 
-Create thumbnails and social images in Python or JSON. Build a layout once,
-then update the text, images, and colors for your next post.
+<p class="qt-hero-description">Build a layout once. Update the content for your next post.</p>
 
-[Get started](getting-started.md){ .md-button .md-button--primary }
-[Browse recipes](cookbook/index.md){ .md-button }
-
-<figure class="qt-output" markdown="span">
-[![YouTube thumbnail with a textured photographic background, bold headline, and overlapping before-and-after cards](assets/examples/youtube_thumbnail_01.png)](cookbook/youtube-thumbnail.md#before-after)
-<figcaption markdown="span">Made with quickthumb · [See the source](cookbook/youtube-thumbnail.md#before-after)</figcaption>
-</figure>
-
-</section>
-
-<section class="qt-block" markdown>
-
-## Start with a layout that fits your content
-
-Each image links to a runnable recipe and its source.
-
-<div class="qt-gallery" markdown>
-[![Release announcement with a large two-tone headline and blue artwork](assets/examples/launch_announcement.png)](cookbook/launch-announcement.md)
-[![Commentary thumbnail with a large headline and cut-out portrait](assets/examples/youtube_reaction.png)](cookbook/youtube-thumbnail.md#reaction)
-[![Podcast episode card with a guest portrait](assets/examples/podcast_interview_promo.png)](cookbook/podcast-promo.md)
-[![Social news card with a serif headline over a photograph](assets/examples/instagram_news_card.png)](cookbook/instagram-card.md)
+<div class="qt-actions" markdown>
+[Get started <span aria-hidden="true">→</span>](getting-started.md){ .qt-button .qt-button-white }
+[Browse recipes](cookbook/index.md){ .qt-button .qt-button-outline }
 </div>
 
-[Browse all recipes →](cookbook/index.md){ .qt-more }
-
-</section>
-
-<section class="qt-block" markdown>
-
-## Try a reusable layout
-
-Start with a small example: one function, three episode cards.
-For the designs above, open a recipe to use its fonts, images, and full layout.
-
-<div class="qt-gallery qt-variants" markdown>
-![Episode 12: "Ship your first release" with a giant 12 on an orange band](assets/home/episode-12.png)
-![Episode 13: "Make room for better work" with a giant 13 on a yellow band](assets/home/episode-13.png)
-![Episode 14: "Build less. Finish more." with a giant 14 on a blue band](assets/home/episode-14.png)
+<div class="qt-install">
+<code>python -m pip install quickthumb</code>
+<button type="button" class="qt-icon-button" data-qt-copy="python -m pip install quickthumb" aria-label="Copy install command"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="8" y="6" width="12" height="15" rx="2"/><path d="M16 3H6a2 2 0 0 0-2 2v12"/></svg></button>
+<span class="qt-copy-status" role="status"></span>
 </div>
 
-Python 3.11+ · Base package only · No font or image downloads after installation
+</div>
+<div class="qt-artwork" aria-label="Made with quickthumb" markdown>
 
-```bash
-python -m pip install quickthumb
-```
+[![YouTube cover with a portrait: AI tools, what actually works](assets/examples/youtube_talking_head.png)](cookbook/youtube-thumbnail.md#talking-head){ .qt-art .qt-art-back }
+[![Commentary thumbnail with a surprised portrait: Viral, 12.4 million views](assets/examples/youtube_reaction.png)](cookbook/youtube-thumbnail.md#reaction){ .qt-art .qt-art-front }
+[![Podcast cover with a guest portrait: Signal to Noise](assets/examples/podcast_interview_promo.png)](cookbook/podcast-promo.md){ .qt-art .qt-art-bottom }
 
-Save as `episode_cards.py`, then run `python episode_cards.py`:
+</div>
+</div>
+</section>
+
+<section class="qt-example qt-container" aria-labelledby="qt-example-heading" markdown>
+
+<h2 id="qt-example-heading">One layout. Three episodes.</h2>
+
+<p class="qt-section-description">Create a thumbnail once, update the content, and generate a full series.</p>
+
+<div class="qt-example-layout" markdown>
+<div class="qt-example-code" markdown>
+
+<div class="qt-code-title"><span class="qt-code-dots" aria-hidden="true">● ● ●</span> episode_cards.py</div>
 
 ```python
---8<-- "examples/episode_cards.py"
+episodes = [
+    (12, "Ship your first release", "#FF4B1F"),
+    (13, "Make room for better work", "#FFD400"),
+    (14, "Build less. Finish more.", "#4D8DFF"),
+]
+
+for episode, title, accent in episodes:
+    episode_card(episode, title, accent).render(
+        f"episode-{episode}.png"
+    )
 ```
 
-Open `episode-12.png`, `episode-13.png`, and `episode-14.png` in the same directory.
-Edit the `episodes` list and run it again to replace the cards with your own content.
+[See the full Python example →](getting-started.md)
 
-Prefer JSON? [Load a spec from your pipeline or an AI workflow](json-schema.md).
+</div>
+<div class="qt-episode-grid" markdown>
+<figure markdown="span">
+![Episode 12: Ship your first release](assets/home/episode-12.png)
+<figcaption>episode-12.png</figcaption>
+</figure>
+<figure markdown="span">
+![Episode 13: Make room for better work](assets/home/episode-13.png)
+<figcaption>episode-13.png</figcaption>
+</figure>
+<figure markdown="span">
+![Episode 14: Build less. Finish more.](assets/home/episode-14.png)
+<figcaption>episode-14.png</figcaption>
+</figure>
+</div>
+</div>
 
-</section>
-
-<section class="qt-block" markdown>
-
-## Keep the layout. Change the content
-
-- **Fit changing titles.** Set text wrapping and fitting bounds, or use
-  [auto-layout groups](api/group.md) to arrange rows and columns.
-- **Catch common problems.** [Diagnostics](diagnostics.md) flag issues such as
-  off-canvas layers, small text, and low contrast before export.
-- **Use the output where you need it.** Export PNG, JPEG, WebP, SVG, HTML, or GIF
-  with the base package. [Other formats](exports.md), including PDF, PPTX, and
-  video, have additional dependencies and format-specific behavior.
-
-For repeatable pixels, keep assets, fonts, and the rendering environment fixed.
-[Read the reproducibility requirements](exports.md#render-reproducibility).
-
-Need several slides or narrated video? Explore [Deck](api/deck.md).
+<p class="qt-example-note">Python 3.11+ · Base package only · No font or image downloads after installation</p>
 
 </section>
 
-<section class="qt-block qt-end" markdown>
+<section class="qt-next qt-container" aria-label="Explore quickthumb" markdown>
 
-## Make the next image your own
+<div markdown>
 
-[Get started](getting-started.md){ .md-button .md-button--primary }
-[API reference](api/index.md){ .md-button }
+### Find your next layout
+
+Thumbnails, social cards, and podcast covers, with the source for every design.
+
+[Browse the cookbook →](cookbook/index.md)
+
+</div>
+<div markdown>
+
+### Build with changing content
+
+Fit longer titles, arrange layers, and load layouts from Python or JSON.
+
+[Explore the API →](api/index.md)
+
+</div>
+<div markdown>
+
+### Check and export
+
+Check for common layout problems, then export images, slides, or video.
+
+[See export options →](exports.md)
+
+</div>
 
 </section>

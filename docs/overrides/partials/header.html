@@ -1,0 +1,60 @@
+<header class="md-header qt-header" data-md-component="header">
+  <nav class="qt-header-inner" aria-label="Main navigation">
+    <a class="qt-brand" href="{{ nav.homepage.url | url }}" aria-label="quickthumb home">
+      <img src="{{ 'assets/brand/quickthumb-icon.svg' | url }}" width="40" height="40" alt="">
+      <span>quickthumb</span>
+    </a>
+    <div class="qt-desktop-links">
+      <a href="{{ 'cookbook/' | url }}">Recipes</a>
+      <a href="{{ 'getting-started/' | url }}">Docs</a>
+      <a href="{{ config.repo_url }}">GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="qt-header-tools">
+      {% include "partials/palette.html" %}
+      {% include "partials/javascripts/palette.html" %}
+      <button class="qt-icon-button" type="button" data-qt-search aria-label="Search documentation">
+        {% include ".icons/material/magnify.svg" %}
+      </button>
+      <button class="qt-icon-button qt-menu-trigger" type="button" data-qt-menu aria-label="Open navigation" aria-controls="qt-navigation" aria-expanded="false">
+        {% include ".icons/material/menu.svg" %}
+      </button>
+    </div>
+  </nav>
+  {% include "partials/search.html" %}
+</header>
+
+<dialog class="qt-drawer" id="qt-navigation" aria-label="Site navigation">
+  <div class="qt-drawer-header">
+    <a class="qt-brand" href="{{ nav.homepage.url | url }}" aria-label="quickthumb home">
+      <img src="{{ 'assets/brand/quickthumb-icon.svg' | url }}" width="36" height="36" alt="">
+      <span>quickthumb</span>
+    </a>
+    <button class="qt-icon-button" type="button" data-qt-close aria-label="Close navigation" autofocus>
+      {% include ".icons/material/close.svg" %}
+    </button>
+  </div>
+  <button class="qt-drawer-search" type="button" data-qt-search>
+    {% include ".icons/material/magnify.svg" %}
+    <span>Search documentation</span>
+  </button>
+  <nav class="qt-drawer-links" aria-label="Explore quickthumb">
+    <a class="qt-button qt-button-blue" href="{{ 'getting-started/' | url }}">Get started <span aria-hidden="true">→</span></a>
+    <a href="{{ 'cookbook/' | url }}">Recipes</a>
+    <a href="{{ 'getting-started/' | url }}">Docs</a>
+    <a href="{{ config.repo_url }}">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+  <nav class="qt-drawer-docs" aria-label="Documentation shortcuts">
+    <p class="qt-nav-caption">Documentation</p>
+    <a href="{{ 'installation/' | url }}">Installation</a>
+    <a href="{{ 'concepts/' | url }}">Core Concepts</a>
+    <a href="{{ 'api/' | url }}">API Reference</a>
+  </nav>
+  <details class="qt-drawer-index">
+    <summary>All documentation</summary>
+    {% include "partials/drawer-tree.html" %}
+  </details>
+  <button class="qt-appearance" type="button" data-qt-theme>
+    {% include ".icons/material/brightness-6.svg" %}
+    <span>Switch theme</span>
+  </button>
+</dialog>

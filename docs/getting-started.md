@@ -7,8 +7,6 @@ description: Render three episode cards from one reusable Python layout, then ch
 Build one episode-card layout and render it with three sets of content.
 Then change a title to make your own version.
 
-![Episode 12: a giant black 12 standing on the edge of an orange band, above the white headline Ship your first release](assets/home/episode-12.png)
-
 ## 1. Install quickthumb
 
 You need **Python 3.11 or later**. In your Python environment:

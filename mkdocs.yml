@@ -34,7 +34,6 @@ theme:
   features:
     - navigation.instant
     - navigation.instant.progress
-    - navigation.tabs
     - navigation.sections
     - navigation.top
     - search.suggest
@@ -52,6 +51,9 @@ hooks:
 exclude_docs: |
   hooks/
 
+extra_javascript:
+  - javascripts/site.js
+
 extra_css:
   - stylesheets/extra.css
 
@@ -65,6 +67,7 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.highlight:
+      pygments_lang_class: true
       anchor_linenums: true
   - pymdownx.inlinehilite
   # Recipes embed the example scripts directly, so the code shown is the code
