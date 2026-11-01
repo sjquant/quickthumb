@@ -18,7 +18,7 @@ hide:
 <p class="qt-hero-description">Create images, presentations, and animated videos from reusable layouts.</p>
 
 <div class="qt-actions" markdown>
-[Install quickthumb <span aria-hidden="true">→</span>](#install){ .qt-button .qt-button-white }
+[Install quickthumb <span aria-hidden="true">→</span>](installation.md){ .qt-button .qt-button-white }
 [Explore examples](cookbook/index.md){ .qt-button .qt-button-outline }
 </div>
 
