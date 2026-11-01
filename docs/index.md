@@ -23,7 +23,7 @@ hide:
 </div>
 
 </div>
-<div class="qt-artwork" aria-label="Examples made with quickthumb" markdown>
+<div class="qt-artwork" role="group" aria-label="Examples made with quickthumb" markdown>
 
 [![Python for creators thumbnail](assets/home/python-for-creators.png)](cookbook/decks-and-video.md#cleaner-future){ .qt-art .qt-art-front }
 [![Podcast guest promotion](assets/examples/podcast_interview_promo.png)](cookbook/podcast-promo.md){ .qt-art .qt-art-back }

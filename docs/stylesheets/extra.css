@@ -209,13 +209,6 @@ body:has(.qt-drawer[open]), body:has(#__search:checked) { overflow: hidden; }
 .qt-install .qt-icon-button:hover { background: #155bd712; }
 .qt-install .qt-icon-button svg { fill: none; }
 .qt-copy-status { position: absolute; top: calc(100% + 4px); right: 0; font-size: 12px; color: #fff; }
-.qt-artwork { position: relative; height: 500px; }
-.qt-artwork > p { margin: 0; }
-.qt-art { position: absolute; display: block; width: 76%; border-radius: 4px; box-shadow: 0 12px 32px #00183a36; outline-offset: 6px; }
-.qt-art img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 4px; }
-.qt-art-back { top: 0; right: -1%; transform: rotate(8deg); z-index: 1; }
-.qt-art-front { top: 130px; left: -2%; transform: rotate(3deg); z-index: 3; }
-.qt-art-bottom { bottom: 0; right: -2%; transform: rotate(9deg); z-index: 2; }
 .qt-home .qt-example { padding-top: 32px; padding-bottom: 32px; }
 .qt-home .qt-example h2 { font-size: 56px; line-height: 1.15; letter-spacing: -1.8px; margin: 0 0 4px; font-weight: 800; }
 .qt-section-description { color: var(--qt-muted); font-size: 22px; line-height: 1.4; margin: 0 0 24px; }
@@ -267,8 +260,6 @@ body:has(.qt-drawer[open]), body:has(#__search:checked) { overflow: hidden; }
     .md-sidebar--primary { display: block; position: sticky; transform: none; box-shadow: none; height: fit-content; }
     .md-main__inner { padding-inline: 24px; }
     .qt-header-inner, .qt-container { padding-inline: 32px; }
-    .qt-artwork { height: 420px; }
-    .qt-art-front { top: 110px; }
     .qt-hero-layout { min-height: 560px; }
     .qt-home .qt-hero-description { font-size: 23px; }
     .qt-example-layout { grid-template-columns: minmax(0, 1fr); gap: 28px; }
@@ -285,8 +276,6 @@ body:has(.qt-drawer[open]), body:has(#__search:checked) { overflow: hidden; }
     .qt-hero-layout { gap: 8px; min-height: 520px; padding-top: 32px; }
     .qt-home .qt-hero h1 { font-size: 64px; letter-spacing: -3px; }
     .qt-home .qt-hero-description { font-size: 20px; }
-    .qt-artwork { height: 380px; }
-    .qt-art-front { top: 110px; }
     .qt-actions > p { gap: 12px; }
     .qt-button { font-size: 16px; padding: 12px 18px; min-height: 50px; }
     .qt-install { padding-left: 12px; min-height: 52px; }
@@ -312,11 +301,6 @@ body:has(.qt-drawer[open]), body:has(#__search:checked) { overflow: hidden; }
     .qt-button { flex: 1; padding: 12px 10px; gap: 12px; white-space: nowrap; font-size: 15px; }
     .qt-install { width: 100%; padding-left: 14px; }
     .qt-install code { font-size: clamp(11px, 3vw, 16px); }
-    .qt-artwork { height: clamp(280px, 75vw, 460px); margin: 0 -4px; }
-    .qt-art { width: 78%; }
-    .qt-art-back { top: 8px; left: 0; right: auto; transform: rotate(-9deg); width: 57%; }
-    .qt-art-front { top: 94px; left: 7%; width: 86%; transform: rotate(3deg); }
-    .qt-art-bottom { bottom: auto; top: 20px; right: 0; width: 55%; transform: rotate(9deg); }
     .qt-home .qt-example { padding-top: 32px; padding-bottom: 32px; }
     .qt-home .qt-example h2 { font-size: 30px; letter-spacing: -.9px; }
     .qt-section-description { font-size: 17px; margin-bottom: 24px; }
@@ -340,7 +324,6 @@ body:has(.qt-drawer[open]), body:has(#__search:checked) { overflow: hidden; }
     .qt-brand { font-size: 21px; gap: 6px; }
     .qt-home .qt-hero h1 { font-size: 42px; }
     .qt-button { font-size: 14px; gap: 8px; }
-    .qt-artwork { height: 280px; }
     .qt-gallery { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -384,48 +367,54 @@ body:has(.qt-drawer[open]), body:has(#__search:checked) { overflow: hidden; }
     .qt-video-preview video { max-height: 480px; }
 }
 
-/* Arrange the three examples without hiding their main subjects. */
-.qt-art-back { top: 55px; right: -2%; width: 64%; }
-.qt-art-front { top: 0; left: -2%; width: 65%; transform: rotate(-4deg); }
-.qt-art-bottom { bottom: 0; left: 14%; right: auto; width: 64%; transform: rotate(2deg); }
 .qt-slide-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .qt-video-preview video { width: 100%; height: auto; max-height: none; aspect-ratio: 16 / 9; }
 .qt-image-pair > .qt-code-window { align-self: stretch; }
 @media (max-width: 767px) {
-    .qt-art-back { top: 40px; left: auto; right: 0; width: 62%; transform: rotate(7deg); }
-    .qt-art-front { top: 0; left: -2%; width: 64%; }
-    .qt-art-bottom { top: auto; bottom: 4px; left: 15%; right: auto; width: 64%; }
     .qt-image-pair { grid-template-columns: 1fr; }
     .qt-video-preview video { max-height: none; }
 }
 
 /* Homepage layout: keep the examples legible at each width. */
-.qt-hero-layout { min-height: 520px; padding-block: 40px 56px; gap: clamp(32px, 5vw, 72px); }
+.qt-hero-layout { grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); min-height: 520px; padding-block: 40px 56px; gap: clamp(32px, 5vw, 72px); }
 .qt-home .qt-hero h1 { font-size: clamp(56px, 5.5vw, 80px); letter-spacing: -.045em; }
 .qt-home .qt-hero-description { font-size: clamp(20px, 1.7vw, 24px); }
-.qt-artwork { height: auto; margin: 0; }
-.qt-artwork > p { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: center; }
-.qt-artwork .qt-art { position: static; width: 100%; transform: none; }
-.qt-artwork .qt-art-front { grid-column: 1; grid-row: 1 / 3; }
-.qt-artwork .qt-art-back { grid-column: 2; grid-row: 1; }
-.qt-artwork .qt-art-bottom { grid-column: 2; grid-row: 2; }
+.qt-hero a:focus-visible { outline-color: #fff; outline-offset: 3px; }
+
+/* Hero collage: cards overlap only where an image has no subject or message.
+   Offsets are percentages, so the arrangement scales with the column.
+   Cards stack in source order; a z-index above 1 would cover the sticky header or back-to-top button. */
+.qt-artwork > p { position: relative; aspect-ratio: 100 / 66; margin: 0; }
+.qt-art { position: absolute; border-radius: 8px; box-shadow: 0 0 0 1px #ffffff40, 0 18px 40px #00183a59; }
+.qt-art:focus-visible { z-index: 1; box-shadow: 0 0 0 3px #00183a, 0 18px 40px #00183a59; }
+.qt-art img { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: inherit; }
+.qt-art-front { top: 3%; left: 0; width: 53%; transform: rotate(-3deg); }
+.qt-art-back { top: 7%; right: 0; width: 47%; transform: rotate(3deg); }
+.qt-art-bottom { bottom: 1%; left: 21%; width: 62%; transform: rotate(1.5deg); }
 .qt-story { padding-block: clamp(64px, 6vw, 88px); }
 .qt-story-grid { gap: clamp(32px, 5vw, 72px); }
 .qt-video-preview { padding: 0; background: transparent; border-radius: 0; }
 .qt-video-preview video { border-radius: 0; }
+@media (max-width: 1023px) {
+    .qt-hero-layout { grid-template-columns: minmax(0, 1fr); min-height: 0; gap: 32px; }
+    .qt-artwork { width: min(100%, 720px); margin-inline: auto; }
+}
+@media (max-width: 639px) {
+    .qt-artwork { width: min(100%, 400px); }
+    .qt-artwork > p { aspect-ratio: 100 / 135; }
+    .qt-art-front { top: 1%; width: 82%; transform: rotate(-2deg); }
+    .qt-art-back { top: 33%; width: 82%; transform: rotate(2deg); }
+    .qt-art-bottom { left: 3%; width: 82%; transform: rotate(-1deg); }
+}
 @media (max-width: 900px) {
-    .qt-hero-layout { grid-template-columns: 1fr; min-height: 0; gap: 32px; }
-    .qt-artwork { width: min(100%, 640px); }
     .qt-story-grid { grid-template-columns: 1fr; gap: 28px; }
     .qt-story-copy { max-width: 600px; }
     .qt-image-pair { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 767px) {
-    .qt-hero-layout { min-height: 0; gap: 32px; padding-block: 32px 48px; }
+    .qt-hero-layout { padding-block: 32px 48px; }
     .qt-home .qt-hero h1 { font-size: clamp(42px, 10vw, 64px); letter-spacing: -.04em; }
     .qt-home .qt-hero-description { font-size: 18px; }
-    .qt-artwork { height: auto; }
-    .qt-artwork > p { gap: 10px; }
     .qt-story { padding-block: 56px; }
     .qt-home .qt-story h2 { font-size: clamp(30px, 8vw, 36px); }
     .qt-image-pair { grid-template-columns: 1fr; }
