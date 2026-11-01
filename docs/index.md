@@ -25,10 +25,9 @@ hide:
 </div>
 <div class="qt-artwork" aria-label="Examples made with quickthumb" markdown>
 
-[![A talking-head video thumbnail](assets/examples/youtube_talking_head.png)](cookbook/youtube-thumbnail.md#talking-head){ .qt-art .qt-art-back }
+[![Podcast guest promotion](assets/examples/podcast_interview_promo.png)](cookbook/podcast-promo.md){ .qt-art .qt-art-back }
 [![Python for creators thumbnail](assets/home/python-for-creators.png)](cookbook/decks-and-video.md#cleaner-future){ .qt-art .qt-art-front }
 [![Cover of the Cleaner Future presentation](assets/home/cleaner-future-1.png)](cookbook/decks-and-video.md#cleaner-future){ .qt-art .qt-art-bottom }
-[![A brighter planet video frame](assets/home/brighter-planet-poster.png)](cookbook/decks-and-video.md#cleaner-future){ .qt-art .qt-art-video }
 
 </div>
 </div>
