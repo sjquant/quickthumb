@@ -76,8 +76,7 @@ The script writes `orbit-thumbnail-planet.webp`, `orbit-thumbnail-visuals.webp`,
 `PATH` or in `QUICKTHUMB_FFMPEG`; pass `--stills` to skip it. For PowerPoint, add
 `--extra pptx` to `uv run` and `--pptx` to the script.
 
-The video plays its motion through quickthumb's video renderer. The HTML and PowerPoint
-decks can simplify text entrances: in HTML, a headline rises as one block without
+The HTML and PowerPoint decks can simplify text entrances: in HTML, a headline rises as one block without
 fading in. `Deck.export()` reports affected layers in
 `ExportResult.fallback_diagnostics`, and that list can include entrances that still
 play, so check a deck in its target app if an entrance matters. See the [complete source](https://github.com/sjquant/quickthumb/blob/main/examples/orbit_atlas.py)

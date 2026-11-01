@@ -40,7 +40,6 @@ from quickthumb import (
     SpringEasing,
     TextFillImage,
     TextPart,
-    TimingSpec,
     TrimEndTrack,
     VideoOptions,
     Wipe,
@@ -94,8 +93,7 @@ def main() -> None:
     slides.render(str(out / "orbit-deck.html"))
     if args.pptx:
         slides.render(str(out / "orbit-deck.pptx"))
-    poster = orbit_scene().render_frame(5 * BEAT).convert("RGB")
-    poster.save(out / "orbit-film-poster.webp", quality=88)
+    orbit_scene().render_frame(5 * BEAT).save(out / "orbit-film-poster.webp", quality=88)
     if not args.stills:
         render_film(out)
 
@@ -185,7 +183,7 @@ def visuals_thumbnail() -> Canvas:
         1400,
         1400,
         BLUE,
-        fill=_glow_fill("#155BD7", "B0"),
+        fill=_glow_fill(BLUE, "B0"),
     )
     canvas.text("CODE YOUR", position=(70, 110), font=BOLD, size=46, color=SKY, letter_spacing=6)
     canvas.text(
@@ -195,7 +193,7 @@ def visuals_thumbnail() -> Canvas:
         size=138,
         line_height=0.98,
         color=WHITE,
-        fill=LinearGradient(angle=90, stops=[("#FFFFFF", 0.35), ("#FFD400", 1.0)]),
+        fill=LinearGradient(angle=90, stops=[(WHITE, 0.35), (YELLOW, 1.0)]),
     )
     canvas.path(
         "M0 26C90 2 210 2 300 16S470 34 560 8",
@@ -219,11 +217,7 @@ def visuals_thumbnail() -> Canvas:
 
 
 def deck() -> Deck:
-    """A four-slide deck whose layers enter on arrival.
-
-    HTML and PowerPoint simplify these entrances, and quickthumb lists each one in
-    ExportResult.fallback_diagnostics; see the "Orbit Atlas" cookbook section.
-    """
+    """A four-slide deck whose layers enter on arrival rather than on click."""
     return (
         Deck(WIDTH, HEIGHT)
         .slide(
@@ -280,7 +274,9 @@ def cover_slide() -> Canvas:
 
 
 def coverage_slide() -> Canvas:
-    canvas = _page("Coverage", "02")
+    canvas = Canvas(WIDTH, HEIGHT).background(color=WHITE)
+    canvas.text("COVERAGE", position=(70, 66), font=BOLD, size=20, color=BLUE, letter_spacing=4)
+    canvas.text("02", position=(1210, 66), align=("right", "top"), font=BOLD, size=20, color=MUTED)
     canvas.text(
         "Coverage\ndoubled in\nfour years.",
         position=(70, 130),
@@ -397,15 +393,6 @@ def closing_slide() -> Canvas:
     return canvas
 
 
-def _page(title: str, number: str) -> Canvas:
-    canvas = Canvas(WIDTH, HEIGHT).background(color=WHITE)
-    canvas.text(title.upper(), position=(70, 66), font=BOLD, size=20, color=BLUE, letter_spacing=4)
-    canvas.text(
-        number, position=(1210, 66), align=("right", "top"), font=BOLD, size=20, color=MUTED
-    )
-    return canvas
-
-
 def _enter_block() -> AnimationSpec:
     return AnimationSpec.rise(
         from_="bottom",
@@ -424,20 +411,20 @@ def video(rendered: Path) -> Deck:
     """Four beat-cut scenes: orbit, dive to a trail, the data, and the code behind it."""
     return (
         Deck(WIDTH, HEIGHT)
-        .slide(orbit_scene(), transition=tr.Cut(advance_after=ORBIT_END), duration=ORBIT_END)
+        .slide(orbit_scene(), transition=tr.Cut(), duration=ORBIT_END)
         .slide(
             trail_scene(),
-            transition=tr.Fade(duration=BEAT / 2, advance_after=TRAIL_END - BEAT / 2),
+            transition=tr.Fade(duration=BEAT / 2),
             duration=TRAIL_END,
         )
         .slide(
             number_scene(),
-            transition=tr.Push(direction="left", duration=BEAT, advance_after=NUMBER_END - BEAT),
+            transition=tr.Push(direction="left", duration=BEAT),
             duration=NUMBER_END,
         )
         .slide(
             close_scene(rendered),
-            transition=tr.Circle(duration=BEAT, advance_after=CLOSE_END - BEAT),
+            transition=tr.Circle(duration=BEAT),
             duration=CLOSE_END,
         )
     )
@@ -475,7 +462,10 @@ def orbit_scene() -> Canvas:
         ),
     )
     _add_ring_half(canvas, back=False)
-    _add_satellite(canvas)
+    # The satellite rides only the visible front of the ring.
+    _add_rider(
+        canvas, _ring_points(back=False), 3 * BEAT, 3 * BEAT, size=18, color=SKY, exit_at=5.7 * BEAT
+    )
     canvas.text(
         "ORBIT ATLAS",
         position=(72, 200),
@@ -518,8 +508,9 @@ def _add_stars(canvas: Canvas) -> None:
         )
 
 
-def _ring_points(back: bool, steps: int = 72) -> list[tuple[float, float]]:
+def _ring_points(back: bool) -> list[tuple[float, float]]:
     """One half of a tilted orbit; the front half runs left to right."""
+    steps = 72
     cx, cy = EARTH_CENTER
     rx, ry, tilt = 560, 132, math.radians(-16)
     start = math.pi if back else 0
@@ -561,12 +552,6 @@ def _add_ring_half(canvas: Canvas, *, back: bool) -> None:
             easing="linear",
         ),
     )
-
-
-def _add_satellite(canvas: Canvas) -> None:
-    """A dot that rides the visible front of the ring as a sampled motion path."""
-    points = _ring_points(back=False)
-    _add_rider(canvas, points, 3 * BEAT, 3 * BEAT, size=18, color=SKY, exit_at=5.7 * BEAT)
 
 
 def _add_rider(
@@ -660,7 +645,7 @@ def trail_scene() -> Canvas:
     _add_rider(canvas, route, start, duration, size=22, color=YELLOW)
     _add_summit_pulse(canvas, route[-1], start + duration)
     _add_headline(canvas, ("Every", "trail."), (68, 236), 118, BEAT / 2)
-    _add_elevation_card(canvas, start)
+    _add_elevation_card(canvas, start, duration)
     return canvas
 
 
@@ -702,7 +687,7 @@ def _sample_route() -> list[tuple[float, float]]:
     return points
 
 
-def _add_elevation_card(canvas: Canvas, start: float) -> None:
+def _add_elevation_card(canvas: Canvas, start: float, duration: float) -> None:
     x, y, width, height = 870, 500, 340, 160
     enter = (_slide((60, 0), start - BEAT, BEAT), _fade(start - BEAT, BEAT))
     canvas.shape(
@@ -727,7 +712,7 @@ def _add_elevation_card(canvas: Canvas, start: float) -> None:
     canvas.counter(
         1120,
         3412,
-        4.5 * BEAT,
+        duration,
         delay=start,
         suffix=" m",
         style="plain",
@@ -750,14 +735,14 @@ def _add_elevation_card(canvas: Canvas, start: float) -> None:
         stroke_width=3,
         line_join="round",
         line_cap="round",
-        animation=_play(_draw(start, 4.5 * BEAT), easing="linear"),
+        animation=_play(_draw(start, duration), easing="linear"),
     )
 
 
 def number_scene() -> Canvas:
     """Bars spring up on the beat, a line draws across them, and glows drift behind."""
     canvas = Canvas(WIDTH, HEIGHT).background(color=NAVY)
-    _add_drifting_glow(canvas, (30, 40), "#155BD7", (130, 50))
+    _add_drifting_glow(canvas, (30, 40), BLUE, (130, 50))
     _add_drifting_glow(canvas, (660, 90), "#0E7BC4", (-60, -60))
     _add_headline(canvas, ("Every", "number."), (68, 96), 118, BEAT / 2)
     number_start = 1.5 * BEAT
@@ -1035,10 +1020,7 @@ def _add_headline(
 
 def _play(*tracks, easing: str = "ease_out_cubic") -> AnimationSpec:
     """One timeline on the scene clock: a layer before its first move holds its first key."""
-    duration = max(track.keyframes[-1].time for track in tracks)
-    return AnimationSpec.timeline(
-        *tracks, timing=TimingSpec(start=0, duration=duration), easing=easing
-    )
+    return AnimationSpec.timeline(*tracks, easing=easing)
 
 
 def _keys(*pairs: tuple) -> list[KeyframeSpec]:

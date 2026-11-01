@@ -60,7 +60,7 @@ combines image pans inside a mask, drawn paths with riders, spring-driven bars, 
 output, cut to a 128 BPM soundtrack. Run
 `uv run --no-default-groups python examples/orbit_atlas.py --output-dir /tmp/orbit-atlas`.
 Video requires FFmpeg (`--stills` skips it); add `--pptx` and `--extra pptx` for
-PowerPoint. HTML and PowerPoint simplify the deck's text entrances. Outputs with the same names in the chosen directory are replaced.
+PowerPoint. Outputs with the same names in the chosen directory are replaced.
 
 ### `creative_starter.py`
 
