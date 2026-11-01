@@ -293,8 +293,8 @@ body:has(.qt-drawer[open]), body:has(#__search:checked) { overflow: hidden; }
 .qt-outputs strong { display: block; color: var(--md-default-fg-color); font-size: 15px; font-weight: 700; }
 /* The branch: a stem from the code, a spine, and one arrow per output. */
 .qt-outputs::before { content: ""; position: absolute; top: calc((100% - 2 * var(--qt-output-gap)) / 6); bottom: calc((100% - 2 * var(--qt-output-gap)) / 6); left: 24px; border-left: 2px solid #8ba1c4; }
-.qt-outputs::after { content: ""; position: absolute; top: 50%; left: 8px; width: 16px; border-top: 2px solid #8ba1c4; }
-.qt-outputs li::before { content: ""; position: absolute; top: 50%; left: -32px; width: 24px; border-top: 2px solid #8ba1c4; }
+.qt-outputs::after { content: ""; position: absolute; top: 50%; left: 0; width: 24px; border-top: 2px solid #8ba1c4; transform: translateY(-50%); }
+.qt-outputs li::before { content: ""; position: absolute; top: 50%; left: -32px; width: 24px; border-top: 2px solid #8ba1c4; transform: translateY(-50%); }
 .qt-outputs li::after { content: ""; position: absolute; top: calc(50% - 4px); left: -17px; width: 8px; height: 8px; border-top: 2px solid #8ba1c4; border-right: 2px solid #8ba1c4; transform: rotate(45deg); }
 
 /* Shared recipe and guide galleries retain the original artwork proportions. */
