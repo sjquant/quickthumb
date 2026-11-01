@@ -53,8 +53,9 @@ and the [export guide](../exports.md) for format details and fallbacks.
 ## Orbit Atlas
 
 One script renders two thumbnails, a four-slide deck, and a video with sound for a
-fictional mapping studio. All figures are illustrative. The photographs are bundled
-source images; the type, shapes, and motion are quickthumb layers.
+fictional mapping studio. All figures are illustrative. The bundled source images,
+including the people, are AI-generated; the type, shapes, and motion are quickthumb
+layers.
 
 <video controls playsinline preload="none" poster="../../assets/home/orbit-film-poster.webp">
 <source src="../../assets/home/orbit-film.mp4" type="video/mp4">
@@ -72,8 +73,14 @@ uv run --no-default-groups python examples/orbit_atlas.py --output-dir /tmp/orbi
 The script writes `orbit-thumbnail-planet.webp`, `orbit-thumbnail-visuals.webp`, four
 `orbit-slide-*.webp` files, `orbit-deck.html`, `orbit-film.mp4`, and
 `orbit-film-poster.webp`, replacing files with those names. Video needs FFmpeg on
-`PATH`; pass `--stills` to skip it. For PowerPoint, add `--extra pptx` to `uv run`
-and `--pptx` to the script. See the [complete source](https://github.com/sjquant/quickthumb/blob/main/examples/orbit_atlas.py)
+`PATH` or in `QUICKTHUMB_FFMPEG`; pass `--stills` to skip it. For PowerPoint, add
+`--extra pptx` to `uv run` and `--pptx` to the script.
+
+The video plays its motion through quickthumb's video renderer. The HTML and PowerPoint
+decks can simplify text entrances: in HTML, a headline rises as one block without
+fading in. `Deck.export()` reports affected layers in
+`ExportResult.fallback_diagnostics`, and that list can include entrances that still
+play, so check a deck in its target app if an entrance matters. See the [complete source](https://github.com/sjquant/quickthumb/blob/main/examples/orbit_atlas.py)
 and [animation timing](../timing.md).
 
 ## Investor deck

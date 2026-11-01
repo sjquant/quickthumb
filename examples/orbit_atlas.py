@@ -3,16 +3,19 @@
 From the repository root:
     uv run --no-default-groups python examples/orbit_atlas.py --output-dir /tmp/orbit-atlas
 
-Orbit Atlas is a fictional brand and its numbers are illustrative. Source photos
-come from assets/images; type, shapes, charts, and motion are all quickthumb layers.
+Orbit Atlas is a fictional brand and its numbers are illustrative. The source images
+in assets/images are AI-generated; type, shapes, and motion are all quickthumb layers.
 Video needs FFmpeg; pass --stills to skip it, or --pptx with the pptx extra installed.
 Files with the same names in the output directory are replaced.
 """
 
 import argparse
+import itertools
 import math
+import os
 import random
 import subprocess
+import tempfile
 from pathlib import Path
 
 from quickthumb import (
@@ -20,6 +23,7 @@ from quickthumb import (
     AudioTrack,
     Canvas,
     Deck,
+    Fade,
     Glow,
     ImagePanTrack,
     ImageZoomTrack,
@@ -90,8 +94,17 @@ def main() -> None:
     slides.render(str(out / "orbit-deck.html"))
     if args.pptx:
         slides.render(str(out / "orbit-deck.pptx"))
+    poster = orbit_scene().render_frame(5 * BEAT).convert("RGB")
+    poster.save(out / "orbit-film-poster.webp", quality=88)
     if not args.stills:
-        master = out / "orbit-film-master.mp4"
+        render_film(out)
+
+
+def render_film(out: Path) -> None:
+    """Replace orbit-film.mp4 only on success; quickthumb's near-lossless master is temporary."""
+    with tempfile.TemporaryDirectory(dir=out) as scratch:
+        master = Path(scratch) / "master.mp4"
+        compressed = Path(scratch) / "orbit-film.mp4"
         video(out).render(
             str(master),
             animation=VideoOptions(
@@ -99,40 +112,31 @@ def main() -> None:
                 soundtrack=AudioTrack(path=SOUNDTRACK, volume=0.5, loop=True, fade_out=1.5),
             ),
         )
-        compress_for_web(master, out / "orbit-film.mp4")
-        poster = orbit_scene().render_frame(5 * BEAT).convert("RGB")
-        poster.save(out / "orbit-film-poster.webp", quality=88)
-
-
-def compress_for_web(master: Path, output: Path) -> None:
-    """Quickthumb encodes near-lossless masters; a homepage video can afford to be smaller."""
-    subprocess.run(
-        # fmt: off
-        [
-            "ffmpeg",
-            "-y",
-            "-v",
-            "error",
-            "-i",
-            str(master),
-            "-c:v",
-            "libx264",
-            "-crf",
-            "27",
-            "-preset",
-            "slow",
-            "-pix_fmt",
-            "yuv420p",
-            "-movflags",
-            "+faststart",
-            "-c:a",
-            "copy",
-            str(output),
-        ],
-        # fmt: on
-        check=True,
-    )
-    master.unlink()
+        subprocess.run(
+            [
+                # quickthumb's own override, so both encoding steps use the same binary.
+                os.environ.get("QUICKTHUMB_FFMPEG") or "ffmpeg",
+                "-v",
+                "error",
+                "-i",
+                str(master),
+                "-c:v",
+                "libx264",
+                "-crf",
+                "27",
+                "-preset",
+                "slow",
+                "-pix_fmt",
+                "yuv420p",
+                "-movflags",
+                "+faststart",
+                "-c:a",
+                "copy",
+                str(compressed),
+            ],
+            check=True,
+        )
+        compressed.replace(out / "orbit-film.mp4")
 
 
 def planet_thumbnail() -> Canvas:
@@ -215,7 +219,11 @@ def visuals_thumbnail() -> Canvas:
 
 
 def deck() -> Deck:
-    """A four-slide deck whose layers enter on arrival rather than on click."""
+    """A four-slide deck whose layers enter on arrival.
+
+    HTML and PowerPoint simplify these entrances, and quickthumb lists each one in
+    ExportResult.fallback_diagnostics; see the "Orbit Atlas" cookbook section.
+    """
     return (
         Deck(WIDTH, HEIGHT)
         .slide(
@@ -253,7 +261,7 @@ def cover_slide() -> Canvas:
         size=98,
         color=INK,
         line_height=1.0,
-        animation=_enter_lines(),
+        animation=_enter_block(),
     )
     canvas.text(
         "Field notes from mapping the world.",
@@ -280,7 +288,7 @@ def coverage_slide() -> Canvas:
         size=66,
         color=INK,
         line_height=1.04,
-        animation=_enter_lines(),
+        animation=_enter_block(),
     )
     canvas.text(
         "Mapped land area by year, in millions of square kilometres. Illustrative data.",
@@ -295,6 +303,7 @@ def coverage_slide() -> Canvas:
     baseline, unit = 580, 6
     for index, (year, value) in enumerate(values.items()):
         x, height = 600 + index * 124, value * unit
+        delay = index * 0.08
         canvas.shape(
             "rectangle",
             (x, baseline - height),
@@ -302,9 +311,7 @@ def coverage_slide() -> Canvas:
             height,
             BLUE if year == "2026" else "#A9C9E8",
             border_radius=8,
-            animation=Wipe(
-                direction="up", duration=0.5, delay=index * 0.08, trigger="with_previous"
-            ),
+            animation=Wipe(direction="up", duration=0.5, delay=delay, trigger="with_previous"),
         )
         canvas.text(
             str(value),
@@ -313,6 +320,7 @@ def coverage_slide() -> Canvas:
             font=BOLD,
             size=30,
             color=INK,
+            animation=Fade(duration=0.5, delay=delay, trigger="with_previous"),
         )
         canvas.text(
             year,
@@ -321,6 +329,7 @@ def coverage_slide() -> Canvas:
             font=REGULAR,
             size=22,
             color=MUTED,
+            animation=Fade(duration=0.5, delay=delay, trigger="with_previous"),
         )
     return canvas
 
@@ -339,7 +348,7 @@ def metrics_slide() -> Canvas:
         font=HEAVY,
         size=66,
         color=WHITE,
-        animation=_enter_lines(),
+        animation=_enter_block(),
     )
     metrics = (
         ("12×", "more imagery reviewed"),
@@ -397,13 +406,11 @@ def _page(title: str, number: str) -> Canvas:
     return canvas
 
 
-def _enter_lines() -> AnimationSpec:
+def _enter_block() -> AnimationSpec:
     return AnimationSpec.rise(
         from_="bottom",
         distance=24,
         duration=0.6,
-        stagger=0.12,
-        target="lines",
         trigger="after_previous",
         easing="ease_out_cubic",
     )
@@ -550,7 +557,8 @@ def _add_ring_half(canvas: Canvas, *, back: bool) -> None:
         animation=_play(
             _draw(start, 2 * BEAT),
             OpacityTrack(keyframes=_keys((0, 1), (5.5 * BEAT, 1), (6 * BEAT, 0))),
-            easing="ease_in_out",
+            # Linear keeps the line's tip ahead of the slower satellite that rides it.
+            easing="linear",
         ),
     )
 
@@ -571,11 +579,12 @@ def _add_rider(
     color: str,
     exit_at: float | None = None,
 ) -> None:
-    """A glowing dot whose position keyframes sample the same points as a drawn line."""
+    """A glowing dot on a drawn line: keys sit on its points, timed by distance like trim."""
     x0, y0 = points[0]
+    distances = list(itertools.accumulate(map(math.dist, points, points[1:]), initial=0.0))
     path = [
-        (start + duration * index / (len(points) - 1), (x - x0, y - y0))
-        for index, (x, y) in enumerate(points)
+        (start + duration * distance / distances[-1], (x - x0, y - y0))
+        for distance, (x, y) in zip(distances, points, strict=True)
     ]
     canvas.shape(
         "ellipse",
@@ -690,29 +699,12 @@ def _sample_route() -> list[tuple[float, float]]:
                 )
             )
     points.append(segments[-1][-1])
-    return _even_spacing(points)
-
-
-def _even_spacing(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
-    """Resample by arc length: trim is arc-based, so the rider must be too."""
-    lengths = [0.0]
-    for a, b in zip(points, points[1:], strict=False):
-        lengths.append(lengths[-1] + math.dist(a, b))
-    spaced = []
-    segment = 0
-    for index in range(len(points)):
-        target = lengths[-1] * index / (len(points) - 1)
-        while segment < len(lengths) - 2 and lengths[segment + 1] < target:
-            segment += 1
-        span = (lengths[segment + 1] - lengths[segment]) or 1
-        t = (target - lengths[segment]) / span
-        a, b = points[segment], points[segment + 1]
-        spaced.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t))
-    return spaced
+    return points
 
 
 def _add_elevation_card(canvas: Canvas, start: float) -> None:
     x, y, width, height = 870, 500, 340, 160
+    enter = (_slide((60, 0), start - BEAT, BEAT), _fade(start - BEAT, BEAT))
     canvas.shape(
         "rectangle",
         (x, y),
@@ -721,7 +713,7 @@ def _add_elevation_card(canvas: Canvas, start: float) -> None:
         NAVY,
         opacity=0.82,
         border_radius=16,
-        animation=_play(_slide((60, 0), start - BEAT, BEAT), _fade(start - BEAT, BEAT)),
+        animation=_play(*enter),
     )
     canvas.text(
         "ELEVATION  ·  ILLUSTRATIVE",
@@ -744,6 +736,7 @@ def _add_elevation_card(canvas: Canvas, start: float) -> None:
         size=46,
         font=HEAVY,
         color=WHITE,
+        animation=_play(*enter),
     )
     profile = [(0, 34), (40, 30), (80, 34), (120, 22), (160, 26), (200, 14), (250, 16), (292, 0)]
     canvas.path(
@@ -861,7 +854,6 @@ def _add_bars_and_line(canvas: Canvas) -> None:
                 easing="linear",
             ),
         )
-    line = _even_spacing(tops)
     start, duration = 2 * BEAT, 4 * BEAT
     canvas.path(
         _polyline(tops),
@@ -876,7 +868,7 @@ def _add_bars_and_line(canvas: Canvas) -> None:
         line_cap="round",
         animation=_play(_draw(start, duration), easing="linear"),
     )
-    _add_rider(canvas, line, start, duration, size=22, color=SKY)
+    _add_rider(canvas, tops, start, duration, size=22, color=SKY)
 
 
 def close_scene(rendered: Path) -> Canvas:
@@ -888,7 +880,7 @@ def close_scene(rendered: Path) -> Canvas:
     _add_headline(canvas, ("Make visuals", "with code."), (64, 56), 84, BEAT / 2)
     _add_code_window(canvas, (68, 262))
     enter = (_slide((0, 30), 7 * BEAT, BEAT), _fade(7 * BEAT, BEAT / 2))
-    canvas.shape("rectangle", (68, 610), 354, 58, WHITE, border_radius=12, animation=_play(*enter))
+    canvas.shape("rectangle", (68, 610), 314, 58, WHITE, border_radius=12, animation=_play(*enter))
     canvas.text(
         "pip install quickthumb",
         position=(92, 623),
