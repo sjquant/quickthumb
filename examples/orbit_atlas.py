@@ -5,6 +5,8 @@ From the repository root:
 
 Orbit Atlas is a fictional brand and its numbers are illustrative. The source images
 in assets/images are AI-generated; type, shapes, and motion are all quickthumb layers.
+The soundtrack is "Synthwave House Loop" by Fupi (CC0), retimed from 114 to 128 BPM:
+https://opengameart.org/content/synthwave-house-loop
 Video needs FFmpeg; pass --stills to skip it, or --pptx with the pptx extra installed.
 Files with the same names in the output directory are replaced.
 """
@@ -52,7 +54,7 @@ EARTH = str(PHOTOS / "earth.png")
 MOUNTAINS = str(PHOTOS / "mountains.png")
 CREATOR = str(PHOTOS / "creator.png")
 GUEST = str(ROOT / "assets/images/podcast-guest-editorial.png")
-SOUNDTRACK = str(ROOT / "assets/audio/hype_beat.wav")
+SOUNDTRACK = str(ROOT / "assets/audio/orbit_synthwave.mp3")
 REGULAR = str(ROOT / "assets/fonts/Roboto-Regular.ttf")
 BOLD = str(ROOT / "assets/fonts/Roboto-Bold.ttf")
 HEAVY = str(ROOT / "assets/fonts/Roboto-Black.ttf")
@@ -94,6 +96,10 @@ def main() -> None:
     if args.pptx:
         slides.render(str(out / "orbit-deck.pptx"))
     orbit_scene().render_frame(5 * BEAT).save(out / "orbit-film-poster.webp", quality=88)
+    stills = ((orbit_scene, 6.5), (trail_scene, 7), (number_scene, 7.5))
+    for index, (scene, beat) in enumerate(stills, 1):
+        still = scene().render_frame(beat * BEAT).resize((480, 270))
+        still.save(out / f"orbit-film-frame-{index}.webp", quality=82)
     if not args.stills:
         render_film(out)
 

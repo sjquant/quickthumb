@@ -5,7 +5,7 @@
   const searchToggle = document.querySelector('#__search');
   let searchTrigger;
 
-  document.addEventListener('click', async (event) => {
+  document.addEventListener('click', (event) => {
     const target = event.target.closest('button, a');
     if (!target) return;
 
@@ -22,24 +22,20 @@
       requestAnimationFrame(() => document.querySelector('[data-md-component="search-query"]').focus());
     } else if (target.matches('[data-qt-theme]')) {
       document.querySelector('.qt-header [data-md-component="palette"] label:not([hidden])').click();
-    } else if (target.matches('[data-qt-copy]')) {
-      const status = target.parentElement.querySelector('[role="status"]');
-      try {
-        await navigator.clipboard.writeText(target.dataset.qtCopy);
-        status.textContent = 'Copied';
-        setTimeout(() => { status.textContent = ''; }, 2500);
-      } catch {
-        const selection = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(target.parentElement.querySelector('code'));
-        selection.removeAllRanges();
-        selection.addRange(range);
-        status.textContent = 'Select text to copy';
-      }
+    } else if (target.matches('[data-qt-play]')) {
+      const video = target.previousElementSibling;
+      video.focus();
+      video.play();
     } else if (drawer.open && drawer.contains(target) && target.matches('a')) {
       drawer.close();
     }
   });
+
+  // play does not bubble; capture also catches the video's native controls.
+  document.addEventListener('play', (event) => {
+    const button = event.target.parentElement.querySelector('[data-qt-play]');
+    if (button) button.hidden = true;
+  }, true);
 
   document.addEventListener('keydown', (event) => {
     if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey &&

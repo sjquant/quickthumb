@@ -57,7 +57,7 @@ with the same names in the chosen directory are replaced.
 Two thumbnails, a four-slide deck, and a 17-second 1280×720 video with sound for a
 fictional mapping studio, composed from bundled AI-generated source images. The video
 combines image pans inside a mask, drawn paths with riders, spring-driven bars, counters, and images of the script's own
-output, cut to a 128 BPM soundtrack. Run
+output, cut to [Fupi's CC0 "Synthwave House Loop"](https://opengameart.org/content/synthwave-house-loop) retimed to 128 BPM. Run
 `uv run --no-default-groups python examples/orbit_atlas.py --output-dir /tmp/orbit-atlas`.
 Video requires FFmpeg (`--stills` skips it); add `--pptx` and `--extra pptx` for
 PowerPoint. Outputs with the same names in the chosen directory are replaced.

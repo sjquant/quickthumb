@@ -28,8 +28,8 @@ cd quickthumb
 
 ## Cleaner Future
 
-The homepage examples come from one script: a creator thumbnail, a four-slide
-presentation, and a short animated video. The photographs are AI-generated;
+One script renders a creator thumbnail, a four-slide presentation, and a short
+animated video. The photographs are AI-generated;
 the text, shapes, layout, and animation are composed with quickthumb. The bar
 chart is illustrative, not real sustainability data.
 
@@ -55,7 +55,8 @@ and the [export guide](../exports.md) for format details and fallbacks.
 One script renders two thumbnails, a four-slide deck, and a video with sound for a
 fictional mapping studio. All figures are illustrative. The bundled source images,
 including the people, are AI-generated; the type, shapes, and motion are quickthumb
-layers.
+layers. The soundtrack is [Fupi's CC0 "Synthwave House Loop"](https://opengameart.org/content/synthwave-house-loop),
+retimed to the film's 128 BPM. The [audio source notes](https://github.com/sjquant/quickthumb/blob/main/assets/audio/README.md) record the source and changes.
 
 <video controls playsinline preload="none" poster="../../assets/home/orbit-film-poster.webp">
 <source src="../../assets/home/orbit-film.mp4" type="video/mp4">
@@ -71,8 +72,9 @@ uv run --no-default-groups python examples/orbit_atlas.py --output-dir /tmp/orbi
 ```
 
 The script writes `orbit-thumbnail-planet.webp`, `orbit-thumbnail-visuals.webp`, four
-`orbit-slide-*.webp` files, `orbit-deck.html`, `orbit-film.mp4`, and
-`orbit-film-poster.webp`, replacing files with those names. Video needs FFmpeg on
+`orbit-slide-*.webp` files, `orbit-deck.html`, `orbit-film.mp4`,
+`orbit-film-poster.webp`, and three `orbit-film-frame-*.webp` stills, replacing
+files with those names. Video needs FFmpeg on
 `PATH` or in `QUICKTHUMB_FFMPEG`; pass `--stills` to skip it. For PowerPoint, add
 `--extra pptx` to `uv run` and `--pptx` to the script.
 
