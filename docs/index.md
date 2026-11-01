@@ -97,7 +97,7 @@ Bring canvases together in a deck with transitions and speaker notes. Export a p
 
 <div class="qt-slide-strip" markdown>
 
-![](assets/home/orbit-slide-1.webp)
+<img src="assets/home/orbit-slide-1.webp" alt="">
 
 ![Orbit Atlas coverage chart](assets/home/orbit-slide-2.webp)
 
