@@ -760,17 +760,19 @@ def number_scene() -> Canvas:
     _add_drifting_glow(canvas, (30, 40), "#155BD7", (130, 50))
     _add_drifting_glow(canvas, (660, 90), "#0E7BC4", (-60, -60))
     _add_headline(canvas, ("Every", "number."), (68, 96), 118, BEAT / 2)
+    number_start = 1.5 * BEAT
     canvas.counter(
         12,
         84,
         4 * BEAT,
-        delay=BEAT,
+        delay=number_start,
         suffix="%",
         style="plain",
         position=(68, 370),
         size=150,
         font=HEAVY,
         color=SKY,
+        animation=_play(_slide((0, 30), number_start, BEAT), _fade(number_start, BEAT / 2)),
     )
     for text, y, font, size, color in (
         ("of the map refreshed this year", 545, REGULAR, 27, "#CFE3FF"),
