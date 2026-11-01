@@ -86,7 +86,6 @@ nav:
       - Installation: installation.md
       - Core Concepts: concepts.md
       - Choose an output format: output-guide.md
-      - Export reference: exports.md
       - Animation Timing: timing.md
   - API Reference:
       - Overview: api/index.md
@@ -106,6 +105,19 @@ nav:
       - Data visualizations: api/data-visualizations.md
       - Effects: api/effects.md
       - Enums & Gradients: api/enums.md
+  - Advanced Reference:
+      - Export:
+          - Overview: exports.md
+          - Methods and receipts: reference/export-methods.md
+          - Format fidelity and validation: reference/export-validation.md
+          - SVG, HTML, PowerPoint, and PDF: reference/export-documents.md
+          - GIF, video, and narration: reference/export-animation.md
+          - Transparent video: reference/export-transparency.md
+          - Image sequences and render quality: reference/export-frames.md
+          - Assets and reproducibility: reference/export-assets.md
+          - Lottie vectors: reference/export-lottie.md
+      - Animation timing details: reference/timing-details.md
+      - Inspecting complex layouts: reference/inspection-details.md
   - JSON & AI:
       - JSON Schema & AI Workflow: json-schema.md
       - Diagnostics & CLI: diagnostics.md
