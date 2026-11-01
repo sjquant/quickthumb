@@ -29,15 +29,6 @@ ensures Python imports the installed wheel rather than the source directory.
 uv add "quickthumb[cli]>=0.8.0"
 ```
 
-### Development checkout
-
-To try unreleased changes, run `uv build` in the repository, then install the
-resulting wheel into the isolated environment using its absolute path, for
-example `python -m pip install "/path/to/dist/quickthumb-0.8.0-py3-none-any.whl[cli]"`.
-This installs the checkout's code rather than downloading the published release.
-See the [0.8.0 migration notes](releases/0.8.0.md#migration-from-v070) when upgrading
-from 0.7.0.
-
 The base package is enough for PNG, JPEG, WebP, GIF, SVG output, and HTML.
 Try [rendering your first episode cards](getting-started.md) before adding
 optional renderers. The example needs no font or image downloads after installation.
@@ -86,6 +77,15 @@ It exits with status 1 if a required check fails, so it also works as a CI
 step. It does not render a test file or certify native libraries, codec support,
 or visual fidelity. Run the intended export as well. See
 [Diagnostics & CLI](diagnostics.md#quickthumb-doctor) for details.
+
+## Development checkout
+
+To try unreleased changes, run `uv build` in the repository, then install the
+resulting wheel into the isolated environment using its absolute path, for
+example `python -m pip install "/path/to/dist/quickthumb-0.8.0-py3-none-any.whl[cli]"`.
+This installs the checkout's code rather than downloading the published release.
+See the [0.8.0 migration notes](releases/0.8.0.md#migration-from-v070) when upgrading
+from 0.7.0.
 
 ## Environment variables
 

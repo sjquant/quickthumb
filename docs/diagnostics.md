@@ -8,7 +8,7 @@ quickthumb can check a design for common layout and legibility problems without 
 
 ## `canvas.diagnose()`
 
-Returns a `DiagnosticReport` whose `findings` list contains `Diagnostic` entries. An empty `findings` list means no issues.
+Returns a `DiagnosticReport` whose `findings` list contains `Diagnostic` entries. An empty list means the checks found no issues; it does not guarantee visual quality or catch every problem. Review the rendered result as well.
 
 ```python
 from quickthumb import Canvas

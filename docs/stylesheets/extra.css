@@ -146,7 +146,7 @@ body:has(.qt-drawer[open]), body:has(#__search:checked) { overflow: hidden; }
 .md-typeset h3 { font-size: 21px; font-weight: 700; letter-spacing: -.3px; }
 .md-typeset a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .md-typeset code { border-radius: 4px; font-size: .82em; }
-.md-typeset pre > code { padding: 20px; }
+.md-typeset pre > code { padding: 20px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .md-typeset .highlight {
     --md-code-bg-color: #101f35;
     --md-code-fg-color: #dbe7ff;

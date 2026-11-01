@@ -7,6 +7,18 @@ description: Export quickthumb documents to raster, web, document and video form
 A canvas renders to raster, vector, document, web, and animated formats. The
 format comes from the file extension:
 
+| I want | Choose | Requirements and trade-offs |
+| --- | --- | --- |
+| An image | PNG, JPEG, WebP | Base package; a Deck writes numbered images. |
+| A browser presentation | HTML | Base package; interactive slides, without Deck narration playback. |
+| A PowerPoint deck | PPTX | `pptx` extra; many objects are editable, but some features use fallbacks. |
+| A PDF | PDF | `pdf` extra; some content may be embedded as pixels. |
+| Animation | GIF, MP4, WebM, MOV | GIF uses the base package; video requires FFmpeg, and MOV also needs its `prores_ks` encoder. |
+| Vector output | SVG or Canvas-only Lottie | SVG export uses the base package; Lottie supports a bounded subset and rejects unsupported content. |
+
+See [installation](installation.md#optional-extras) for dependencies and the
+format sections below for exact support and fallbacks.
+
 ```python
 canvas.export("thumbnail.png")   # raster (PNG/JPEG/WEBP)
 canvas.export("thumbnail.svg")   # vector SVG

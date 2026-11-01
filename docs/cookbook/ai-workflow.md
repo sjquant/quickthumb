@@ -21,12 +21,14 @@ The loop looks like this:
 Export the schema once:
 
 ```bash
+python -m pip install "quickthumb[cli]"
 quickthumb schema --output quickthumb.schema.json
 ```
 
 or from Python with `canvas_json_schema()`. It is large (about 100 KB), so the
 best use is as the response schema in your provider's structured-output or
-tool-calling feature, which stops the model from inventing fields at all. If
+tool-calling feature, where supported. Enforcement depends on the provider;
+validate the returned spec and review the rendered result. If
 you put it in the prompt instead, the `layers` and `effects` definitions are
 the parts that matter.
 

@@ -1,5 +1,5 @@
 ---
-description: How quickthumb works: a canvas of ordered layers, positions and alignment, effects, rich text, auto layout, JSON specs, and validation.
+description: "How quickthumb works: a canvas of ordered layers, positions and alignment, effects, rich text, auto layout, JSON specs, and validation."
 ---
 
 # Core Concepts
@@ -36,7 +36,7 @@ background first, details last.
 | `.svg()` | An SVG file such as an icon or logo (needs the `svg` extra) | [SVG](api/svg.md) |
 | `.video()` | A video clip, for animated exports | [Video](api/video.md) |
 | `.chart()`, `.qr_code()` | A bar or line chart, or a QR code | [Data visualizations](api/data-visualizations.md) |
-| `.counter()` | A number that counts from one value to another | [Canvas](api/canvas.md) |
+| `.counter()` | A number that counts from one value to another | [Canvas](api/canvas.md#animated-counters) |
 | `.group()` | A row or column that positions its children for you | [Group](api/group.md) |
 | `.outline()` | A border around the edge of the canvas | [Outline](api/outline.md) |
 | `.custom(fn)` | Your own function that draws on the Pillow image | [Canvas](api/canvas.md) |

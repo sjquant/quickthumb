@@ -1,5 +1,5 @@
 ---
-description: Reference for quickthumb group layers: auto-layout rows and columns with gap, padding, item alignment, and nesting.
+description: "Reference for quickthumb group layers: auto-layout rows and columns with gap, padding, item alignment, and nesting."
 ---
 
 # Group (Auto Layout)

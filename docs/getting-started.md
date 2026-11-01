@@ -7,6 +7,14 @@ description: Render three episode cards from one reusable Python layout, then ch
 Build one episode-card layout and render it with three sets of content.
 Then change a title to make your own version.
 
+<div class="qt-gallery" markdown>
+![Episode 12: "Ship your first release" with a giant 12 on an orange band](assets/home/episode-12.png)
+
+![Episode 13: "Make room for better work" with a giant 13 on a yellow band](assets/home/episode-13.png)
+
+![Episode 14: "Build less. Finish more." with a giant 14 on a blue band](assets/home/episode-14.png)
+</div>
+
 ## 1. Install quickthumb
 
 You need **Python 3.11 or later**. In your Python environment:
@@ -38,12 +46,6 @@ python episode_cards.py
 Open `episode-12.png`, `episode-13.png`, and `episode-14.png` in the same directory.
 Each is a 1280 × 720 image. The script writes to those filenames each time it runs,
 replacing any existing files with those names.
-
-<div class="qt-gallery qt-variants" markdown>
-![Episode 12: "Ship your first release" with a giant 12 on an orange band](assets/home/episode-12.png)
-![Episode 13: "Make room for better work" with a giant 13 on a yellow band](assets/home/episode-13.png)
-![Episode 14: "Build less. Finish more." with a giant 14 on a blue band](assets/home/episode-14.png)
-</div>
 
 ## 3. Make the next card
 

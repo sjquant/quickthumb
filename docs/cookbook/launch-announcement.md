@@ -11,11 +11,15 @@ and the feature row are auto-layout groups, and every color and font size
 comes from a `theme` block, so changing the copy or the brand doesn't mean
 re-measuring anything.
 
+Install [uv](https://docs.astral.sh/uv/) and clone the repository to run this example:
+
 ```bash
 git clone https://github.com/sjquant/quickthumb
 cd quickthumb
 uv run --extra svg python examples/launch_announcement.py
 ```
+
+The script writes `examples/launch_announcement.png`, replacing an existing file with that name.
 
 The `svg` extra is needed for the sparkle, which is an SVG file.
 
@@ -38,7 +42,7 @@ The `svg` extra is needed for the sparkle, which is an SVG file.
   `Filter(saturation=0, brightness=3)`.
 - **Checked before rendering.** The script calls `canvas.diagnose()` and
   prints any findings before it renders. The same check is available from the
-  terminal as `quickthumb lint examples/launch_announcement.json`.
+  terminal as `uv run --extra cli quickthumb lint examples/launch_announcement.json`.
 
 ## The spec
 

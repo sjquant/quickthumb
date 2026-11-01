@@ -12,6 +12,13 @@ Video layers render in animated GIF/MP4/WebM/MOV output and in `render_frame(...
 Document targets (PPTX, PDF, SVG, HTML) rasterize the clip as a static frame;
 `validate_export(...)` reports that fallback explicitly.
 
+Start with the [video layer signature](#signature) and [examples](#examples).
+For shared animation topics, jump to [motion paths](#curved-motion-paths),
+[transform anchors](#transform-anchors-and-independent-scale),
+[parent links](#parent-links-and-null-controllers), or [text selectors and masks](#text-range-selectors).
+See [animation timing](../timing.md) for output clocks and
+[exporting](../exports.md#animated-gif-video) for video requirements.
+
 ## Signature
 
 ```python

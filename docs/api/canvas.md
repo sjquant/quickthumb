@@ -50,7 +50,10 @@ All builder methods mutate the canvas and return `self`, enabling method chainin
 | `.text(...)` | Add a text layer |
 | `.image(...)` | Add an overlay image layer |
 | `.shape(...)` | Add a shape layer |
+| `.path(...)` | Draw a filled or stroked [path](path.md) |
 | `.svg(...)` | Add an SVG layer, rasterized at render time |
+| `.video(...)` | Add a [video clip](video.md) to an animated composition |
+| `.counter(...)` | Add an [animated number](#animated-counters) |
 | `.group(...)` | Add an auto-layout group of child layers |
 | `.outline(...)` | Add a canvas border |
 | `.chart(...)` | Add a deterministic bar or line chart layer from a typed chart spec |
@@ -59,6 +62,25 @@ All builder methods mutate the canvas and return `self`, enabling method chainin
 
 See the [data visualization reference](data-visualizations.md) and the other
 individual reference pages for full parameter details.
+
+### Animated counters
+
+Use `.counter(from_, to, duration, ...)` to animate a number as a text layer.
+Pass normal text options such as `position`, `size`, and `color`:
+
+```python
+from quickthumb import Canvas
+
+canvas = Canvas(320, 180).background(color="#102030").counter(
+    0, 100, 2, suffix="%", size=64, color="#FFFFFF", position=(40, 50)
+)
+canvas.render("counter.gif")
+```
+
+`delay`, `decimals`, `minimum_integer_digits`, `prefix`, `suffix`, and `grouping`
+control timing and formatting. `style` accepts `"plain"`, `"odometer"`, or
+`"flip"`; `easing` accepts `"linear"`, `"ease_in"`, `"ease_out"`, or
+`"ease_in_out"`. Static output shows the settled value.
 
 ## `.diagnose()`
 

@@ -10,11 +10,15 @@ A 1080×1920 cover where the whole design is a JSON file. The Python side only
 loads it and renders it, which is how you would use quickthumb when an LLM or
 a template system writes the layout.
 
+Install [uv](https://docs.astral.sh/uv/) and clone the repository to run this example:
+
 ```bash
 git clone https://github.com/sjquant/quickthumb
 cd quickthumb
 uv run python examples/shorts_cover_agent.py
 ```
+
+The script writes `examples/shorts_cover_agent.png`, replacing an existing file with that name.
 
 ## How it's built
 

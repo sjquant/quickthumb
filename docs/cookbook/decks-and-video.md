@@ -4,6 +4,17 @@ description: Run complete quickthumb examples for a presentation and an animated
 
 # Presentations and video
 
+Create a thumbnail, a browser presentation, and an animated video from related
+layouts. The [Orbit Atlas example](#orbit-atlas) produces these results:
+
+<div class="qt-gallery" markdown>
+![Orbit Atlas thumbnail with a creator pointing at Earth](../assets/home/orbit-thumbnail-planet.webp)
+
+![Orbit Atlas presentation cover with a mountain lake](../assets/home/orbit-slide-1.webp)
+
+[![Orbit Atlas video preview](../assets/home/orbit-film-poster.webp)](#orbit-atlas)
+</div>
+
 Start with this small example: it renders one image, a two-slide browser
 presentation, and an animated GIF using the base package and built-in font.
 Save it as `creative_starter.py` and run it in the directory where you want the
@@ -18,8 +29,13 @@ python -m pip install quickthumb
 python creative_starter.py
 ```
 
+Open `creative-starter.png`, `creative-starter.html`, and `creative-starter.gif`
+in the working directory. These starter outputs use a simple text layout; the
+previews above come from the fuller Orbit Atlas example below.
+
 The complete examples below use the same Canvas and Deck APIs. Their scripts,
-fonts, images, and audio are in the repository. Clone it to run them:
+fonts, images, and audio are in the repository. Install [uv](https://docs.astral.sh/uv/)
+and clone the repository to run them:
 
 ```bash
 git clone https://github.com/sjquant/quickthumb

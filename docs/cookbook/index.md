@@ -4,13 +4,25 @@ description: Browse ready-to-run quickthumb recipes for YouTube thumbnails, Inst
 
 # Cookbook
 
-Choose a layout for the content you publish, then adapt its text, images, and colors.
-Each preview was rendered by the exact script shown on its recipe page.
-For complete presentations and animated videos, see [Presentations and video](decks-and-video.md).
-For a small example that renders several cards from one layout, start with
-[Render your first cards](../getting-started.md).
+Choose an image, presentation, or video to make. Each preview comes from the
+example linked with it; adapt its text, images, and colors for your own work.
 
-## Gallery
+## Presentations and video
+
+<div class="qt-gallery" markdown>
+<figure markdown="span">
+[![Orbit Atlas presentation cover](../assets/home/orbit-slide-1.webp)](decks-and-video.md#orbit-atlas)
+<figcaption>Presentation and slides</figcaption>
+</figure>
+<figure markdown="span">
+[![Orbit Atlas video preview](../assets/home/orbit-film-poster.webp)](decks-and-video.md#orbit-atlas)
+<figcaption>Animated video</figcaption>
+</figure>
+</div>
+
+[Explore presentation and video examples →](decks-and-video.md)
+
+## Images and graphics
 
 <div class="qt-gallery qt-gallery--cookbook" markdown>
 <figure markdown="span">
@@ -51,22 +63,16 @@ For a small example that renders several cards from one layout, start with
 </figure>
 </div>
 
-## Recipes
+## More ways to create
 
-| Recipe | Size | Use it to… |
-| --- | --- | --- |
-| [YouTube Thumbnails](youtube-thumbnail.md) | 1280×720 | Give a comparison, commentary, or tutorial video a cover |
-| [Instagram Card](instagram-card.md) | 1080×1080 | Pair a news headline with a photograph for a square social post |
-| [Podcast Promo](podcast-promo.md) | 1280×720 | Introduce a podcast episode with its title and guest portrait |
-| [Shorts / Vertical Cover](shorts-cover.md) | 1080×1920 | Make a vertical video cover from a JSON layout |
-| [Launch Announcement](launch-announcement.md) | 1280×720 | Reuse a release card with new copy and brand colors |
-| [AI Workflow](ai-workflow.md) | Any | Have an LLM draft a layout, then validate and render its spec |
-| [Webfonts & Background Removal](webfonts-rembg.md) | Any | Add a chosen typeface or place a cut-out portrait in a design |
+- [Render your first cards](../getting-started.md): reuse one layout without cloning the repository.
+- [AI workflow](ai-workflow.md): generate, validate, and render a JSON layout.
+- [Webfonts and background removal](webfonts-rembg.md): add a typeface or cut out a portrait.
 
 ## Running the recipes
 
-The scripts use fonts and photos bundled in the repository, so run them from a
-clone:
+Most recipes use fonts and photos bundled in the repository. Install
+[uv](https://docs.astral.sh/uv/), then run them from a clone:
 
 ```bash
 git clone https://github.com/sjquant/quickthumb
