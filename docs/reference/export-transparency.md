@@ -75,7 +75,6 @@ mov_bytes = deck.to_mov(hold=2.0, transparent=True, soundtrack="music.wav")
 
 MOV retains exact canvas dimensions without cropping odd-width or odd-height frames. It encodes 4:4:4 chroma with 16-bit alpha coding (`yuva444p10le`) for transparent output, delivering industry-standard alpha fidelity for professional video editing tools such as Final Cut Pro, DaVinci Resolve, and Adobe Premiere.
 
-
 Soundtracks, per-slide narration and embedded video audio are encoded as AAC,
 using the same scheduling, looping, padding and trimming rules as animated MP4.
 A Canvas MOV with no audio inputs contains only video. Deck MOV retains the

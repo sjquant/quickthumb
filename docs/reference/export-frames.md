@@ -89,7 +89,6 @@ probe/decode requirements.
 
 All frames and `manifest.json` are rendered to an atomic staging directory before publication. The target directory must be non-existent; export fails safely if the destination directory already exists, preventing accidental overwrites.
 
-
 Run `examples/image_sequence_overlay.py` for PNG, white-matted JPEG and
 lossless WebP lower-third sequences with no FFmpeg dependency. All three
 output directories must be fresh on every run.

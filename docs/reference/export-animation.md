@@ -199,4 +199,3 @@ The audio is always trimmed to the video length. For an `AudioTrack`, `loop=True
     - **Resolution**: H.264/VP9 4:2:0 video encoding requires even pixel dimensions (e.g. 1280×720).
     - **GIF Optimization**: Use `max_size=(w, h)` and `colors=128` (or 64) in `GifOptions` to keep GIF file sizes compact.
     - **Narrated Decks**: A single Deck video export supports up to 64 narrated slides. Split longer narrated presentations into separate videos.
-

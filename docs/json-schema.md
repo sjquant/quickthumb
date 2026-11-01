@@ -190,7 +190,6 @@ registry.register("badge", "1", raster=badge, svg=badge_svg)
 
 In formats that don't support native SVG plugins, the layer automatically falls back to rendering via its `raster` callback.
 
-
 ### Plugin params Schema v1
 
 `params_schema` accepts the documented `quickthumb plugin-params v1` subset. It

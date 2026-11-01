@@ -71,7 +71,6 @@ Near-alignment checks compare rendered layer positions to spot unintended 1–3 
     - **Contrast checks** sample text against the composited background beneath it, including any `Background` pill effects attached to the text layer.
     - **Near-alignment** flags layers that are almost aligned (within 3px) so you can snap them cleanly without guessing coordinates.
 
-
 ## The `quickthumb` CLI
 
 The CLI requires the `cli` extra:
@@ -359,13 +358,13 @@ Its seek position is independent of presenter/audience synchronization.
   recover after the next save
 
 The timeline scrubber renders instantaneous frame previews matching your export timing:
+
 - **Proxy mode**: Renders downscaled frames (up to 640px) for smooth, rapid seeking.
 - **Full mode**: Renders full-resolution frames matching standard export quality.
 - Note that audio playback is disabled during timeline scrubbing.
 
 !!! tip "Local Security"
     `quickthumb serve` runs local Python and JSON files on your machine. Keep the default loopback address (`127.0.0.1`) when previewing untrusted content.
-
 
 ### Variable substitution
 
