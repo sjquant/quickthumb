@@ -26,8 +26,9 @@ hide:
 <div class="qt-artwork" aria-label="Examples made with quickthumb" markdown>
 
 [![A talking-head video thumbnail](assets/examples/youtube_talking_head.png)](cookbook/youtube-thumbnail.md#talking-head){ .qt-art .qt-art-back }
-[![A commentary thumbnail with a portrait](assets/examples/youtube_reaction.png)](cookbook/youtube-thumbnail.md#reaction){ .qt-art .qt-art-front }
-[![Cover of the Vela investor presentation](assets/home/investor-slide-1.png)](cookbook/decks-and-video.md#investor-deck){ .qt-art .qt-art-bottom }
+[![Python for creators thumbnail](assets/home/python-for-creators.png)](cookbook/decks-and-video.md#cleaner-future){ .qt-art .qt-art-front }
+[![Cover of the Cleaner Future presentation](assets/home/cleaner-future-1.png)](cookbook/decks-and-video.md#cleaner-future){ .qt-art .qt-art-bottom }
+[![A brighter planet video frame](assets/home/brighter-planet-poster.png)](cookbook/decks-and-video.md#cleaner-future){ .qt-art .qt-art-video }
 
 </div>
 </div>
@@ -43,13 +44,30 @@ hide:
 
 Combine text, photos, and shapes into thumbnails, social graphics, and more. Your layout stays in code, ready to adapt.
 
-[See image examples →](cookbook/index.md){ .qt-story-link }
+[See the complete example →](cookbook/decks-and-video.md#cleaner-future){ .qt-story-link }
 
 </div>
 <div class="qt-visual qt-image-pair" markdown>
 
-![A commentary thumbnail with a portrait](assets/examples/youtube_reaction.png)
-![A podcast guest promotion](assets/examples/podcast_interview_promo.png)
+![Python for creators thumbnail made with quickthumb](assets/home/python-for-creators.png)
+
+<div class="qt-code-window" markdown>
+<div class="qt-code-title" markdown="span"><span class="qt-code-dots" aria-hidden="true"><i></i><i></i><i></i></span> cleaner_future.py</div>
+
+```python
+canvas = Canvas(1280, 720)
+canvas.image("creator.png", (0, 0), 1280, 720,
+             fit="cover")
+canvas.text("PYTHON", position=(720, 110),
+            font=HEAVY, size=118, color="#FFFFFF")
+canvas.shape("rectangle", (710, 380), 515, 132,
+             "#FFD400", rotation=-3)
+canvas.text("CREATORS", position=(733, 399),
+            font=HEAVY, size=88, color="#111923",
+            rotation=-3)
+```
+
+</div>
 
 </div>
 </div>
@@ -65,16 +83,17 @@ Combine text, photos, and shapes into thumbnails, social graphics, and more. You
 
 Bring canvases together in a deck with transitions and speaker notes. Export a presentation for the browser or PowerPoint.
 
-[Explore the investor deck →](cookbook/decks-and-video.md#investor-deck){ .qt-story-link }
+[Explore the presentation →](cookbook/decks-and-video.md#cleaner-future){ .qt-story-link }
 
 </div>
 <div class="qt-visual qt-deck-preview" markdown>
 
-![Vela investor deck cover](assets/home/investor-slide-1.png)
+![Cleaner Future presentation cover with mountains and a lake](assets/home/cleaner-future-1.png)
 
 <div class="qt-slide-strip" markdown>
-![Vela deck workflow slide](assets/home/investor-slide-4.png)
-![Vela deck traction slide with illustrative data](assets/home/investor-slide-6.png)
+![Cleaner Future opportunity slide](assets/home/cleaner-future-2.png)
+![Cleaner Future vision slide](assets/home/cleaner-future-3.png)
+![Cleaner Future closing slide](assets/home/cleaner-future-4.png)
 </div>
 
 </div>
@@ -89,15 +108,15 @@ Bring canvases together in a deck with transitions and speaker notes. Export a p
 
 ## Bring ideas to motion. { #motion-heading }
 
-Animate layers, transition between scenes, and add narration and music. Render a video or share an animated GIF.
+Animate layers and render a video or GIF. Add transitions, narration, and music as your story grows.
 
-[Explore the product reel →](cookbook/decks-and-video.md#product-reel){ .qt-story-link }
+[Explore the video example →](cookbook/decks-and-video.md#cleaner-future){ .qt-story-link }
 
 </div>
 <div class="qt-visual qt-video-preview">
-<video controls playsinline preload="none" poster="assets/home/product-hype-reel-poster.png" aria-label="Product hype reel generated with quickthumb">
-<source src="assets/home/product-hype-reel.mp4" type="video/mp4">
-Your browser does not support video. <a href="assets/home/product-hype-reel.mp4">Download the product reel</a>.
+<video controls playsinline preload="none" poster="assets/home/brighter-planet-poster.png" aria-label="A brighter planet animation generated with quickthumb">
+<source src="assets/home/brighter-planet.mp4" type="video/mp4">
+Your browser does not support video. <a href="assets/home/brighter-planet.mp4">Download the animation</a>.
 </video>
 </div>
 </div>

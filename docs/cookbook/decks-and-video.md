@@ -26,6 +26,30 @@ git clone https://github.com/sjquant/quickthumb
 cd quickthumb
 ```
 
+## Cleaner Future
+
+The homepage examples come from one script: a creator thumbnail, a four-slide
+presentation, and a short animated video. The photographs are AI-generated;
+the text, shapes, layout, and animation are composed with quickthumb. The bar
+chart is illustrative, not real sustainability data.
+
+```bash
+uv run --no-default-groups python examples/cleaner_future.py --output-dir /tmp/cleaner-future --video
+```
+
+The script writes `python-for-creators.png`, four slide PNGs,
+`cleaner-future.html`, and `brighter-planet.mp4`. Existing files with those
+names are replaced. Video export requires FFmpeg on `PATH`. To also create an
+editable PowerPoint presentation, install the `pptx` extra and add `--pptx`:
+
+```bash
+uv run --no-default-groups --extra pptx python examples/cleaner_future.py --output-dir /tmp/cleaner-future --video --pptx
+```
+
+The video animates the headline and accent over a still Earth image; it has no
+audio. See the [complete source](https://github.com/sjquant/quickthumb/blob/main/examples/cleaner_future.py)
+and the [export guide](../exports.md) for format details and fallbacks.
+
 ## Investor deck
 
 The Vela example builds ten slides with transitions and speaker notes. All

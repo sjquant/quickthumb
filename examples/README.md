@@ -44,6 +44,14 @@ Extras install with `uv run --extra <name> python examples/<script>.py`. The
 
 ## Decks and video
 
+### `cleaner_future.py`
+
+The homepage's creator thumbnail, four-slide presentation, and animated Earth
+video, composed from bundled AI-generated source images. Run
+`uv run --no-default-groups python examples/cleaner_future.py --output-dir /tmp/cleaner-future --video`.
+Video requires FFmpeg; add `--pptx` and `--extra pptx` for PowerPoint. Outputs
+with the same names in the chosen directory are replaced.
+
 ### `creative_starter.py`
 
 A small, self-contained introduction to images, presentations, and animation.
