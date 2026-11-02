@@ -1,8 +1,9 @@
 """Describe documentation pages and their existing preview images for search and sharing."""
 
 import json
+import re
 import tomllib
-from html import unescape
+from html import escape, unescape
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urljoin, urlsplit
@@ -125,8 +126,9 @@ def _structured_data(page, config, image):
         },
     ]
     if not page.is_homepage:
+        webpage = graph[-1]
         breadcrumbs = _breadcrumbs(page, site_url, config.site_name)
-        graph[-1]["breadcrumb"] = {"@id": url + "#breadcrumbs"}
+        webpage["breadcrumb"] = {"@id": url + "#breadcrumbs"}
         graph.extend(
             [
                 {
@@ -151,7 +153,68 @@ def _structured_data(page, config, image):
                 },
             ]
         )
+        if page.file.src_uri == "faq.md":
+            graph.pop()  # Questions replace the generic article as the FAQ's main entities.
+            webpage["@type"] = "FAQPage"
+            webpage["mainEntity"] = []
+            for anchor, name, content in _rendered_sections(page, 3):
+                question_id = url + "#" + anchor
+                webpage["mainEntity"].append({"@id": question_id})
+                graph.append(
+                    {
+                        "@type": "Question",
+                        "@id": question_id,
+                        "url": question_id,
+                        "name": name,
+                        "acceptedAnswer": {
+                            "@type": "Answer",
+                            "@id": question_id + "-answer",
+                            "text": content,
+                        },
+                    }
+                )
+        elif page.file.src_uri == "getting-started.md":
+            document = graph[-1]
+            document["@type"] = "HowTo"
+            document["name"] = document.pop("headline")
+            document["step"] = [
+                {
+                    "@type": "HowToStep",
+                    "@id": url + "#" + anchor,
+                    "url": url + "#" + anchor,
+                    "name": name,
+                    "text": content,
+                }
+                for anchor, name, content in _rendered_sections(page, 2)[:3]
+            ]
     return {"@context": "https://schema.org", "@graph": graph}
+
+
+def _rendered_sections(page, level):
+    """Keep each existing question or numbered step with its complete rendered content."""
+    # These two documents use MkDocs' standard headings; code examples are already escaped.
+    headings = list(re.finditer(r'<h([1-6]) id="([^"]+)">(.*?)</h\1>', page.content, re.DOTALL))
+    sections = []
+    for index, heading in enumerate(headings):
+        if int(heading[1]) != level:
+            continue
+        end = next(
+            (item.start() for item in headings[index + 1 :] if int(item[1]) <= level),
+            len(page.content),
+        )
+        name = unescape(re.sub(r"<[^>]+>", "", heading[3]))
+        content = _absolute_links(page.content[heading.end() : end].strip(), page.canonical_url)
+        sections.append((heading[2], name, content))
+    return sections
+
+
+def _absolute_links(content, url):
+    """Keep rendered links usable within structured answers and instructions."""
+    return re.sub(
+        r'href="([^"]*)"',
+        lambda match: 'href="' + escape(urljoin(url, unescape(match[1])), quote=True) + '"',
+        content,
+    )
 
 
 def _breadcrumbs(page, site_url, site_name):
