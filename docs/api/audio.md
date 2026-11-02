@@ -1,3 +1,7 @@
+---
+description: Analyze audio onsets and RMS loudness with quickthumb, then bake timing anchors and scale tracks into reusable animation JSON.
+---
+
 # Audio-reactive authoring
 
 `quickthumb.audio.analyze_audio(path, cache_dir=None)` analyzes a local audio
