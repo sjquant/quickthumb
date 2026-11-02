@@ -40,29 +40,36 @@ A deck exports to an HTML slideshow the same way, with a presenter view; see
 
 ## PPTX
 
-PPTX export needs the `pptx` extra:
+Create slides you can refine in PowerPoint or Keynote, with editable text and
+supported shapes. Install the `pptx` extra:
 
 ```bash
 pip install "quickthumb[pptx]"
 ```
 
-The canvas becomes a single slide sized to the canvas pixels (at 96 dpi). Eligible text stays editable: font family, size, weight, color, alignment, letter spacing, and line wrapping carry over run by run. Tracking outside PowerPoint's native range uses a PNG fragment and reports the fallback.
-
-Opaque outside strokes use doubled-width native backing copies behind the editable fill. Polygon borders use bounded miter joins (limit 4); text outlines use round joins. Editing outlined text or geometry requires changing both copies, or re-exporting from the source.
-
-Glow uses a fixed canonical PNG underlay behind editable opaque text or geometry. This preserves the Gaussian halo in PowerPoint and Keynote, including viewers that drop DrawingML glow. Re-export after editing its foreground: the halo does not regenerate in the slide editor. `validate_export("pptx")` and export receipts report this partial representation; native-only or strict policies reject it. Translucent effects, gradient shape effects, rich-text glow, mixed glow/shadow, and off-canvas shape glow use a complete PNG fallback for the affected layer, with an explicit diagnostic. Other layers remain editable. Rotated hybrid text can still differ at antialiased glyph edges because the viewer renders foreground text separately from the fixed halo.
-
 ```python
-canvas.render("promo.pptx")
-# or
-with open("promo.pptx", "wb") as f:
-    f.write(canvas.to_pptx())
+from quickthumb import Canvas
+
+canvas = Canvas(640, 360).background(color="#101826").text(
+    "Ready to share", font="Arial", size=36, color="#FFFFFF", position=(60, 120)
+)
+canvas.export("promo.pptx")
 ```
 
-!!! note "Fidelity"
-    PowerPoint lays text out with its own font metrics, so text placement is a close approximation rather than pixel-identical. Radial background gradients and multi-stop text gradients beyond what DrawingML supports are embedded as pictures or approximated.
+Open `promo.pptx` in your slide editor. A Canvas becomes one slide; use
+`deck.export("promo.pptx")` for several slides.
 
-    Fonts are referenced by their resolved family name, not embedded. Make that font available in PowerPoint or Keynote; a substitute can change glyph width and vertical placement. Text frames use font ascent and descent to preserve the canonical baseline around badge backgrounds. Mixed-size rich text still uses a shared native paragraph baseline, which can differ from the canonical per-run placement.
+!!! note "Editing styled content"
+    Glow is saved as a fixed image, and outlines may use separate objects.
+    After changing styled text or shapes, re-export from Python to keep their
+    glow and border aligned. Some effect combinations become pictures, so the
+    affected content cannot be edited as individual text or shapes. See
+    [PPTX compatibility](export-validation.md#pptx-compatibility) for details.
+
+!!! note "Fonts and layout"
+    Fonts are not embedded. Choose a font available both to quickthumb and in
+    the slide editor. Font substitution, mixed-size rich text and rotation can
+    change spacing or placement; check the result in the app you will use.
 
 ## PDF
 

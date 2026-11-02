@@ -331,13 +331,7 @@ class PptxExporter:
         self.diagnostics.append(observation.model_copy(update=updates))
 
     def _emit_tracked_layer(self, layer: RenderableLayer):
-        """Emit a layer, recording the shape ids it produces if it is animated.
-
-        Animations target shapes by id, so shapes appended while emitting the
-        layer belong to that layer. A single layer can produce several shapes
-        (e.g. a text box plus its background fills), and the animation is
-        applied to all of them together.
-        """
+        """Keep a layer's exported objects together for animations and Morph."""
         animation = (
             None
             if isinstance(layer, PathLayer) or _has_transform_extensions(layer)
@@ -345,29 +339,24 @@ class PptxExporter:
         )
         start = len(self._slide.shapes)
         self._effect_roles = {}
-        if animation is None:
-            self._emit_layer(layer)
-        else:
-            animation = cast(LayerAnimation, animation)
-            self._emit_layer(layer)
-        new_ids = [
-            self._slide.shapes[index].shape_id for index in range(start, len(self._slide.shapes))
-        ]
+        self._emit_layer(layer)
+        new_shapes = list(self._slide.shapes)[start:]
         key = getattr(layer, "motion_key", None)
         if key is not None:
             ordinal = 0
-            for shape_id in new_ids:
-                shape = next(shape for shape in self._slide.shapes if shape.shape_id == shape_id)
+            for shape in new_shapes:
                 # PowerPoint's explicit Morph identity contract is a unique
                 # name beginning with two exclamation points.
-                role = self._effect_roles.get(shape_id)
+                role = self._effect_roles.get(shape.shape_id)
                 if role is not None:
                     shape.name = f"!!qt-effect-{key}-{role}"
                 else:
                     shape.name = f"!!qt-morph-{key}-{ordinal}"
                     ordinal += 1
-        if new_ids and animation is not None:
-            self._anim_records.append((animation, new_ids))
+        if new_shapes and animation is not None:
+            self._anim_records.append(
+                (cast(LayerAnimation, animation), [shape.shape_id for shape in new_shapes])
+            )
 
     @staticmethod
     def _supports_native_morph(source: Canvas, target: Canvas) -> bool:
@@ -461,7 +450,6 @@ class PptxExporter:
         )
         if morph_role is not None:
             self._effect_roles[picture.shape_id] = morph_role
-        return picture
 
     # -------------------------------------------------------------- background
 

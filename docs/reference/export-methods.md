@@ -72,7 +72,10 @@ executed layer routes in `result.capability_report` with
 `feature="layer_representation"`. Native HTML/CSS, SVG/PDF primitives, editable
 PowerPoint objects and original
 embedded SVG have `support="native"`; emitted PNG fragments have
-`support="fallback"` and `fallback="rasterize"`. These are representation
+`support="fallback"` and `fallback="rasterize"`. PPTX content combining an
+editable foreground with a fixed glow image has `support="partial"` and
+`fallback="rasterize"`; re-export after foreground edits to update that effect.
+These are representation
 observations, not pixel-fidelity measurements.
 
 `result.fallback_diagnostics` identifies the affected inspection `layer_id` and

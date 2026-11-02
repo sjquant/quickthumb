@@ -11,7 +11,7 @@ Choose a format for where you want to use the result:
 | --- | --- | --- |
 | Publish an image | PNG, JPEG, or WebP | The base package |
 | Share a presentation in a browser | HTML | The base package |
-| Edit slides in PowerPoint | PPTX | The `pptx` extra |
+| Edit slides in PowerPoint or Keynote | [PPTX](reference/export-documents.md#pptx) | The `pptx` extra |
 | Share a document | PDF | The `pdf` extra |
 | Share a short animation | GIF | The base package |
 | Publish a video | MP4, WebM, or MOV | FFmpeg; MOV also needs the `prores_ks` encoder |

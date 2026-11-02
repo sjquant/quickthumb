@@ -97,8 +97,10 @@ def test_glow_keeps_exact_canonical_halo_and_editable_foreground(tmp_path, rotat
     difference = ImageChops.difference(underlay, scene.sample().frames[0].to_image())
 
     # Then: embed the canonical halo once, retain native outline/fill, and report partial support
-    assert ImageChops.multiply(difference.getchannel("A"), outside_ink).getbbox() is None
-    assert ImageChops.multiply(difference.getchannel("R"), outside_ink).getbbox() is None
+    assert all(
+        ImageChops.multiply(channel, outside_ink).getbbox() is None
+        for channel in difference.split()
+    )
     assert backing.text == foreground.text == "Glow"
     assert foreground.rotation == pytest.approx(rotation % 360)
     assert not foreground._element.findall(".//" + qn("a:glow"))
@@ -175,6 +177,65 @@ def test_native_only_policy_rejects_translucent_stroke_without_glow(tmp_path):
     with pytest.raises(RenderingError, match="canonical PNG composite"):
         Deck().slide(scene).to_pptx(policy=policy)
     assert not (tmp_path / "native.pptx").exists()
+
+
+@pytest.mark.parametrize(
+    "parts,fill,expected_shapes,expected_diagnostics",
+    [
+        (
+            [TextPart(text="Override", color="#FFFFFF")],
+            None,
+            [MSO_SHAPE_TYPE.TEXT_BOX, MSO_SHAPE_TYPE.TEXT_BOX],
+            [],
+        ),
+        (
+            [
+                TextPart(
+                    text="Override",
+                    fill=LinearGradient(angle=0, stops=[("#FF0000", 0), ("#FFFF00", 1)]),
+                )
+            ],
+            LinearGradient(angle=0, stops=[("#FF000080", 0), ("#FFFF00", 1)]),
+            [MSO_SHAPE_TYPE.TEXT_BOX, MSO_SHAPE_TYPE.TEXT_BOX],
+            [],
+        ),
+        (
+            [TextPart(text="Override", color="#FFFFFF"), TextPart(text=" Inherit")],
+            None,
+            [MSO_SHAPE_TYPE.PICTURE],
+            ["fallback"],
+        ),
+        (
+            [TextPart(text="Override", color="#FFFFFF")],
+            LinearGradient(angle=0, stops=[("#FF000080", 0), ("#FFFF00", 1)]),
+            [MSO_SHAPE_TYPE.PICTURE],
+            ["fallback"],
+        ),
+    ],
+)
+def test_rich_text_editability_uses_inherited_paint(
+    tmp_path, parts, fill, expected_shapes, expected_diagnostics
+):
+    """Rich text stays editable when every active paint is opaque; inherited alpha uses pixels."""
+    # Given: rich parts that override or inherit a translucent parent paint
+    scene = Canvas(400, 160).text(
+        parts,
+        position=(20, 30),
+        size=24,
+        font="assets/fonts/NotoSans-Regular.ttf",
+        color="#00000080",
+        fill=fill,
+        effects=[Stroke(width=2, color="#FFFF00")],
+    )
+
+    # When: opening the public export and inspecting its compatibility report
+    path = tmp_path / "inheritance.pptx"
+    scene.export(path)
+    shapes = Presentation(path).slides[0].shapes
+
+    # Then: unused parent paint cannot remove editability or hide inherited transparency
+    assert [shape.shape_type for shape in shapes] == expected_shapes
+    assert [item.support for item in scene.validate_export("pptx")] == expected_diagnostics
 
 
 def test_animated_glow_and_multiple_strokes_target_every_emitted_object():
@@ -842,8 +903,9 @@ class TestPptxText:
         assert fallback.layer_id == "layer:0" and fallback.native_attempt is False
         assert "font" in fallback.reason
 
-    def test_should_emit_valid_drawingml_for_gradient_plus_stroke_run(self):
-        """An opaque gradient retains editable fill over a doubled outside text outline."""
+    @pytest.mark.parametrize("color", ["#000000", "#00000000"])
+    def test_should_emit_valid_drawingml_for_gradient_plus_stroke_run(self, tmp_path, color):
+        """An opaque gradient stays editable regardless of the color it replaces."""
         # given a gradient-filled headline that also has a stroke effect
         from pptx.oxml.ns import qn
 
@@ -853,12 +915,16 @@ class TestPptxText:
             size=48,
             bold=True,
             position=(40, 60),
+            color=color,
+            id="title",
             fill=LinearGradient(angle=0, stops=[("#F59E0B", 0.0), ("#EF4444", 1.0)]),
             effects=[Stroke(width=3, color="#7C3AED")],
         )
 
         # when the exported deck is reopened
-        backing, foreground = slide_of(canvas).shapes
+        path = tmp_path / "gradient.pptx"
+        canvas.export(path, policy=ExportPolicy(pptx={"title": "native"}))
+        backing, foreground = Presentation(path).slides[0].shapes
         backing_rpr = backing.text_frame.paragraphs[0].runs[0]._r.find(qn("a:rPr"))
         rpr = foreground.text_frame.paragraphs[0].runs[0]._r.find(qn("a:rPr"))
 
