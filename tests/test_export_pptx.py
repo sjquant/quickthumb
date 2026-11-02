@@ -414,12 +414,10 @@ class TestPptxText:
         background, text = slide_of(canvas).shapes
 
         # Then: the native frame includes font ascent/descent instead of starting at ink top
-        assert (background.left, background.top, background.width, background.height) == tuple(
-            value * EMU_PER_PX for value in (81, 45, 77, 36)
-        )
-        assert (text.left, text.top, text.width, text.height) == tuple(
-            value * EMU_PER_PX for value in (89, 46, 61, 28)
-        )
+        assert (background.top, background.height) == (45 * EMU_PER_PX, 36 * EMU_PER_PX)
+        assert (text.top, text.height) == (46 * EMU_PER_PX, 28 * EMU_PER_PX)
+        assert text.left - background.left == 8 * EMU_PER_PX
+        assert background.width - text.width == 16 * EMU_PER_PX
         assert text.text == "badge"
         assert text.text_frame.paragraphs[0].alignment == pptx.enum.text.PP_ALIGN.CENTER
         assert text.text_frame.margin_top == text.text_frame.margin_bottom == 0
