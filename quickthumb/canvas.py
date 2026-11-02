@@ -1500,12 +1500,7 @@ class Canvas:
         The canvas becomes a single slide: text stays editable text boxes,
         shapes become autoshapes, and everything else is embedded as pictures.
         """
-        from quickthumb._parenting import has_parent_links
-
-        if policy is not None and (
-            has_parent_links(self)
-            or any(isinstance(layer, PluginLayer) for layer in self._iter_layers_deep())
-        ):
+        if policy is not None:
             self.validate_export("pptx", policy)
         from quickthumb._export_pptx import PptxExporter
 

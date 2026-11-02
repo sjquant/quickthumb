@@ -1,6 +1,7 @@
 import math
+from typing import cast
 
-from PIL import Image, ImageChops, ImageDraw
+from PIL import Image, ImageChops, ImageColor, ImageDraw
 
 from quickthumb._base import RenderContext, apply_alignment, parse_coordinate
 from quickthumb._effects import EffectsEngine
@@ -102,9 +103,48 @@ class ShapeEngine:
 
         for effect in layer.effects:
             if isinstance(effect, Stroke):
-                self._images.apply_image_stroke(image, shape_img, paste_x, paste_y, effect)
+                if layer.shape in {"polygon", "star", "triangle"}:
+                    self._render_polygon_stroke(image, layer, shape_img, paste_x, paste_y, effect)
+                else:
+                    self._images.apply_image_stroke(image, shape_img, paste_x, paste_y, effect)
 
         image.alpha_composite(shape_img, (paste_x, paste_y))
+
+    def _render_polygon_stroke(self, image, layer, shape_img, x, y, stroke):
+        """Paint an outside polygon border with bounded miter joins."""
+        from quickthumb._path_geometry import _Contour
+        from quickthumb._paths import stroke_mask
+
+        padding = stroke.width * 4 + 3
+        width, height = layer.width + padding * 2, layer.height + padding * 2
+        mask = Image.new("1", (width * 4, height * 4))
+        points = tuple(
+            (px * (layer.width - 0.25), py * (layer.height - 0.25))
+            for px, py in self.normalized_shape_points(layer)
+        )
+        contour = _Contour(points, closed=True)
+        bounds = (-padding, -padding, layer.width + padding, layer.height + padding)
+        stroke_mask(mask, (contour,), stroke.width * 2, (1, 1), bounds)
+        ImageDraw.Draw(mask).polygon(
+            [((px + padding) * 4, (py + padding) * 4) for px, py in points], fill=1
+        )
+        rgba = cast(tuple[int, int, int, int], ImageColor.getcolor(stroke.color, "RGBA"))
+        border = Image.new("RGBA", mask.size, rgba)
+        border.putalpha(mask.convert("L"))
+        if layer.rotation:
+            border = border.rotate(-layer.rotation, expand=True, resample=Image.Resampling.BICUBIC)
+        border = border.resize(
+            (round(border.width / 4), round(border.height / 4)), Image.Resampling.LANCZOS
+        )
+        opacity = layer.opacity * rgba[3] / 255
+        if opacity < 1:
+            border = self._effects.apply_opacity(border, opacity)
+        self._images._composite_clamped(
+            image,
+            border,
+            x + (shape_img.width - border.width) // 2,
+            y + (shape_img.height - border.height) // 2,
+        )
 
     def normalized_shape_points(self, layer: ShapeLayer) -> list[tuple[float, float]]:
         """Return shape outline points normalized to the 0..1 unit box."""

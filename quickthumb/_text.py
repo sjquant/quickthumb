@@ -2050,7 +2050,7 @@ class TextEngine:
         paste_x = position[0] - draw_x
         paste_y = position[1] - draw_y
 
-        image.paste(glow_layer, (paste_x, paste_y), glow_layer)
+        image.alpha_composite(glow_layer, (paste_x, paste_y))
 
     def _render_letter_spaced_glow(
         self,
@@ -2106,7 +2106,7 @@ class TextEngine:
         paste_x = position[0] - total_padding
         paste_y = position[1] - total_padding
 
-        image.paste(glow_layer, (int(paste_x), int(paste_y)), glow_layer)
+        image.alpha_composite(glow_layer, (int(paste_x), int(paste_y)))
 
     def _render_shadow(
         self,

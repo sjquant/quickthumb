@@ -2,16 +2,19 @@
 
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageChops, ImageFilter
 from quickthumb import (
     AnimationSpec,
     Canvas,
     Deck,
+    ExportPolicy,
     Fade,
     KeyframeSpec,
     LinearGradient,
+    Morph,
     PositionTrack,
     ShapeLayer,
     TextPart,
@@ -19,7 +22,7 @@ from quickthumb import (
     Wipe,
 )
 from quickthumb.errors import RenderingError
-from quickthumb.models import Background, Glow, RadialGradient, Shadow, Stroke
+from quickthumb.models import Background, Glow, RadialGradient, Shadow, Stroke, TextLayer
 
 from tests._helpers import pixel_channel
 
@@ -46,6 +49,294 @@ def open_pptx(canvas: Canvas) -> PresentationDocument:
 
 def slide_of(canvas: Canvas):
     return open_pptx(canvas).slides[0]
+
+
+@pytest.mark.parametrize("rotation,spacing", [(0, 0), (23, 3)])
+def test_glow_keeps_exact_canonical_halo_and_editable_foreground(tmp_path, rotation, spacing):
+    """Glow pixels survive import as an explicit underlay while outlined text remains editable."""
+    # Given: outlined text with a halo, including rotation and tracking
+    common: dict[str, Any] = {
+        "position": (110, 70),
+        "font": "assets/fonts/NotoSans-Regular.ttf",
+        "size": 22,
+        "align": "center",
+        "rotation": rotation,
+        "letter_spacing": spacing,
+    }
+    text = Canvas(240, 160).text(
+        "Glow",
+        **common,
+        effects=[Glow(color="#FFD166", radius=5, opacity=0), Stroke(width=2, color="#7C3AED")],
+    )
+    scene = Canvas(240, 160).text(
+        "Glow",
+        **common,
+        id="title",
+        effects=[Glow(color="#FFD166", radius=5, opacity=0.8), Stroke(width=2, color="#7C3AED")],
+    )
+
+    # When: inspecting the real exported presentation and its public capability report
+    path = tmp_path / "halo.pptx"
+    result = scene.export(path)
+    picture, backing, foreground = Presentation(path).slides[0].shapes
+    underlay = Image.new("RGBA", (240, 160))
+    underlay.alpha_composite(
+        Image.open(BytesIO(picture.image.blob)),
+        (picture.left // EMU_PER_PX, picture.top // EMU_PER_PX),
+    )
+    # Rotation interpolates the complete canonical foreground/halo together. Exclude
+    # its two-pixel antialias boundary when checking the isolated halo's exact bytes.
+    outside_ink = (
+        text.sample()
+        .frames[0]
+        .to_image()
+        .getchannel("A")
+        .filter(ImageFilter.MaxFilter(5))
+        .point(lambda a: 255 * (a == 0))
+    )
+    difference = ImageChops.difference(underlay, scene.sample().frames[0].to_image())
+
+    # Then: embed the canonical halo once, retain native outline/fill, and report partial support
+    assert ImageChops.multiply(difference.getchannel("A"), outside_ink).getbbox() is None
+    assert ImageChops.multiply(difference.getchannel("R"), outside_ink).getbbox() is None
+    assert backing.text == foreground.text == "Glow"
+    assert foreground.rotation == pytest.approx(rotation % 360)
+    assert not foreground._element.findall(".//" + qn("a:glow"))
+    assert foreground.text_frame.paragraphs[0].runs[0]._r.rPr.get("spc", "0") == str(spacing * 75)
+    (glow,) = [item for item in scene.validate_export("pptx") if item.feature == "glow"]
+    assert (glow.support, glow.fallback) == ("partial", "rasterize")
+    (route,) = [item for item in result.capability_report if item.feature == "layer_representation"]
+    assert (route.support, route.fallback) == ("partial", "rasterize")
+    assert "re-export" in route.message
+
+
+@pytest.mark.parametrize(
+    "policy", [ExportPolicy(unsupported_motion="error"), ExportPolicy(pptx={"title": "native"})]
+)
+def test_glow_native_only_policy_rejects_before_replacing_output(tmp_path, policy):
+    """Native-only or strict exports reject fixed glow pixels before changing a destination."""
+    # Given: a pre-existing output and a glow that needs a fixed raster underlay
+    path = tmp_path / "existing.pptx"
+    path.write_bytes(b"keep")
+    scene = Canvas(240, 160).text("Glow", id="title", effects=[Glow(color="#FFD166", radius=5)])
+
+    # When / Then: both preflight and execution refuse a silent native-only approximation
+    with pytest.raises(RenderingError, match="fixed canonical PNG"):
+        scene.validate_export("pptx", policy)
+    with pytest.raises(RenderingError, match="fixed canonical PNG"):
+        scene.export(path, policy=policy)
+    with pytest.raises(RenderingError, match="fixed canonical PNG"):
+        scene.to_pptx(policy=policy)
+    with pytest.raises(RenderingError, match="fixed canonical PNG"):
+        Deck().slide(scene).to_pptx(policy=policy)
+    assert path.read_bytes() == b"keep"
+
+
+def test_rich_text_glow_reports_complete_pixel_fallback(tmp_path):
+    """Interleaved rich-run glow uses the canonical composite instead of reordering effects."""
+    # Given: different glow effects interleaved with rich text runs
+    scene = Canvas(240, 160).text(
+        [TextPart(text="Rich ", effects=[Glow(color="#FFD166", radius=5)]), TextPart(text="glow")],
+        position=(20, 50),
+        size=22,
+    )
+
+    # When: reopening the actual exported file
+    path = tmp_path / "rich.pptx"
+    result = scene.export(path)
+    (picture,) = Presentation(path).slides[0].shapes
+
+    # Then: flattening is limited to this unsupported layer and reported explicitly
+    assert picture.shape_type == MSO_SHAPE_TYPE.PICTURE
+    assert "rich-text glow" in result.fallback_diagnostics[0].reason
+
+
+def test_native_only_policy_rejects_translucent_stroke_without_glow(tmp_path):
+    """A stroke-only composite cannot silently become a picture under a native-only policy."""
+    # Given: translucent geometry whose outside stroke cannot be split into opaque copies
+    scene = Canvas(240, 160).shape(
+        "triangle",
+        (40, 30),
+        60,
+        60,
+        "#FF000080",
+        effects=[Stroke(width=4, color="#FFFFFF")],
+        id="triangle",
+    )
+    policy = ExportPolicy(pptx={"triangle": "native"})
+
+    # When / Then: every public entrypoint rejects the fallback before writing
+    with pytest.raises(RenderingError, match="canonical PNG composite"):
+        scene.validate_export("pptx", policy)
+    with pytest.raises(RenderingError, match="canonical PNG composite"):
+        scene.export(tmp_path / "native.pptx", policy=policy)
+    with pytest.raises(RenderingError, match="canonical PNG composite"):
+        scene.to_pptx(policy=policy)
+    with pytest.raises(RenderingError, match="canonical PNG composite"):
+        Deck().slide(scene).to_pptx(policy=policy)
+    assert not (tmp_path / "native.pptx").exists()
+
+
+def test_animated_glow_and_multiple_strokes_target_every_emitted_object():
+    """A glow underlay, ordered native strokes and foreground share their layer's entrance."""
+    # Given: animated text with two outside outlines and a fixed canonical halo
+    scene = Canvas(240, 160).text(
+        "Glow",
+        position=(30, 40),
+        size=28,
+        effects=[
+            Glow(color="#FFD166", radius=5),
+            Stroke(width=4, color="#FF0000"),
+            Stroke(width=2, color="#00FF00"),
+        ],
+        animation=Fade(),
+    )
+
+    # When: reading all targets in the actual presentation's animation tree
+    slide = slide_of(scene)
+    ids = {str(shape.shape_id) for shape in slide.shapes}
+    timing = slide._element.find(qn("p:timing"))
+    targets = {target.get("spid") for target in timing.iter(qn("p:spTgt"))}
+    first, second = list(slide.shapes)[1:3]
+
+    # Then: no backing remains visible before its foreground, and authored stroke order is retained
+    assert len(ids) == 4 and ids == targets
+    assert first.text_frame.paragraphs[0].runs[0]._r.rPr.find(qn("a:ln")).get("w") == str(
+        8 * EMU_PER_PX
+    )
+    assert second.text_frame.paragraphs[0].runs[0]._r.rPr.find(qn("a:ln")).get("w") == str(
+        4 * EMU_PER_PX
+    )
+
+
+@pytest.mark.parametrize(
+    "scene",
+    [
+        Canvas(240, 160).shape(
+            "triangle",
+            (40, 30),
+            60,
+            60,
+            "#FF0000",
+            effects=[
+                Stroke(width=3, color="#FFFF00"),
+                Shadow(offset_x=4, offset_y=4, color="#000000"),
+            ],
+        ),
+        Canvas(240, 160).text(
+            "Stroke",
+            position=(40, 30),
+            size=24,
+            effects=[
+                Stroke(width=3, color="#FFFF00"),
+                Shadow(offset_x=4, offset_y=4, color="#000000"),
+            ],
+        ),
+    ],
+)
+def test_shadow_is_painted_before_outside_stroke(scene):
+    """Opaque shadows cannot darken the outside border painted after them."""
+    # Given: opaque geometry or text with an outside outline overlapping its shadow
+    # When: reopening the emitted shadow source, outside border and foreground
+    shadow, backing, foreground = slide_of(scene).shapes
+
+    # Then: the shadow belongs only to the earlier source, preserving canonical paint order
+    assert shadow._element.find(".//" + qn("a:outerShdw")) is not None
+    assert backing._element.find(".//" + qn("a:outerShdw")) is None
+    assert foreground._element.find(".//" + qn("a:outerShdw")) is None
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        Canvas(240, 160).shape("triangle", (40, 30), 60, 60, "#FF0000", motion_key="hero"),
+        Canvas(240, 160).text(
+            "Hero",
+            position=(40, 30),
+            size=24,
+            motion_key="hero",
+            effects=[Background(color="#7C3AED", padding=4)],
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "effects",
+    [
+        [Stroke(width=3, color="#FFFF00")],
+        [Glow(color="#FFD166", radius=5)],
+        [Glow(color="#FFD166", radius=5), Stroke(width=3, color="#FFFF00")],
+        [Shadow(offset_x=4, offset_y=4, color="#000000"), Stroke(width=3, color="#FFFF00")],
+    ],
+)
+def test_effect_copies_keep_foreground_morph_identity_stable(source, effects):
+    """Adding effect underlays never forces Morph to match a foreground to its new border."""
+    # Given: the same keyed foreground gaining effects on the next slide
+    target = Canvas.from_json(source.to_json())
+    layer = target.layers[0]
+    assert isinstance(layer, (ShapeLayer, TextLayer))
+    layer.effects.extend(effects)
+
+    # When: opening a real Morph presentation
+    document = Presentation(BytesIO(Deck(slides=[source, target], transition=Morph()).to_pptx()))
+    before = document.slides[0].shapes
+    after = document.slides[1].shapes
+
+    # Then: existing foreground/background identities survive, and effect roles stay distinct
+    assert before[-1].name == after[-1].name
+    assert len({shape.name for shape in after}) == len(after)
+    assert all(shape.name.startswith(("!!qt-morph-hero-", "!!qt-effect-hero-")) for shape in after)
+    assert sum(shape.name.startswith("!!qt-effect-") for shape in after) == len(after) - len(before)
+
+
+def test_effect_morph_names_cannot_collide_with_an_authored_foreground_key():
+    """Effect identities occupy a separate namespace from arbitrary authored motion keys."""
+    # Given: a valid authored key that resembles another layer's generated stroke suffix
+    scene = (
+        Canvas(240, 160)
+        .shape(
+            "triangle",
+            (40, 30),
+            60,
+            60,
+            "#FF0000",
+            motion_key="logo",
+            effects=[Stroke(width=3, color="#FFFF00")],
+        )
+        .shape("rectangle", (130, 30), 30, 30, "#FF0000", motion_key="logo-effect-stroke")
+    )
+
+    # When: reading names from the emitted slide
+    names = [shape.name for shape in slide_of(scene).shapes]
+
+    # Then: the effect cannot force-match either layer's foreground
+    assert len(set(names)) == len(names) == 3
+    assert names == [
+        "!!qt-effect-logo-stroke-0",
+        "!!qt-morph-logo-0",
+        "!!qt-morph-logo-effect-stroke-0",
+    ]
+
+
+def test_interleaved_glow_shadow_reports_its_canonical_composite(tmp_path):
+    """Mixed shadow/halo ordering is kept exact with a bounded, reported layer fallback."""
+    # Given: opaque text mixing two effect types whose stacking differs between viewers
+    scene = Canvas(240, 160).text(
+        "Glow",
+        position=(40, 30),
+        size=24,
+        effects=[Shadow(offset_x=3, offset_y=3, color="#000000"), Glow(color="#FFD166", radius=5)],
+    )
+
+    # When: exporting and checking preflight as well as the actual route
+    path = tmp_path / "mixed.pptx"
+    result = scene.export(path)
+    (picture,) = Presentation(path).slides[0].shapes
+    (diagnostic,) = scene.validate_export("pptx")
+
+    # Then: only this layer is flattened, without claiming live editable glow
+    assert picture.shape_type == MSO_SHAPE_TYPE.PICTURE
+    assert diagnostic.support == "fallback"
+    assert "Interleaved glow and shadow" in result.fallback_diagnostics[0].reason
 
 
 def test_export_preserves_editable_objects_and_exact_mask_payload(tmp_path):
@@ -351,7 +642,7 @@ class TestPptxShapes:
         assert pixel_channel(embedded, (0, 0), 3) == 0
 
     def test_should_apply_rotation_and_stroke_to_shapes(self):
-        """Rotation maps to shape.rotation and stroke effects to the shape line"""
+        """Outside strokes use a doubled centered backing behind the rotated editable fill."""
         # given
         canvas = Canvas(400, 300).shape(
             shape="rectangle",
@@ -364,15 +655,24 @@ class TestPptxShapes:
         )
 
         # when
-        shape = slide_of(canvas).shapes[0]
+        backing, shape = slide_of(canvas).shapes
 
         # then
         assert shape.rotation == pytest.approx(15)
-        assert shape.line.width == Emu(3 * EMU_PER_PX)
-        assert str(shape.line.color.rgb) == "FF00FF"
+        assert backing.rotation == pytest.approx(15)
+        assert backing.line.width == Emu(6 * EMU_PER_PX)
+        assert str(backing.line.color.rgb) == "FF00FF"
+        assert backing._element.find(".//" + qn("a:miter")).get("lim") == "400000"
+        assert shape._element.find(".//" + qn("a:ln") + "/" + qn("a:noFill")) is not None
+        assert (backing.left, backing.top, backing.width, backing.height) == (
+            shape.left,
+            shape.top,
+            shape.width,
+            shape.height,
+        )
 
-    def test_should_apply_shape_opacity_to_stroke_and_effects(self):
-        """Shape opacity fades native PPTX stroke, glow, and shadow output"""
+    def test_should_apply_shape_opacity_to_stroke_and_effects(self, tmp_path):
+        """Translucent shape effects preserve canonical compositing with a reported fallback."""
         # given
         canvas = Canvas(400, 300).shape(
             shape="rectangle",
@@ -389,10 +689,18 @@ class TestPptxShapes:
         )
 
         # when
-        shape_xml = slide_of(canvas).shapes[0]._element.xml
+        path = tmp_path / "translucent-shape.pptx"
+        result = canvas.export(path)
+        (picture,) = Presentation(path).slides[0].shapes
+        actual = Image.new("RGBA", (400, 300))
+        actual.alpha_composite(
+            Image.open(BytesIO(picture.image.blob)),
+            (picture.left // EMU_PER_PX, picture.top // EMU_PER_PX),
+        )
 
         # then
-        assert shape_xml.count("<a:alpha") >= 4
+        assert actual.tobytes() == canvas.sample().frames[0].to_image().tobytes()
+        assert "Translucent" in result.fallback_diagnostics[0].reason
 
 
 class TestPptxText:
@@ -535,7 +843,7 @@ class TestPptxText:
         assert "font" in fallback.reason
 
     def test_should_emit_valid_drawingml_for_gradient_plus_stroke_run(self):
-        """A run with both a gradient fill and a stroke keeps valid rPr child order"""
+        """An opaque gradient retains editable fill over a doubled outside text outline."""
         # given a gradient-filled headline that also has a stroke effect
         from pptx.oxml.ns import qn
 
@@ -550,12 +858,18 @@ class TestPptxText:
         )
 
         # when the exported deck is reopened
-        run = slide_of(canvas).shapes[0].text_frame.paragraphs[0].runs[0]
-        rpr = run._r.find(qn("a:rPr"))
-        tags = [child.tag.split("}")[-1] for child in rpr]
+        backing, foreground = slide_of(canvas).shapes
+        backing_rpr = backing.text_frame.paragraphs[0].runs[0]._r.find(qn("a:rPr"))
+        rpr = foreground.text_frame.paragraphs[0].runs[0]._r.find(qn("a:rPr"))
 
-        # then DrawingML requires line, then fill, then latin within rPr
-        assert tags.index("ln") < tags.index("gradFill") < tags.index("latin")
+        # then: backing strokes stay outside, without replacing the editable gradient fill
+        assert backing.text == foreground.text == "GRAD"
+        assert backing_rpr.find(qn("a:ln")).get("w") == str(6 * EMU_PER_PX)
+        assert backing_rpr.find(qn("a:ln") + "/" + qn("a:round")) is not None
+        assert rpr.find(qn("a:ln")) is None
+        assert rpr.find(qn("a:gradFill")) is not None
+        tags = [child.tag.split("}")[-1] for child in rpr]
+        assert tags.index("gradFill") < tags.index("latin")
 
     def test_should_rotate_textbox_for_rotated_text(self):
         """Rotation carries over to the text box"""
@@ -576,8 +890,8 @@ class TestPptxText:
         # then PowerPoint stores rotation as a positive clockwise angle
         assert box.rotation == pytest.approx(340)
 
-    def test_should_apply_text_opacity_to_background_and_effects(self):
-        """Text opacity fades native PPTX backgrounds, strokes, glows, and shadows"""
+    def test_should_apply_text_opacity_to_background_and_effects(self, tmp_path):
+        """Translucent text effects preserve the canonical alpha composite in a reported PNG."""
         # given
         canvas = Canvas(600, 200).text(
             content="badge",
@@ -595,11 +909,18 @@ class TestPptxText:
         )
 
         # when
-        slide = slide_of(canvas)
-        combined_xml = "\n".join(shape._element.xml for shape in slide.shapes)
+        path = tmp_path / "translucent-text.pptx"
+        result = canvas.export(path)
+        (picture,) = Presentation(path).slides[0].shapes
+        actual = Image.new("RGBA", (600, 200))
+        actual.alpha_composite(
+            Image.open(BytesIO(picture.image.blob)),
+            (picture.left // EMU_PER_PX, picture.top // EMU_PER_PX),
+        )
 
         # then
-        assert combined_xml.count("<a:alpha") >= 5
+        assert actual.tobytes() == canvas.sample().frames[0].to_image().tobytes()
+        assert "Translucent" in result.fallback_diagnostics[0].reason
 
     def test_should_rasterize_radial_gradient_text_fill(self):
         """Radial text fills fall back to a picture instead of a flat solid color"""

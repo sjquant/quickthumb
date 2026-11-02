@@ -2438,6 +2438,20 @@ def _validate_export(
                 if html_problem:
                     parent_html_problems.update((path, html_problem) for path in paths)
     for layer_id, pointer, layer in _iter_export_layer_locations(source):
+        if document_format == "pptx":
+            from quickthumb._pptx_effects import effect_diagnostic
+
+            glow_report = effect_diagnostic(layer, layer_id)
+            if glow_report is not None:
+                action = resolved_policy.pptx.get(layer_id)
+                if (action or resolved_policy.unsupported_motion) in {"error", "native"}:
+                    raise RenderingError(
+                        glow_report.message,
+                        code="unsupported_capability",
+                        path=pointer + "/effects",
+                        layer_id=layer_id,
+                    )
+                diagnostics.append(glow_report)
         if pointer in matte_paths:
             message = (
                 f"Masked {document_format} scene uses one authored-static raster image; "

@@ -46,7 +46,11 @@ PPTX export needs the `pptx` extra:
 pip install "quickthumb[pptx]"
 ```
 
-The canvas becomes a single slide sized to the canvas pixels (at 96 dpi). Text stays editable: font family, size, weight, color, alignment, letter spacing, and line wrapping carry over run by run, and stroke, shadow, and glow map to PowerPoint's text outline and effect settings. Tracking outside PowerPoint's native range uses a PNG fragment and reports the fallback.
+The canvas becomes a single slide sized to the canvas pixels (at 96 dpi). Eligible text stays editable: font family, size, weight, color, alignment, letter spacing, and line wrapping carry over run by run. Tracking outside PowerPoint's native range uses a PNG fragment and reports the fallback.
+
+Opaque outside strokes use doubled-width native backing copies behind the editable fill. Polygon borders use bounded miter joins (limit 4); text outlines use round joins. Editing outlined text or geometry requires changing both copies, or re-exporting from the source.
+
+Glow uses a fixed canonical PNG underlay behind editable opaque text or geometry. This preserves the Gaussian halo in PowerPoint and Keynote, including viewers that drop DrawingML glow. Re-export after editing its foreground: the halo does not regenerate in the slide editor. `validate_export("pptx")` and export receipts report this partial representation; native-only or strict policies reject it. Translucent effects, gradient shape effects, rich-text glow, mixed glow/shadow, and off-canvas shape glow use a complete PNG fallback for the affected layer, with an explicit diagnostic. Other layers remain editable. Rotated hybrid text can still differ at antialiased glyph edges because the viewer renders foreground text separately from the fixed halo.
 
 ```python
 canvas.render("promo.pptx")
