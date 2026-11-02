@@ -8,7 +8,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urljoin, urlsplit
 
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 PROJECT = tomllib.loads((Path(__file__).parents[2] / "pyproject.toml").read_text())["project"]
 
@@ -49,6 +49,11 @@ def _social_image(page, config):
         alt = "quickthumb: Endless thumbnails, from code. Two example thumbnail cards."
 
     image = {"url": url, "alt": alt}
+    if page.meta.get("image_width") and page.meta.get("image_height"):
+        image["width"] = page.meta["image_width"]
+        image["height"] = page.meta["image_height"]
+        return image
+
     site = urlsplit(config.site_url)
     asset = urlsplit(url)
     site_path = site.path.rstrip("/") + "/"
@@ -56,11 +61,11 @@ def _social_image(page, config):
         docs = Path(config.docs_dir).resolve()
         path = (docs / unquote(asset.path[len(site_path) :])).resolve()
         if path.is_relative_to(docs) and path.is_file():
-            with Image.open(path) as local_image:
-                image["width"], image["height"] = local_image.size
-    elif page.meta.get("image_width") and page.meta.get("image_height"):
-        image["width"] = page.meta["image_width"]
-        image["height"] = page.meta["image_height"]
+            try:
+                with Image.open(path) as local_image:
+                    image["width"], image["height"] = local_image.size
+            except UnidentifiedImageError:
+                pass  # Keep unsupported overrides, such as SVG, without inferred dimensions.
     return image
 
 
@@ -68,6 +73,7 @@ def _structured_data(page, config, image):
     """Link canonical pages to the documented Python package and its source repository."""
     site_url = config.site_url.rstrip("/") + "/"
     url = page.canonical_url
+    description = page.meta.get("description") or config.site_description
     author = {"@id": site_url + "#author"}
     software = {"@id": site_url + "#software"}
     website = {"@id": site_url + "#website"}
@@ -117,7 +123,7 @@ def _structured_data(page, config, image):
             "@id": url + "#webpage",
             "url": url,
             "name": _page_name(page),
-            "description": page.meta["description"],
+            "description": description,
             "inLanguage": "en",
             "isPartOf": website,
             "about": software,
@@ -165,7 +171,7 @@ def _structured_data(page, config, image):
                 "@id": url + "#document",
                 "url": url,
                 "name" if is_howto else "headline": _page_name(page),
-                "description": page.meta["description"],
+                "description": description,
                 "inLanguage": "en",
                 "mainEntityOfPage": {"@id": url + "#webpage"},
                 "isPartOf": website,
