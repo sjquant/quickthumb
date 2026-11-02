@@ -652,13 +652,23 @@ class PptxExporter:
         if not any(layout.lines) or layout.block_box is None:
             return
         if any(
-            run.font_variations or run.emoji_style == "color"
+            not isinstance(run.font, ImageFont.FreeTypeFont)
+            or run.font_variations
+            or run.emoji_style == "color"
             for line in layout.lines
             for run in line
         ):
             self._emit_raster_fallback(
-                layer, "Variable font or color emoji semantics require a PNG fragment"
+                layer, "Bitmap fonts, variable fonts or color emoji require a PNG fragment"
             )
+            return
+
+        if any(
+            abs(run.letter_spacing * PT_PER_PX * 100) > 400000
+            for line in layout.lines
+            for run in line
+        ):
+            self._emit_raster_fallback(layer, "Text tracking exceeds the native PowerPoint range")
             return
 
         if layout.block_backgrounds and layout.block_bg_box:
@@ -709,7 +719,17 @@ class PptxExporter:
         from pptx.util import Emu, Pt
 
         assert layout.block_box is not None  # guarded by _emit_text
-        left, top, width, height, rotation = self._place_box(layout, layout.block_box)
+        # A native text frame starts at the font's ascent, not its visible ink.
+        # Using the ink box as the frame pushes glyphs below their backgrounds.
+        top, bottom = math.inf, -math.inf
+        for line in layout.lines:
+            for run in line:
+                assert isinstance(run.font, ImageFont.FreeTypeFont)  # checked by _emit_text
+                ascent, descent = run.font.getmetrics()
+                top = min(top, run.baseline_y - ascent)
+                bottom = max(bottom, run.baseline_y + descent)
+        line_box = (layout.block_box[0], top, layout.block_box[2], bottom)
+        left, top, width, height, rotation = self._place_box(layout, line_box)
         textbox = self._slide.shapes.add_textbox(
             Emu(_emu(left)), Emu(_emu(top)), Emu(_emu(width)), Emu(_emu(height))
         )
@@ -748,6 +768,8 @@ class PptxExporter:
             font.name = run_layout.font.getname()[0]
 
         rpr = run._r.get_or_add_rPr()  # noqa: N802 - python-pptx API name
+        if run_layout.letter_spacing:
+            rpr.set("spc", str(round(run_layout.letter_spacing * PT_PER_PX * 100)))
         if isinstance(run_layout.fill, (LinearGradient, RadialGradient)) and run_layout.fill_box:
             box = run_layout.fill_box
             if isinstance(run_layout.fill, LinearGradient):

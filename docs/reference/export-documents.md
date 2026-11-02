@@ -46,7 +46,7 @@ PPTX export needs the `pptx` extra:
 pip install "quickthumb[pptx]"
 ```
 
-The canvas becomes a single slide sized to the canvas pixels (at 96 dpi). Text stays editable: font family, size, weight, color, alignment, and line wrapping carry over run by run, and stroke, shadow, and glow map to PowerPoint's text outline and effect settings.
+The canvas becomes a single slide sized to the canvas pixels (at 96 dpi). Text stays editable: font family, size, weight, color, alignment, letter spacing, and line wrapping carry over run by run, and stroke, shadow, and glow map to PowerPoint's text outline and effect settings. Tracking outside PowerPoint's native range uses a PNG fragment and reports the fallback.
 
 ```python
 canvas.render("promo.pptx")
@@ -57,6 +57,8 @@ with open("promo.pptx", "wb") as f:
 
 !!! note "Fidelity"
     PowerPoint lays text out with its own font metrics, so text placement is a close approximation rather than pixel-identical. Radial background gradients and multi-stop text gradients beyond what DrawingML supports are embedded as pictures or approximated.
+
+    Fonts are referenced by their resolved family name, not embedded. Make that font available in PowerPoint or Keynote; a substitute can change glyph width and vertical placement. Text frames use font ascent and descent to preserve the canonical baseline around badge backgrounds. Mixed-size rich text still uses a shared native paragraph baseline, which can differ from the canonical per-run placement.
 
 ## PDF
 

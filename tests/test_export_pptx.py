@@ -398,6 +398,49 @@ class TestPptxShapes:
 class TestPptxText:
     """Test suite for text layer export"""
 
+    def test_badge_uses_a_font_line_box_inside_its_background(self):
+        """Editable badge text retains its canonical baseline and symmetric background padding."""
+        # Given: a centered badge whose visible ink is shorter than its font's line box
+        canvas = Canvas(240, 120).text(
+            "badge",
+            position=(120, 60),
+            font="assets/fonts/NotoSans-Regular.ttf",
+            size=20,
+            align="center",
+            effects=[Background(color="#7C3AED", padding=8)],
+        )
+
+        # When: reopening the editable shapes in the actual presentation
+        background, text = slide_of(canvas).shapes
+
+        # Then: the native frame includes font ascent/descent instead of starting at ink top
+        assert (background.left, background.top, background.width, background.height) == tuple(
+            value * EMU_PER_PX for value in (81, 45, 77, 36)
+        )
+        assert (text.left, text.top, text.width, text.height) == tuple(
+            value * EMU_PER_PX for value in (89, 46, 61, 28)
+        )
+        assert text.text == "badge"
+        assert text.text_frame.paragraphs[0].alignment == pptx.enum.text.PP_ALIGN.CENTER
+        assert text.text_frame.margin_top == text.text_frame.margin_bottom == 0
+
+    @pytest.mark.parametrize("spacing", [-5334, 5334])
+    def test_tracking_outside_native_range_uses_reported_pixels(self, tmp_path, spacing):
+        """Out-of-range PowerPoint tracking preserves pixels with a fallback diagnostic."""
+        # Given: one visible glyph with tracking that cannot fit in DrawingML
+        canvas = Canvas(120, 120).text("A", position=(20, 20), size=20, letter_spacing=spacing)
+
+        # When: exporting through the public file boundary
+        path = tmp_path / "tracking.pptx"
+        result = canvas.export(path)
+        (picture,) = Presentation(path).slides[0].shapes
+
+        # Then: the result is an explicitly reported pixel fallback, not invalid native text
+        assert picture.shape_type == MSO_SHAPE_TYPE.PICTURE
+        (fallback,) = result.fallback_diagnostics
+        assert "tracking" in fallback.reason
+        assert fallback.native_attempt is False
+
     def test_should_emit_editable_textbox_with_font_properties(self):
         """Text layers become text boxes with size, weight, color, and font name"""
         # given
@@ -433,6 +476,7 @@ class TestPptxText:
             color="#FFFFFF",
             position=(20, 20),
             max_width=300,
+            letter_spacing=3,
         )
 
         # when
@@ -443,14 +487,15 @@ class TestPptxText:
         assert len(paragraphs) > 1
         rejoined = " ".join(p.runs[0].text for p in paragraphs)
         assert rejoined == "several words that will certainly wrap around"
+        assert {p.runs[0]._r.rPr.get("spc") for p in paragraphs} == {"225"}
 
     def test_should_emit_rich_parts_as_styled_runs(self):
         """Rich content keeps per-part styling within a single paragraph"""
         # given
         canvas = Canvas(600, 200).text(
             content=[
-                TextPart(text="Big ", color="#FF0000", size=48, bold=True),
-                TextPart(text="small", color="#00FF00", size=24, italic=True),
+                TextPart(text="Big ", color="#FF0000", size=48, bold=True, letter_spacing=2),
+                TextPart(text="small", color="#00FF00", size=24, italic=True, letter_spacing=-1),
             ],
             font="Roboto",
             position=(40, 60),
@@ -466,6 +511,7 @@ class TestPptxText:
         assert runs[0].font.bold is True
         assert runs[1].font.italic is True
         assert str(runs[1].font.color.rgb) == "00FF00"
+        assert [run._r.rPr.get("spc") for run in runs] == ["150", "-75"]
 
     def test_should_rasterize_text_with_unsupported_font_semantics(self, tmp_path):
         """Variable-font and color-emoji runs fall back to a pixel-exact picture"""
