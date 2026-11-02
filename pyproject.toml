@@ -42,7 +42,7 @@ Documentation = "https://quickthumb.solaqua.dev/"
 
 [project.optional-dependencies]
 rembg = [
-    "onnxruntime>=1.24.1,<2.0.0; python_version >= '3.11'",
+    "onnxruntime>=1.31.0,<2.0.0; python_version >= '3.11'",
     "rembg>=2.0.86,<3.0.0; python_version >= '3.11'",
 ]
 cli = [
