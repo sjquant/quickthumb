@@ -169,7 +169,15 @@ canvas.path(
 )
 ```
 
-For smooth morphing, both keyframes should have a matching number of non-intersecting contours.
+Each key must have 1–16 nondegenerate contours, matching in count, order,
+open/closed status, winding, and nesting. Contours must not intersect or touch,
+including during the transition. Incompatible keys raise `path_morph_topology`;
+an invalid intermediate shape fails during rendering rather than changing topology.
+
+Complex outlines may exceed the limits of 256 subdivided vertices per contour,
+4096 correspondence points, or one million edge-pair checks. Resampling must
+retain vertices within ¼ local SVG unit; enlargement can make that approximation
+visible. Simplify the paths if morph preparation rejects them.
 
 ## Export Support
 

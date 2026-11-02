@@ -1,4 +1,10 @@
-"""Export a filled and stroked logo morph as held native Lottie vectors."""
+"""Turn a translucent, outlined logo into a circle and pause on the result.
+
+Run from the repository root:
+    uv run python -m examples.lottie_morph /tmp/logo.lot
+
+The animation lasts 2.25 seconds, including a final half-second pause.
+"""
 
 import argparse
 from pathlib import Path

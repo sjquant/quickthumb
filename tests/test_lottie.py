@@ -655,13 +655,23 @@ def test_morph_contour_count_must_match_authored_source(tmp_path, authored, key)
 
 
 @pytest.mark.parametrize(
-    "first,last,color",
+    "first,last,color,contour_count,closed,closing_segments,close_commands",
     [
-        ("M10 10H50V50H10Z M20 20H40V40H20Z", "M20 20H60V60H20Z M30 30H50V50H30Z", "#159A8C80"),
-        ("M10 25Q40 10 70 25", "M10 45Q40 60 70 45", None),
+        (
+            "M10 10H50V50H10Z M20 20H40V40H20Z",
+            "M20 20H60V60H20Z M30 30H50V50H30Z",
+            "#159A8C80",
+            2,
+            True,
+            [(-1, 0)],
+            ["Z"],
+        ),
+        ("M10 25Q40 10 70 25", "M10 45Q40 60 70 45", None, 1, False, [], []),
     ],
 )
-def test_morph_native_geometry_repaints_canonical_frames(tmp_path, first, last, color):
+def test_morph_native_geometry_repaints_canonical_frames(
+    tmp_path, first, last, color, contour_count, closed, closing_segments, close_commands
+):
     from PIL import ImageChops
     from quickthumb import KeyframeSpec, PathLayer, PathMorphTrack, TimingSpec
 
@@ -692,30 +702,26 @@ def test_morph_native_geometry_repaints_canonical_frames(tmp_path, first, last, 
         payload,
         json.loads((Path(__file__).parent / "fixtures/lottie/schema-1.0.1.json").read_text()),
     )
-    paths = [item for item in payload["layers"][0]["shapes"][0]["it"] if item["ty"] == "sh"]
-    for time in [0, 0.25, 0.5, 0.75, 1, 1.25]:
+    paths = payload["layers"][0]["shapes"][0]["it"][:contour_count]
+    for time, key_index in [(0, 0), (0.25, 1), (0.5, 2), (0.75, 3), (1, 4), (1.25, 4)]:
         commands = []
         for item in paths:
+            assert item["ty"] == "sh"
             prop = item["ks"]
-            shape = (
-                max((key for key in prop["k"] if key["t"] <= time * 4), key=lambda key: key["t"])[
-                    "s"
-                ][0]
-                if prop["a"]
-                else prop["k"]
-            )
+            assert prop["a"] == 1
+            shape = prop["k"][key_index]["s"][0]
+            assert shape["c"] is closed
             vertices, incoming, outgoing = shape["v"], shape["i"], shape["o"]
             commands.append(f"M{vertices[0][0]} {vertices[0][1]}")
-            for index in range(len(vertices) if shape["c"] else len(vertices) - 1):
-                following = (index + 1) % len(vertices)
+            segments = list(zip(range(len(vertices) - 1), range(1, len(vertices)), strict=True))
+            for index, following in segments + closing_segments:
                 a, b = vertices[index], vertices[following]
                 commands.append(
                     f"C{a[0] + outgoing[index][0]} {a[1] + outgoing[index][1]} "
                     f"{b[0] + incoming[following][0]} {b[1] + incoming[following][1]} "
                     f"{b[0]} {b[1]}"
                 )
-            if shape["c"]:
-                commands.append("Z")
+            commands.extend(close_commands)
         native = Canvas.from_json(canvas.to_json())
         source = canvas.layers[0]
         assert isinstance(source, PathLayer)
