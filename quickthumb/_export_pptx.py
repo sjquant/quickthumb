@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import contextlib
 import math
+from dataclasses import replace
 from io import BytesIO
 from typing import TYPE_CHECKING, Literal, cast
 
@@ -174,6 +175,7 @@ class PptxExporter:
         self._canvas = canvas
         self._reduced_motion = reduced_motion
         self.diagnostics: list[ExportDiagnostic] = []
+        self._effect_roles: dict[int, str] = {}
 
     def export_bytes(self) -> bytes:
         buffer = BytesIO()
@@ -317,43 +319,44 @@ class PptxExporter:
 
     # ------------------------------------------------------------------ layers
 
-    def _record_routing(self, layers: list, reason: str, *, rasterized: bool) -> None:
+    def _record_routing(
+        self, layers: list, reason: str, *, rasterized: bool, partial: bool = False
+    ) -> None:
         observation = _layer_routing(
             layers, self._source_ids, reason, target="pptx", rasterized=rasterized
         )
-        self.diagnostics.append(observation.model_copy(update={"slide_index": self._slide_index}))
+        updates = {"slide_index": self._slide_index}
+        if partial:
+            updates.update(support="partial", fallback="rasterize")
+        self.diagnostics.append(observation.model_copy(update=updates))
 
     def _emit_tracked_layer(self, layer: RenderableLayer):
-        """Emit a layer, recording the shape ids it produces if it is animated.
-
-        Animations target shapes by id, so shapes appended while emitting the
-        layer belong to that layer. A single layer can produce several shapes
-        (e.g. a text box plus its background fills), and the animation is
-        applied to all of them together.
-        """
+        """Keep a layer's exported objects together for animations and Morph."""
         animation = (
             None
             if isinstance(layer, PathLayer) or _has_transform_extensions(layer)
             else getattr(layer, "animation", None)
         )
         start = len(self._slide.shapes)
-        if animation is None:
-            self._emit_layer(layer)
-        else:
-            animation = cast(LayerAnimation, animation)
-            self._emit_layer(layer)
-        new_ids = [
-            self._slide.shapes[index].shape_id for index in range(start, len(self._slide.shapes))
-        ]
+        self._effect_roles = {}
+        self._emit_layer(layer)
+        new_shapes = list(self._slide.shapes)[start:]
         key = getattr(layer, "motion_key", None)
         if key is not None:
-            for ordinal, shape_id in enumerate(new_ids):
-                shape = next(shape for shape in self._slide.shapes if shape.shape_id == shape_id)
+            ordinal = 0
+            for shape in new_shapes:
                 # PowerPoint's explicit Morph identity contract is a unique
                 # name beginning with two exclamation points.
-                shape.name = f"!!qt-morph-{key}-{ordinal}"
-        if new_ids and animation is not None:
-            self._anim_records.append((animation, new_ids))
+                role = self._effect_roles.get(shape.shape_id)
+                if role is not None:
+                    shape.name = f"!!qt-effect-{key}-{role}"
+                else:
+                    shape.name = f"!!qt-morph-{key}-{ordinal}"
+                    ordinal += 1
+        if new_shapes and animation is not None:
+            self._anim_records.append(
+                (cast(LayerAnimation, animation), [shape.shape_id for shape in new_shapes])
+            )
 
     @staticmethod
     def _supports_native_morph(source: Canvas, target: Canvas) -> bool:
@@ -435,16 +438,18 @@ class PptxExporter:
             self._add_fragment(fragment)
             self._record_routing([layer], reason, rasterized=True)
 
-    def _add_fragment(self, fragment: RasterFragment):
+    def _add_fragment(self, fragment: RasterFragment, *, morph_role: str | None = None):
         from pptx.util import Emu
 
-        self._slide.shapes.add_picture(
+        picture = self._slide.shapes.add_picture(
             BytesIO(fragment.png_bytes),
             Emu(_emu(fragment.x)),
             Emu(_emu(fragment.y)),
             Emu(_emu(fragment.width)),
             Emu(_emu(fragment.height)),
         )
+        if morph_role is not None:
+            self._effect_roles[picture.shape_id] = morph_role
 
     # -------------------------------------------------------------- background
 
@@ -559,6 +564,54 @@ class PptxExporter:
         left = paste_x + (expanded[0] - width) / 2
         top = paste_y + (expanded[1] - height) / 2
 
+        strokes = [e for e in layer.effects if isinstance(e, Stroke)]
+        glows = [e for e in layer.effects if isinstance(e, Glow)]
+        from quickthumb._pptx_effects import effect_fallback_reason
+
+        fallback_reason = effect_fallback_reason(layer)
+        if fallback_reason:
+            self._emit_raster_fallback(layer, fallback_reason)
+            return
+        if glows and (
+            paste_x < 0
+            or paste_y < 0
+            or paste_x + expanded[0] > canvas.width
+            or paste_y + expanded[1] > canvas.height
+        ):
+            self._emit_raster_fallback(
+                layer, "Off-canvas shape glow requires the complete canonical source surface"
+            )
+            return
+
+        if glows:
+            from quickthumb._pptx_effects import glow_fragment
+
+            fragment = glow_fragment(canvas, layer)
+            if fragment is not None:
+                self._add_fragment(fragment, morph_role="glow")
+
+        shadows = [e for e in layer.effects if isinstance(e, Shadow)]
+        if strokes and shadows:
+            # A foreground shadow would cover the already-painted outside stroke.
+            shadow_source = self._add_autoshape(layer, left, top)
+            if shadow_source is not None:
+                self._effect_roles[shadow_source.shape_id] = "shadow"
+                shadow_source.shadow.inherit = False
+                shadow_source.rotation = layer.rotation
+                self._set_solid_fill(shadow_source, color_to_rgba(canvas, layer.color))
+                shadow_source.line.fill.background()
+                self._append_effects(shadow_source._element.spPr, shadows)
+
+        for index, stroke in enumerate(strokes):
+            backing = self._add_autoshape(layer, left, top)
+            if backing is not None:
+                self._effect_roles[backing.shape_id] = f"stroke-{index}"
+                backing.shadow.inherit = False
+                backing.rotation = layer.rotation
+                rgba = color_to_rgba(canvas, stroke.color)
+                self._set_solid_fill(backing, rgba)
+                self._set_line(backing, rgba, stroke.width * 2)
+
         shape = self._add_autoshape(layer, left, top)
         if shape is None:
             self._emit_raster_fallback(
@@ -573,21 +626,21 @@ class PptxExporter:
         rgba = color_to_rgba(canvas, layer.color, layer.opacity)
         self._set_solid_fill(shape, rgba)
 
-        strokes = [e for e in layer.effects if isinstance(e, Stroke)]
-        if strokes:
-            stroke = strokes[0]
-            self._set_line(shape, color_to_rgba(canvas, stroke.color, layer.opacity), stroke.width)
-        else:
-            from pptx.shapes.autoshape import Shape
+        from pptx.shapes.autoshape import Shape
 
-            cast(Shape, shape).line.fill.background()
+        cast(Shape, shape).line.fill.background()
 
-        glows = [e for e in layer.effects if isinstance(e, Glow)]
-        shadows = [e for e in layer.effects if isinstance(e, Shadow)]
-        if glows or shadows:
-            self._append_effects(shape._element.spPr, glows, shadows, opacity=layer.opacity)
+        if shadows and not strokes:
+            self._append_effects(shape._element.spPr, shadows, opacity=layer.opacity)
         self._record_routing(
-            [layer], "Shape retained as editable PowerPoint geometry", rasterized=False
+            [layer],
+            "Glow is a fixed PNG underlay behind editable geometry; re-export after geometry edits"
+            if glows
+            else "Editable fill and outside-stroke backing geometry; edit both or re-export"
+            if strokes
+            else "Shape retained as editable PowerPoint geometry",
+            rasterized=False,
+            partial=bool(glows),
         )
 
     def _add_autoshape(self, layer: ShapeLayer, left: float, top: float):
@@ -652,13 +705,32 @@ class PptxExporter:
         if not any(layout.lines) or layout.block_box is None:
             return
         if any(
-            run.font_variations or run.emoji_style == "color"
+            not isinstance(run.font, ImageFont.FreeTypeFont)
+            or run.font_variations
+            or run.emoji_style == "color"
             for line in layout.lines
             for run in line
         ):
             self._emit_raster_fallback(
-                layer, "Variable font or color emoji semantics require a PNG fragment"
+                layer, "Bitmap fonts, variable fonts or color emoji require a PNG fragment"
             )
+            return
+
+        if any(
+            abs(run.letter_spacing * PT_PER_PX * 100) > 400000
+            for line in layout.lines
+            for run in line
+        ):
+            self._emit_raster_fallback(layer, "Text tracking exceeds the native PowerPoint range")
+            return
+
+        glows = any(run.glows for line in layout.lines for run in line)
+        strokes = max((len(run.strokes) for line in layout.lines for run in line), default=0)
+        from quickthumb._pptx_effects import effect_fallback_reason
+
+        fallback_reason = effect_fallback_reason(layer)
+        if fallback_reason:
+            self._emit_raster_fallback(layer, fallback_reason)
             return
 
         if layout.block_backgrounds and layout.block_bg_box:
@@ -670,10 +742,52 @@ class PptxExporter:
                     if run.bg_box:
                         self._add_text_background(background, run.bg_box, layout)
 
-        self._add_textbox(layer, layout)
+        if glows:
+            from quickthumb._pptx_effects import glow_fragment
+
+            fragment = glow_fragment(self._current_canvas(), layer, layout)
+            if fragment is not None:
+                self._add_fragment(fragment, morph_role="glow")
+        if strokes and any(run.shadows for line in layout.lines for run in line):
+            shadow_lines = [
+                [replace(run, strokes=[], glows=[]) for run in line] for line in layout.lines
+            ]
+            self._add_textbox(layer, replace(layout, lines=shadow_lines), morph_role="shadow")
+        for index in range(strokes):
+            backing_lines = [
+                [self._stroke_run(run, index) for run in line] for line in layout.lines
+            ]
+            self._add_textbox(
+                layer, replace(layout, lines=backing_lines), morph_role=f"stroke-{index}"
+            )
+        foreground_lines = [
+            [
+                replace(run, strokes=[], glows=[], shadows=[] if strokes else run.shadows)
+                for run in line
+            ]
+            for line in layout.lines
+        ]
+        self._add_textbox(layer, replace(layout, lines=foreground_lines))
         self._record_routing(
-            [layer], "Text retained as an editable PowerPoint text box", rasterized=False
+            [layer],
+            "Glow is a fixed PNG underlay behind editable text; re-export after text edits"
+            if glows
+            else "Editable text and outside-stroke backing copies; edit both or re-export"
+            if strokes
+            else "Text retained as an editable PowerPoint text box",
+            rasterized=False,
+            partial=bool(glows),
         )
+
+    def _stroke_run(self, run: TextRunLayout, index: int) -> TextRunLayout:
+        """Retain editable glyphs for one outside-outline backing copy."""
+        color = (0, 0, 0, 0)
+        strokes = []
+        if index < len(run.strokes):
+            stroke = run.strokes[index]
+            color = color_to_rgba(self._current_canvas(), stroke.color)
+            strokes = [stroke.model_copy(update={"width": stroke.width * 2})]
+        return replace(run, color=color, fill=None, strokes=strokes, glows=[], shadows=[])
 
     def _add_text_background(self, background, content_box: Box, layout: TextBlockLayout):
         from pptx.enum.shapes import MSO_SHAPE
@@ -704,15 +818,30 @@ class PptxExporter:
         )
         self._set_solid_fill(shape, rgba)
 
-    def _add_textbox(self, layer: TextLayer, layout: TextBlockLayout):
+    def _add_textbox(
+        self, layer: TextLayer, layout: TextBlockLayout, *, morph_role: str | None = None
+    ):
         from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE, PP_ALIGN
         from pptx.util import Emu, Pt
 
         assert layout.block_box is not None  # guarded by _emit_text
-        left, top, width, height, rotation = self._place_box(layout, layout.block_box)
+        # A native text frame starts at the font's ascent, not its visible ink.
+        # Using the ink box as the frame pushes glyphs below their backgrounds.
+        top, bottom = math.inf, -math.inf
+        for line in layout.lines:
+            for run in line:
+                assert isinstance(run.font, ImageFont.FreeTypeFont)  # checked by _emit_text
+                ascent, descent = run.font.getmetrics()
+                top = min(top, run.baseline_y - ascent)
+                bottom = max(bottom, run.baseline_y + descent)
+        line_box = (layout.block_box[0], top, layout.block_box[2], bottom)
+        left, top, width, height, rotation = self._place_box(layout, line_box)
         textbox = self._slide.shapes.add_textbox(
             Emu(_emu(left)), Emu(_emu(top)), Emu(_emu(width)), Emu(_emu(height))
         )
+        textbox.shadow.inherit = False
+        if morph_role is not None:
+            self._effect_roles[textbox.shape_id] = morph_role
         if rotation:
             textbox.rotation = rotation
 
@@ -748,6 +877,8 @@ class PptxExporter:
             font.name = run_layout.font.getname()[0]
 
         rpr = run._r.get_or_add_rPr()  # noqa: N802 - python-pptx API name
+        if run_layout.letter_spacing:
+            rpr.set("spc", str(round(run_layout.letter_spacing * PT_PER_PX * 100)))
         if isinstance(run_layout.fill, (LinearGradient, RadialGradient)) and run_layout.fill_box:
             box = run_layout.fill_box
             if isinstance(run_layout.fill, LinearGradient):
@@ -777,8 +908,8 @@ class PptxExporter:
                 color_to_rgba(self._current_canvas(), stroke.color, layer_opacity),
                 stroke.width,
             )
-        if run_layout.glows or run_layout.shadows:
-            self._append_effects(rpr, run_layout.glows, run_layout.shadows, opacity=layer_opacity)
+        if run_layout.shadows:
+            self._append_effects(rpr, run_layout.shadows, opacity=layer_opacity)
 
     @staticmethod
     def _weight_is_bold(weight: int | str | None) -> bool:
@@ -824,6 +955,10 @@ class PptxExporter:
 
         shape.line.color.rgb = RGBColor(*rgba[:3])
         shape.line.width = Emu(_emu(width_px))
+        from pptx.oxml import parse_xml
+        from pptx.oxml.ns import nsdecls
+
+        shape.line._get_or_add_ln().append(parse_xml(f'<a:miter {nsdecls("a")} lim="400000"/>'))
         if rgba[3] < 255:
             ln = shape.line._get_or_add_ln()
             self._append_alpha(ln, rgba[3] / 255)
@@ -890,7 +1025,6 @@ class PptxExporter:
     def _append_effects(
         self,
         properties_element,
-        glows: list[Glow],
         shadows: list[Shadow],
         opacity: float = 1.0,
     ):
@@ -902,9 +1036,6 @@ class PptxExporter:
             properties_element.remove(existing)
 
         parts = []
-        for glow in glows:
-            rgba = color_to_rgba(self._current_canvas(), glow.color, glow.opacity * opacity)
-            parts.append(f'<a:glow rad="{_emu(glow.radius * 3)}">{self._srgb_xml(rgba)}</a:glow>')
         for shadow in shadows:
             rgba = color_to_rgba(self._current_canvas(), shadow.color, opacity)
             distance = math.hypot(shadow.offset_x, shadow.offset_y)
@@ -940,7 +1071,7 @@ class PptxExporter:
             rpr.remove(existing)
         xml = (
             f'<a:ln {nsdecls("a")} w="{_emu(width_px)}"><a:solidFill>'
-            f"{self._srgb_xml(rgba)}</a:solidFill></a:ln>"
+            f"{self._srgb_xml(rgba)}</a:solidFill><a:round/></a:ln>"
         )
         rpr.insert(0, parse_xml(xml))
 

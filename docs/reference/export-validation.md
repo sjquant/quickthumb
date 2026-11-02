@@ -87,6 +87,34 @@ searchable vector content; this does not promise PowerPoint-style editing.
 Deck PDF comparison is rejected explicitly; export its Canvas slides individually.
 This observation does not establish PPTX or animation fidelity.
 
+## PPTX compatibility
+
+PPTX keeps supported text and shapes editable. Glow can accompany that editable
+content as a fixed image; re-export after edits to update the glow. Outlined
+content may also require editing multiple objects together or re-exporting.
+
+These effect combinations export the affected layer as a picture:
+
+- Translucent text, shapes or outlines with stroke/glow effects.
+- Gradient-filled shapes with stroke/glow effects.
+- Rich text with glow, or content combining glow and shadow.
+- Shape glow whose source extends beyond the slide.
+
+Text with an opaque linear gradient can retain its editable fill and outline. Only the
+paint actually used by each text part determines whether it is translucent;
+unused or overridden colors do not remove editability.
+
+Inspect `canvas.validate_export("pptx")` before export or the result's
+`capability_report` afterward to see compatibility decisions. A mixed editable
+foreground and fixed effect has `support="partial"`; a complete layer image has
+`support="fallback"`. See [document layer routing](export-methods.md#document-layer-routing)
+for receipt fields.
+
+`ExportPolicy(pptx={"title": "native"})` rejects these effect image or mixed
+representations for the layer with ID `title`. `ExportPolicy(unsupported_motion="error")` also
+rejects these effect fallbacks. Canvas and Deck `to_pptx(policy=...)` enforce the
+same policy checks as file exports. Defaults allow the explained fallbacks.
+
 ## HTML browser validation harness
 
 The developer-only harness captures actual exported Canvas and two-slide Deck

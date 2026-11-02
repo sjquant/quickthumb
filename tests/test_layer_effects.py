@@ -1,8 +1,43 @@
 import json
+from typing import Any, cast
 
-from PIL import Image
+import pytest
+from PIL import Image, ImageChops
 
 from tests._helpers import pixel_channel, pixel_rgb
+
+
+@pytest.mark.parametrize("spacing", [0, 3])
+def test_glow_is_a_source_over_composite_on_transparent_targets(spacing):
+    """A halo has the same color/alpha when composited directly or through a transparent PNG."""
+    from quickthumb import Canvas, Glow
+
+    # Given: the same text and glow drawn on an opaque background and a transparent layer
+    style: dict[str, Any] = {
+        "position": (40, 45),
+        "font": "assets/fonts/NotoSans-Regular.ttf",
+        "size": 28,
+        "letter_spacing": spacing,
+    }
+    glow = [Glow(color="#FFD166", radius=5, opacity=0.8)]
+    direct = Canvas(240, 140).background(color="#101820").text("Glow", **style, effects=glow)
+    transparent = Canvas(240, 140).text("Glow", **style, effects=glow)
+    ink = Canvas(240, 140).text("Glow", **style).sample().frames[0].to_image()
+
+    # When: compositing the transparent result onto the same background
+    combined = Image.new("RGBA", (240, 140), "#101820")
+    combined.alpha_composite(transparent.sample().frames[0].to_image())
+    delta = ImageChops.difference(direct.sample().frames[0].to_image(), combined)
+    outside_ink = ink.getchannel("A").point(lambda a: 255 * (a == 0))
+
+    # Then: halo pixels do not suffer the alpha-squared darkening of a masked paste
+    assert (
+        max(
+            cast(tuple[int, int], ImageChops.multiply(channel, outside_ink).getextrema())[1]
+            for channel in delta.split()
+        )
+        <= 1
+    )
 
 
 class TestLayerEffects:

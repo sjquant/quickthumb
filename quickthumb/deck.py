@@ -673,7 +673,8 @@ class Deck:
     def to_pptx(self, *, policy: ExportPolicy | None = None) -> bytes:
         """Render the deck to a multi-slide PPTX as bytes (requires quickthumb[pptx])."""
         self._require_slides()
-        self._validate_motion_policy("pptx", policy)
+        if policy is not None:
+            self.validate_export("pptx", policy)
         from quickthumb._export_pptx import PptxExporter
 
         return PptxExporter(

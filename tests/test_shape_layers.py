@@ -1,13 +1,58 @@
 """Tests for shape layer functionality"""
 
 import json
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from inline_snapshot import snapshot
 from PIL import Image
 from quickthumb.errors import ValidationError
 from quickthumb.models import Align, ShapeLayer
+
+
+@pytest.mark.parametrize("rotation", [0, 31])
+def test_polygon_outside_stroke_survives_rotation_and_local_bounds(rotation):
+    """Polygon miter strokes retain their exterior pixels before canvas clipping."""
+    from quickthumb import Canvas, Stroke
+
+    # Given: an acute triangle with a stroke that extends outside its nominal viewport
+    style: dict[str, Any] = {
+        "shape": "triangle",
+        "width": 60,
+        "height": 60,
+        "color": "#14B8A6",
+        "rotation": rotation,
+        "align": ("center", "middle"),
+        "effects": [Stroke(width=3, color="#FFFFFF")],
+    }
+    scene = Canvas(160, 160).shape(position=(80, 80), **style)
+    larger = Canvas(240, 240).shape(position=(120, 120), **style)
+
+    # When: comparing an interior rendering against the same layer translated on a larger canvas
+    rendered = scene.sample().frames[0].to_image()
+    translated = larger.sample().frames[0].to_image().crop((40, 40, 200, 200))
+
+    # Then: rotation/alignment do not clip the padded stroke or shift its fill
+    assert rendered.tobytes() == translated.tobytes()
+    assert rendered.getbbox()[1] < 50
+
+
+def test_polygon_tip_uses_a_miter_instead_of_a_square_mask_expansion():
+    """An acute tip reaches its miter intersection instead of a flat box-dilated cap."""
+    from quickthumb import Canvas, Stroke
+
+    # Given: a triangle tip at (80, 50) with a three-pixel outside border
+    scene = Canvas(160, 160).shape(
+        "triangle", (50, 50), 60, 60, "#14B8A6", effects=[Stroke(width=3, color="#FFFFFF")]
+    )
+
+    # When: inspecting the rendered tip above the shape's nominal bounds
+    rendered = scene.sample().frames[0].to_image()
+
+    # Then: the miter reaches above the old square-dilation cap while narrowing toward its tip
+    assert rendered.getpixel((80, 45))[3] > 100
+    assert rendered.getpixel((76, 45))[3] < 10
+    assert rendered.getpixel((84, 45))[3] < 10
 
 
 class TestShapeLayerValidation:

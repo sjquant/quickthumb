@@ -40,23 +40,36 @@ A deck exports to an HTML slideshow the same way, with a presenter view; see
 
 ## PPTX
 
-PPTX export needs the `pptx` extra:
+Create slides you can refine in PowerPoint or Keynote, with editable text and
+supported shapes. Install the `pptx` extra:
 
 ```bash
 pip install "quickthumb[pptx]"
 ```
 
-The canvas becomes a single slide sized to the canvas pixels (at 96 dpi). Text stays editable: font family, size, weight, color, alignment, and line wrapping carry over run by run, and stroke, shadow, and glow map to PowerPoint's text outline and effect settings.
-
 ```python
-canvas.render("promo.pptx")
-# or
-with open("promo.pptx", "wb") as f:
-    f.write(canvas.to_pptx())
+from quickthumb import Canvas
+
+canvas = Canvas(640, 360).background(color="#101826").text(
+    "Ready to share", font="Arial", size=36, color="#FFFFFF", position=(60, 120)
+)
+canvas.export("promo.pptx")
 ```
 
-!!! note "Fidelity"
-    PowerPoint lays text out with its own font metrics, so text placement is a close approximation rather than pixel-identical. Radial background gradients and multi-stop text gradients beyond what DrawingML supports are embedded as pictures or approximated.
+Open `promo.pptx` in your slide editor. A Canvas becomes one slide; use
+`deck.export("promo.pptx")` for several slides.
+
+!!! note "Editing styled content"
+    Glow is saved as a fixed image, and outlines may use separate objects.
+    After changing styled text or shapes, re-export from Python to keep their
+    glow and border aligned. Some effect combinations become pictures, so the
+    affected content cannot be edited as individual text or shapes. See
+    [PPTX compatibility](export-validation.md#pptx-compatibility) for details.
+
+!!! note "Fonts and layout"
+    Fonts are not embedded. Choose a font available both to quickthumb and in
+    the slide editor. Font substitution, mixed-size rich text and rotation can
+    change spacing or placement; check the result in the app you will use.
 
 ## PDF
 

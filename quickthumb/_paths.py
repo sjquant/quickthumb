@@ -78,7 +78,16 @@ def render_path(
     if layer.stroke is not None:
         mask = Image.new("1", size)
         strokes = dash_contours(trimmed, layer.dash_array, layer.dash_offset, scale)
-        _stroke_mask(mask, strokes, layer, scale, bounds)
+        stroke_mask(
+            mask,
+            strokes,
+            layer.stroke_width,
+            scale,
+            bounds,
+            line_cap=layer.line_cap,
+            line_join=layer.line_join,
+            miter_limit=layer.miter_limit,
+        )
         _paint_mask(image, mask, layer.stroke, (x + left, y + top))
 
 
@@ -94,14 +103,19 @@ def _paint_mask(
     image.alpha_composite(painted, position)
 
 
-def _stroke_mask(
+def stroke_mask(
     mask: Image.Image,
     contours: tuple[_Contour, ...],
-    layer: PathLayer,
+    width: float,
     scale: tuple[float, float],
     bounds: tuple[int, int, int, int],
+    *,
+    line_cap: str = "butt",
+    line_join: str = "miter",
+    miter_limit: float = 4,
 ) -> None:
-    radius = layer.stroke_width / 2
+    """Paint bounded vector stroke geometry into a supersampled mask."""
+    radius = width / 2
     if radius * max(scale) == 0:
         return
     draw = ImageDraw.Draw(mask)
@@ -147,9 +161,9 @@ def _stroke_mask(
         if contour.closed and len(points) > 1 and points[0] == points[-1]:
             points.pop()
         if len(points) == 1:
-            if layer.line_cap == "round":
+            if line_cap == "round":
                 circle(points[0])
-            elif layer.line_cap == "square":
+            elif line_cap == "square":
                 cx, cy = points[0]
                 tx, ty = contour.tangent[0] / scale[0], contour.tangent[1] / scale[1]
                 length = math.hypot(tx, ty)
@@ -191,7 +205,7 @@ def _stroke_mask(
             cross = before[0] * after[1] - before[1] * after[0]
             if cross == 0 and before == after:
                 continue
-            if layer.line_join == "round":
+            if line_join == "round":
                 circle((cx, cy))
                 continue
             sign = -1 if cross > 0 else 1
@@ -199,9 +213,9 @@ def _stroke_mask(
             b = (-after[1] * sign, after[0] * sign)
             join = [(cx + a[0] * radius, cy + a[1] * radius)]
             denominator = 1 + before[0] * after[0] + before[1] * after[1]
-            if layer.line_join == "miter" and denominator > 0:
+            if line_join == "miter" and denominator > 0:
                 mx, my = (a[0] + b[0]) / denominator, (a[1] + b[1]) / denominator
-                if math.hypot(mx, my) <= layer.miter_limit:
+                if math.hypot(mx, my) <= miter_limit:
                     join.append((cx + mx * radius, cy + my * radius))
             join.extend(((cx + b[0] * radius, cy + b[1] * radius), (cx, cy)))
             polygon(join)
@@ -210,9 +224,9 @@ def _stroke_mask(
                 (points[0], directions[0], -1),
                 (points[-1], directions[-1], 1),
             ):
-                if layer.line_cap == "round":
+                if line_cap == "round":
                     circle(point)
-                elif layer.line_cap == "square":
+                elif line_cap == "square":
                     dx, dy = direction[0] * radius * sign, direction[1] * radius * sign
                     nx, ny = -direction[1] * radius, direction[0] * radius
                     cx, cy = point
