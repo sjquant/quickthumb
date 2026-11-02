@@ -129,32 +129,17 @@ def _structured_data(page, config, image):
         webpage = graph[-1]
         breadcrumbs = _breadcrumbs(page, site_url, config.site_name)
         webpage["breadcrumb"] = {"@id": url + "#breadcrumbs"}
-        graph.extend(
-            [
-                {
-                    "@type": "BreadcrumbList",
-                    "@id": url + "#breadcrumbs",
-                    "itemListElement": [
-                        {"@type": "ListItem", "position": index, "name": name, "item": item_url}
-                        for index, (name, item_url) in enumerate(breadcrumbs, start=1)
-                    ],
-                },
-                {
-                    "@type": "TechArticle",
-                    "@id": url + "#document",
-                    "url": url,
-                    "headline": _page_name(page),
-                    "description": page.meta["description"],
-                    "inLanguage": "en",
-                    "mainEntityOfPage": {"@id": url + "#webpage"},
-                    "isPartOf": website,
-                    "about": software,
-                    "author": author,
-                },
-            ]
+        graph.append(
+            {
+                "@type": "BreadcrumbList",
+                "@id": url + "#breadcrumbs",
+                "itemListElement": [
+                    {"@type": "ListItem", "position": index, "name": name, "item": item_url}
+                    for index, (name, item_url) in enumerate(breadcrumbs, start=1)
+                ],
+            }
         )
         if page.file.src_uri == "faq.md":
-            graph.pop()  # Questions replace the generic article as the FAQ's main entities.
             webpage["@type"] = "FAQPage"
             webpage["mainEntity"] = []
             for anchor, name, content in _rendered_sections(page, 3):
@@ -173,20 +158,32 @@ def _structured_data(page, config, image):
                         },
                     }
                 )
-        elif page.file.src_uri == "getting-started.md":
-            document = graph[-1]
-            document["@type"] = "HowTo"
-            document["name"] = document.pop("headline")
-            document["step"] = [
-                {
-                    "@type": "HowToStep",
-                    "@id": url + "#" + anchor,
-                    "url": url + "#" + anchor,
-                    "name": name,
-                    "text": content,
-                }
-                for anchor, name, content in _rendered_sections(page, 2)[:3]
-            ]
+        else:
+            is_howto = page.file.src_uri == "getting-started.md"
+            document = {
+                "@type": "HowTo" if is_howto else "TechArticle",
+                "@id": url + "#document",
+                "url": url,
+                "name" if is_howto else "headline": _page_name(page),
+                "description": page.meta["description"],
+                "inLanguage": "en",
+                "mainEntityOfPage": {"@id": url + "#webpage"},
+                "isPartOf": website,
+                "about": software,
+                "author": author,
+            }
+            if is_howto:
+                document["step"] = [
+                    {
+                        "@type": "HowToStep",
+                        "@id": url + "#" + anchor,
+                        "url": url + "#" + anchor,
+                        "name": name,
+                        "text": content,
+                    }
+                    for anchor, name, content in _rendered_sections(page, 2)[:3]
+                ]
+            graph.append(document)
     return {"@context": "https://schema.org", "@graph": graph}
 
 
