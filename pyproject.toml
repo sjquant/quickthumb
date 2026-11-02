@@ -57,10 +57,10 @@ pptx = [
     "python-pptx>=1.0.2,<2.0",
 ]
 lottie = [
-    "fonttools>=4.0.0,<5.0.0",
+    "fonttools>=4.67.0,<5.0.0",
 ]
 pdf = [
-    "fonttools>=4.0.0,<5.0.0",
+    "fonttools>=4.67.0,<5.0.0",
     "pypdfium2>=5.14.0,<6.0.0",
     "reportlab>=4.0.0,<6.0.0",
 ]
@@ -82,7 +82,7 @@ dev = [
     "cairosvg>=2.7.0,<3.0.0",
     "python-pptx>=1.0.2,<2.0",
     "reportlab>=4.0.0,<6.0.0",
-    "fonttools>=4.0.0,<5.0.0",
+    "fonttools>=4.67.0,<5.0.0",
     "pypdfium2>=5.14.0,<6.0.0",
     "pre-commit>=4.6.0,<5.0.0",
     "diff-cover>=10.3.0,<11.0.0",
