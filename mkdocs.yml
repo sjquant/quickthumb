@@ -46,8 +46,9 @@ theme:
 
 hooks:
   - docs/hooks/schema.py
+  - docs/hooks/seo.py
 
-# The hook lives next to the docs but is build code, not a page.
+# Hooks live next to the docs but are build code, not pages.
 exclude_docs: |
   hooks/
 
