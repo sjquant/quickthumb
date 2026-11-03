@@ -169,10 +169,19 @@ canvas.path(
 )
 ```
 
-For smooth morphing, both keyframes should have a matching number of non-intersecting contours.
+Each key must have 1–16 nondegenerate contours, matching in count, order,
+open/closed status, winding, and nesting. Contours must not intersect or touch,
+including during the transition. Incompatible keys raise `path_morph_topology`;
+an invalid intermediate shape fails during rendering rather than changing topology.
+
+Complex outlines may exceed the limits of 256 subdivided vertices per contour,
+4096 correspondence points, or one million edge-pair checks. Resampling must
+retain vertices within ¼ local SVG unit; enlargement can make that approximation
+visible. Simplify the paths if morph preparation rejects them.
 
 ## Export Support
 
-- **Raster & Video (PNG, GIF, MP4, WebM)**: Full native support for all paths, dashes, trims, and morph animations.
-- **HTML**: Native SVG rendering with CSS stroke animations for open paths. Complex morphs fall back to rendered stills.
-- **PDF & PPTX**: Exported as native vector curves where supported, or crisp rendered fragments for complex animated layouts.
+- **Raster & Video (PNG, GIF, MP4, WebM)**: Render paths, dashes, trims, and morph animations.
+- **Lottie**: Export supported [path morph animations](../reference/export-lottie.md#lottie-path-morph) as vectors.
+- **HTML**: Native SVG rendering with CSS stroke animations for supported open paths. Morph animations use the authored still image.
+- **PDF & PPTX**: Export supported paths as vectors; morph animations use the authored still image.
