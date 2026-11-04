@@ -65,7 +65,7 @@ canvas.text(
 | `rotation` | `float` | `0.0` | 회전 각도(도)입니다. |
 | `opacity` | `float` | `1.0` | `0.0`부터 `1.0`까지의 레이어 불투명도입니다. |
 
-## Align 값 { #align-values }
+## Align 값 {#align-values}
 
 `align`은 다음 형식 중 하나를 받습니다.
 
@@ -170,7 +170,7 @@ canvas.text(
 !!! note "웹 글꼴 URL"
     `font`가 URL이면 이미 특정 파일을 가리키므로 `bold`, `italic`, `weight`는 무시됩니다. 스타일별로 다른 URL을 사용하거나 글꼴 모음 이름과 `font_source="google"`을 지정해 `weight`와 `italic`에 따라 파일을 선택하게 하세요.
 
-### 그라디언트와 이미지 채우기 { #gradient-and-image-fills }
+### 그라디언트와 이미지 채우기 {#gradient-and-image-fills}
 
 단색 대신 그라디언트나 이미지로 글리프를 채웁니다.
 `fill`에 `LinearGradient`, `RadialGradient`, `TextFillImage`를 전달하세요.

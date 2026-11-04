@@ -74,7 +74,7 @@ error[asset_missing] /slides/1/layers/0/path (layer 'hero'): Asset not found: 'h
 
 終了コードはカテゴリに従います。`export` の失敗は `2`、`validation`、`asset`、`input` の失敗は `1` です。
 
-## エラーコード { #error-codes }
+## エラーコード {#error-codes}
 
 | コード | カテゴリ | 意味 |
 | --- | --- | --- |

@@ -77,7 +77,7 @@ error[asset_missing] /slides/1/layers/0/path (layer 'hero'): Asset not found: 'h
 
 종료 코드는 범주에 따릅니다. `export` 실패는 `2`, `validation`, `asset`, `input` 실패는 `1`입니다.
 
-## 오류 코드 { #error-codes }
+## 오류 코드 {#error-codes}
 
 | 코드 | 범주 | 의미 |
 | --- | --- | --- |

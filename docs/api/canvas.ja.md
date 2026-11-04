@@ -60,7 +60,7 @@ vertical = Canvas.from_aspect_ratio("9:16", base_width=1080)   # 1080×1920
 
 全パラメーターは[データの可視化](data-visualizations.md)や各レイヤーのページを参照してください。
 
-### 数字のアニメーション { #animated-counters }
+### 数字のアニメーション {#animated-counters}
 
 `.counter(from_, to, duration, ...)`で数字をテキストレイヤーとして動かせます。`position`、`size`、`color`など通常の文字オプションを渡します。
 

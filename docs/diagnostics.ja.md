@@ -94,7 +94,7 @@ quickthumb inspect spec.json --reduced-motion --var title="Hello"
 
 検出結果は参考情報なので、警告があっても検査自体が成功すれば終了コードは `0` です。入力・検証・アセット欠落のエラーは `1`、描画・出力カテゴリのエラー（空の Deck のモーション検査を含む）は `2` です。JSON 出力では、これらのエラーに既存の `{"errors": [...]}` 構造化エンベロープを使います。診断結果を合否判定に使うには `lint --fail-on`、環境の準備確認には `doctor` を使ってください。`--fps abc` などの引数解析エラーは、従来どおり Typer 標準のテキストを標準エラーに出し、`2` で終了します。JSON エラーエンベロープは引数解析後に適用されます。
 
-### `quickthumb lint` { #quickthumb-lint }
+### `quickthumb lint` {#quickthumb-lint}
 
 JSON 仕様に対し、`diagnose()` と同じ検査を行います。
 
@@ -193,7 +193,7 @@ assert_image_similar(
 
 このアサーションは `ImageDiff` を返します。詳しく報告したい場合は、画像寸法、差のあるピクセル数、正規化した平均誤差、知覚ハッシュ、類似度の指標を利用できます。
 
-### `quickthumb render` { #quickthumb-render }
+### `quickthumb render` {#quickthumb-render}
 
 JSON 仕様を画像ファイルに描画します。
 
@@ -224,7 +224,7 @@ quickthumb watch spec.json -o preview.png
 
 `watch` は `--error-format` を除き `render` と同じオプションを受け付けます。失敗時はテキストを表示し、監視を続けます。
 
-### `quickthumb doctor` { #quickthumb-doctor }
+### `quickthumb doctor` {#quickthumb-doctor}
 
 出力前に、パッケージ、ツール、ソースに必要な要件、出力先の権限を検査します。
 

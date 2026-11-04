@@ -50,7 +50,7 @@ Canvas の JSON 文書には、4 つの必須トップレベルフィールド�
 
 トップレベルの `"kind"` 判別子は `Canvas.from_json()`、`Deck.from_json()`、CLI のいずれでも必須で、`"canvas"` または `"deck"` を指定します。Canvas 文書は `layers`、Deck 文書は `slides` を持ちます。Deck では共有の既定サイズ、テーマ、遷移も定義できます。各レイヤーオブジェクトにも `"type"` 判別子が必要です。レイヤーは配列順に描画し、最初の項目が最背面になります。レイヤーの識別、配置、整列、モーションには、Python、Canvas JSON のルート、Deck の各スライドで同じ[共通語彙](api/index.md#shared-layer-vocabulary)を使います。Deck 専用の別のレイヤースキーマはありません。
 
-## 公開スキーマ { #published-schema }
+## 公開スキーマ {#published-schema}
 
 `Canvas.from_json()` と同じ Pydantic モデルから、現在の JSON Schema を出力できます。
 
@@ -93,7 +93,7 @@ VS Code で仕様を編集するときに補完と検証を使うには、`.vsco
 
 このコマンドは決定的な JSON だけを出力するため、リポジトリに保存したり、エディターにパイプで渡したり、制約付き生成 API に直接渡したりできます。Canvas スキーマには現在のキャンバスフィールド、組み込みレイヤーの判別子、エフェクト、アニメーション、対応するプラットフォームプリセット、任意のトップレベル `theme` ブロックが含まれます。`--document` スキーマは Deck のルートを追加し、`kind` で両方の文書種別を対応付けます。
 
-## プラグインレイヤー { #plugin-layers }
+## プラグインレイヤー {#plugin-layers}
 
 プラグインは 1 つの明示的な `PluginRegistry` に登録します。登録内容はレイヤー種別とパラメーターを記述します。描画は、別途用意した信頼できる同期 `raster` コールバックが、基準となる RGBA ピクセルとして行います。コールバックはアプリケーションのコードであり、JSON に保存したり JSON からインポートしたりしません。
 
@@ -198,7 +198,7 @@ Use only these layer type discriminators: background, text, image, shape, svg, g
 - トークンは解析時に解決します。`to_json()` は `theme` ブロックを含めず、解決済みの値を出力します。
 - テーマトークンと `$var` テンプレート置換（`quickthumb render --var KEY=VALUE`）は併用できます。`$theme.*` は変数として扱いません。
 
-## レイヤースキーマ { #layer-schemas }
+## レイヤースキーマ {#layer-schemas}
 
 よく使うレイヤーを以下に示します。動画、グラフ、QR コード、カウンター、プラグインのレイヤーも同じ形式です。フィールドは[公開スキーマ](#published-schema)と各 API リファレンスにあります。
 
@@ -506,7 +506,7 @@ Use only these layer type discriminators: background, text, image, shape, svg, g
 
 ---
 
-## エフェクトのスキーマ { #effect-schemas }
+## エフェクトのスキーマ {#effect-schemas}
 
 エフェクトは各レイヤーの `"effects"` 配列に入れ、`"type"` 判別子を使います。
 

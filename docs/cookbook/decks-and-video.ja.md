@@ -50,7 +50,7 @@ uv run --no-default-groups --extra pptx python examples/cleaner_future.py --outp
 
 地球の静止画の上で見出しとアクセントが動く、無音の動画です。形式と代替表現の詳細は[ソース全体](https://github.com/sjquant/quickthumb/blob/main/examples/cleaner_future.py)と[エクスポートガイド](../exports.md)を参照してください。
 
-## Orbit Atlas { #orbit-atlas }
+## Orbit Atlas {#orbit-atlas}
 
 架空の地図制作スタジオ向けに、スクリプト1つでサムネイル2枚、4枚のDeck、音付きの動画を作ります。数値はすべて説明用です。人物を含む同梱の元画像はAI生成で、文字、図形、動きはquickthumbのレイヤーです。音楽には[FupiのCC0「Synthwave House Loop」](https://opengameart.org/content/synthwave-house-loop)を使い、動画の128 BPMに合わせて調整しています。出典と変更内容は[音声素材の説明](https://github.com/sjquant/quickthumb/blob/main/assets/audio/README.md)にあります。
 

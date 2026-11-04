@@ -109,7 +109,7 @@ JSON 출력에서는 기존 `{"errors": [...]}` 구조를 사용합니다.
 `--fps abc` 같은 인수 파싱 오류는 여전히 Typer의 표준 텍스트를 stderr에 출력하고 `2`로 종료합니다.
 JSON 오류 결과는 인수 파싱 이후에 적용됩니다.
 
-### `quickthumb lint` { #quickthumb-lint }
+### `quickthumb lint` {#quickthumb-lint}
 
 JSON 명세에 `diagnose()`와 같은 검사를 수행합니다.
 
@@ -216,7 +216,7 @@ assert_image_similar(
 
 단언문은 호출자가 더 자세히 보고할 수 있도록 이미지 크기, 변경된 픽셀 수, 정규화 평균 오차, 지각 해시, 유사도 지표가 있는 `ImageDiff`를 반환합니다.
 
-### `quickthumb render` { #quickthumb-render }
+### `quickthumb render` {#quickthumb-render}
 
 JSON 명세를 이미지 파일로 렌더링합니다.
 
@@ -248,7 +248,7 @@ quickthumb watch spec.json -o preview.png
 `watch`는 `--error-format`을 제외한 `render` 옵션을 동일하게 받습니다.
 실패는 텍스트로 출력하며 감시는 계속됩니다.
 
-### `quickthumb doctor` { #quickthumb-doctor }
+### `quickthumb doctor` {#quickthumb-doctor}
 
 내보내기 전에 패키지, 도구, 소스 요구 사항, 출력 권한을 확인합니다.
 

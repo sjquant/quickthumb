@@ -64,7 +64,7 @@ canvas.text(
 | `rotation` | `float` | `0.0` | 回転角（度）です。 |
 | `opacity` | `float` | `1.0` | `0.0`から`1.0`までの不透明度です。 |
 
-## Alignの値 { #align-values }
+## Alignの値 {#align-values}
 
 `align`には次の形式を使えます。
 
@@ -169,7 +169,7 @@ canvas.text(
 !!! note "WebフォントのURL"
     `font`がURLなら特定のファイルを指すため、`bold`、`italic`、`weight`は無視します。スタイルごとに別のURLを使うか、ファミリー名と`font_source="google"`を指定して`weight`と`italic`でファイルを選んでください。
 
-### グラデーションと画像の塗り { #gradient-and-image-fills }
+### グラデーションと画像の塗り {#gradient-and-image-fills}
 
 単色の代わりにグラデーションや画像で文字を塗ります。`fill`へ`LinearGradient`、`RadialGradient`、`TextFillImage`を渡します。
 

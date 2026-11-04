@@ -60,7 +60,7 @@ Canvas는 `layers`, Deck은 `slides`를 포함하며 Deck은 공통 기본 크�
 레이어 ID, 배치, 정렬, 모션은 Python, Canvas JSON 루트, 모든 Deck 슬라이드에서 같은 [공통 용어](api/index.md#shared-layer-vocabulary)를 사용합니다.
 Deck이 별도 레이어 스키마를 도입하지는 않습니다.
 
-## 공개 스키마 { #published-schema }
+## 공개 스키마 {#published-schema}
 
 `Canvas.from_json()`과 같은 Pydantic 모델에서 현재 JSON Schema를 출력합니다.
 
@@ -113,7 +113,7 @@ VS Code에서 명세를 편집할 때 자동 완성과 검증을 사용하려면
 Canvas 스키마에는 현재 캔버스 필드, 내장 레이어 구분자, 효과, 애니메이션, 지원 플랫폼 프리셋, 선택적인 최상위 `theme`가 포함됩니다.
 `--document` 스키마는 Deck 루트를 추가하고 `kind`로 두 문서 종류를 매핑합니다.
 
-## 플러그인 레이어 { #plugin-layers }
+## 플러그인 레이어 {#plugin-layers}
 
 플러그인은 하나의 명시적인 `PluginRegistry`에 등록합니다.
 등록은 레이어 종류와 매개변수를 설명하며 신뢰할 수 있는 별도의 동기식 `raster` 콜백이 정규 RGBA 픽셀로 렌더링합니다.
@@ -228,7 +228,7 @@ Use only these layer type discriminators: background, text, image, shape, svg, g
 - 토큰은 파싱 시 해석됩니다. `to_json()`은 `theme` 없이 실제 값을 출력합니다.
 - 테마 토큰은 `$var` 템플릿 치환(`quickthumb render --var KEY=VALUE`)과 함께 동작하며 `$theme.*`는 절대로 변수로 처리하지 않습니다.
 
-## 레이어 스키마 { #layer-schemas }
+## 레이어 스키마 {#layer-schemas}
 
 자주 사용하는 레이어는 아래와 같습니다.
 동영상, 차트, QR 코드, 카운터, 플러그인도 같은 패턴을 따릅니다.
@@ -544,7 +544,7 @@ SVG 레이어는 이미지 레이어와 같은 `effects`를 받습니다.
 
 ---
 
-## 효과 스키마 { #effect-schemas }
+## 효과 스키마 {#effect-schemas}
 
 효과는 각 레이어의 `"effects"` 배열에 들어가며 `"type"` 구분자를 사용합니다.
 

@@ -64,7 +64,7 @@ vertical = Canvas.from_aspect_ratio("9:16", base_width=1080)   # 1080×1920
 
 전체 매개변수는 [데이터 시각화 레퍼런스](data-visualizations.md)와 각 개별 레퍼런스를 참고하세요.
 
-### 숫자 애니메이션 { #animated-counters }
+### 숫자 애니메이션 {#animated-counters}
 
 `.counter(from_, to, duration, ...)`로 숫자를 텍스트 레이어로 애니메이션화합니다.
 `position`, `size`, `color` 같은 일반 텍스트 옵션을 전달합니다.

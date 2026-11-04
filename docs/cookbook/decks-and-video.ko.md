@@ -59,7 +59,7 @@ uv run --no-default-groups --extra pptx python examples/cleaner_future.py --outp
 동영상은 지구 정지 이미지 위에 제목과 강조 요소를 애니메이션화하며 오디오는 없습니다.
 형식 상세와 대체 표현은 [전체 소스](https://github.com/sjquant/quickthumb/blob/main/examples/cleaner_future.py)와 [내보내기 안내](../exports.md)를 참고하세요.
 
-## Orbit Atlas { #orbit-atlas }
+## Orbit Atlas {#orbit-atlas}
 
 가상의 지도 제작 스튜디오를 위해 스크립트 하나로 썸네일 두 장, 네 장짜리 Deck, 소리 있는 동영상을 만듭니다.
 모든 수치는 설명용입니다. 인물을 포함한 번들 소스 이미지는 AI로 생성했으며 글자, 도형, 모션은 quickthumb 레이어입니다.
