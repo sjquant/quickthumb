@@ -7,12 +7,10 @@
   if (!drawer) return;
 
   // Instant navigation replaces head metadata, while the shared header stays mounted.
-  window.document$?.subscribe(() => {
-    document.querySelectorAll('[data-qt-language]').forEach((link) => {
-      const alternate = document.querySelector(`link[rel="alternate"][hreflang="${link.dataset.qtLanguage}"]`);
-      if (alternate) link.href = alternate.href;
-    });
-  });
+  window.document$?.subscribe(updateLanguageLinks);
+  window.location$?.subscribe(updateLanguageLinks);
+  window.addEventListener('hashchange', updateLanguageLinks);
+  updateLanguageLinks();
 
   // Material leaves the header and search runtime mounted during instant navigation.
   document.addEventListener('click', (event) => {
@@ -20,11 +18,6 @@
     if (!link) return;
     const destination = new URL(link.href);
     if (destination.origin !== window.location.origin) return;
-    if (link.matches('[data-qt-language]')) {
-      destination.search = window.location.search;
-      destination.hash = window.location.hash;
-      link.href = destination.href;
-    }
     const locale = destination.pathname.match(/^\/(ko|ja)(?:\/|$)/)?.[1] || 'en';
     if (locale !== document.documentElement.lang && !link.hasAttribute('target')) {
       link.target = '_self';
@@ -84,4 +77,15 @@
   window.addEventListener('resize', () => {
     if (window.innerWidth >= 1024 && drawer.open) drawer.close();
   });
+
+  function updateLanguageLinks() {
+    document.querySelectorAll('[data-qt-language]').forEach((link) => {
+      const alternate = document.querySelector(`link[rel="alternate"][hreflang="${link.dataset.qtLanguage}"]`);
+      if (!alternate) return;
+      const destination = new URL(alternate.href);
+      destination.search = window.location.search;
+      destination.hash = window.location.hash;
+      link.href = destination.href;
+    });
+  }
 })();

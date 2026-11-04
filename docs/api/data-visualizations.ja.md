@@ -1,10 +1,10 @@
 ---
-description: 決定的な棒グラフ、折れ線グラフ、QRコードのレイヤーを説明します。
+description: 同じ入力から同じ結果を得られる、棒グラフ、折れ線グラフ、QRコードのレイヤーを説明します。
 ---
 
 # データの可視化 { #data-visualizations }
 
-quickthumbには、ダッシュボード、カード、SNS画像に使う小さな決定的グラフとQRコードのレイヤーがあります。棒グラフと折れ線グラフは`ChartData`を共有し、それぞれの種類に必要なスタイルモデルを持ちます。汎用の作図システムではありません。
+quickthumbには、ダッシュボード、カード、SNS画像に使う小さなグラフとQRコードのレイヤーがあります。同じ入力からは常に同じ結果が得られます。棒グラフと折れ線グラフは`ChartData`を共有し、それぞれの種類に必要なスタイルモデルを持ちます。汎用の作図システムではありません。
 
 ```python
 from quickthumb import (
@@ -57,6 +57,6 @@ canvas = (
 
 JSONでは`"spec"`内に識別子付きのグラフ仕様を保存します。例：`{ "type": "bar", "data": [1, -2] }`。
 
-グラフはピクセルまたは百分率の位置、`align`、`opacity`、既存の`clip`と`mask`を受け付けます。グループの子にもでき、その場合は位置をグループが自動設定します。QRコードは`foreground`、`background`、`error_correction`（`L`、`M`、`Q`、`H`）、`quiet_zone`を受け付けます。指定した正方形がQRのモジュール行列を維持できないほど小さければ`RenderingError`になります。グラフとQRコードには、PPTXやGIF・動画向けの既存のレイヤー`animation`も指定できます。省略時は決定的な静止画です。
+グラフはピクセルまたは百分率の位置、`align`、`opacity`、既存の`clip`と`mask`を受け付けます。グループの子にもでき、その場合は位置をグループが自動設定します。QRコードは`foreground`、`background`、`error_correction`（`L`、`M`、`Q`、`H`）、`quiet_zone`を受け付けます。指定した正方形がQRのモジュール行列を維持できないほど小さければ`RenderingError`になります。グラフとQRコードには、PPTXやGIF・動画向けの既存のレイヤー`animation`も指定できます。省略時は静止画となり、同じ入力なら同じ結果を再現できます。
 
 `Canvas.to_json()`で保存し、`Canvas.from_json()`で検証でき、`quickthumb schema`にも含まれます。SVG、HTML、PDF、PPTXでは標準のピクセル単位で一致するラスター代替として維持します。
