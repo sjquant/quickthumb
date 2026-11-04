@@ -10,6 +10,7 @@ site_dir: site
 
 theme:
   name: material
+  language: en
   custom_dir: docs/overrides
   logo: assets/brand/quickthumb-icon.png
   favicon: assets/brand/favicon.png
@@ -44,6 +45,124 @@ theme:
   icon:
     repo: fontawesome/brands/github
 
+plugins:
+- search
+- i18n:
+    docs_structure: suffix
+    # Shared assets use the default language; the hook rejects untranslated pages.
+    fallback_to_default: true
+    # Our switch updates on instant navigation and reloads when changing language.
+    reconfigure_material: false
+    languages:
+    - locale: en
+      name: English
+      default: true
+    - locale: ko
+      name: 한국어
+      site_description: Python 또는 JSON으로 이미지, 프레젠테이션, 애니메이션 동영상을 만듭니다.
+      nav_translations:
+        Home: 홈
+        Getting Started: 시작하기
+        Render your first cards: 첫 카드 렌더링
+        Installation: 설치
+        Core Concepts: 핵심 개념
+        Choose an output format: 출력 형식 선택
+        Animation Timing: 애니메이션 타이밍
+        API Reference: API 레퍼런스
+        Overview: 개요
+        Canvas: Canvas
+        Deck (Multiple Slides): Deck(여러 슬라이드)
+        Document Inspection: 문서 검사
+        Background: 배경
+        Text: 텍스트
+        Image: 이미지
+        Shape: 도형
+        Path: 경로
+        SVG: SVG
+        Video: 동영상
+        Audio-reactive Authoring: 오디오 반응형 제작
+        Group (Auto Layout): 그룹(자동 레이아웃)
+        Outline: 테두리
+        Data visualizations: 데이터 시각화
+        Effects: 효과
+        Enums & Gradients: 열거형과 그라디언트
+        Advanced Reference: 고급 레퍼런스
+        Export: 내보내기
+        Methods and receipts: 메서드와 내보내기 결과
+        Format fidelity and validation: 형식 충실도와 검증
+        SVG, HTML, PowerPoint, and PDF: SVG, HTML, PowerPoint, PDF
+        GIF, video, and narration: GIF, 동영상, 내레이션
+        Transparent video: 투명 동영상
+        Image sequences and render quality: 이미지 시퀀스와 렌더링 품질
+        Assets and reproducibility: 에셋과 재현성
+        Lottie vectors: Lottie 벡터
+        Animation timing details: 애니메이션 타이밍 상세
+        Inspecting complex layouts: 복잡한 레이아웃 검사
+        JSON & AI: JSON과 AI
+        JSON Schema & AI Workflow: JSON Schema와 AI 작업 흐름
+        Diagnostics & CLI: 진단과 CLI
+        Structured Errors: 구조화된 오류
+        Cookbook: 레시피 모음
+        Gallery: 갤러리
+        Presentations and video: 프레젠테이션과 동영상
+        YouTube Thumbnails: YouTube 썸네일
+        Instagram Card: Instagram 카드
+        Podcast Promo: 팟캐스트 홍보
+        Shorts / Vertical Cover: Shorts / 세로형 커버
+        Launch Announcement (Auto Layout): 출시 알림(자동 레이아웃)
+        AI Workflow: AI 작업 흐름
+        Webfonts & Background Removal: 웹 글꼴과 배경 제거
+        FAQ: 자주 묻는 질문
+        Changelog: 변경 기록
+      admonition_translations:
+        note: 참고
+        warning: 주의
+        tip: 팁
+        info: 안내
+        important: 중요
+        danger: 위험
+        example: 예제
+        abstract: 요약
+        question: 질문
+        success: 성공
+        failure: 실패
+        bug: 버그
+        quote: 인용
+      theme:
+        language: ko
+        palette:
+        - toggle:
+            name: 어두운 테마로 전환
+        - toggle:
+            name: 밝은 테마로 전환
+      extra:
+        ui:
+          main_navigation: 주 탐색
+          home: quickthumb 홈
+          recipes: 레시피
+          docs: 문서
+          search: 문서 검색
+          open_navigation: 탐색 메뉴 열기
+          close_navigation: 탐색 메뉴 닫기
+          get_started: 시작하기
+          site_navigation: 사이트 탐색
+          explore: quickthumb 둘러보기
+          shortcuts: 문서 바로가기
+          documentation: 문서
+          installation: 설치
+          concepts: 핵심 개념
+          api: API 레퍼런스
+          all_docs: 전체 문서
+          theme: 테마 전환
+          footer: 하단 탐색
+          changelog: 변경 기록
+          tagline: 이미지, 프레젠테이션, 동영상을 만드는 Python 창작 도구.
+          github: GitHub의 quickthumb
+          license: MIT 라이선스
+          made_with: 제작 도구
+          language: 언어
+        social_image_alt: 'quickthumb: 코드로 만드는 무한한 썸네일. 예제 썸네일 카드 두 장.'
+
 hooks:
   - docs/hooks/schema.py
   - docs/hooks/seo.py
@@ -59,6 +178,33 @@ extra_css:
   - stylesheets/extra.css
 
 extra:
+  ui:
+    main_navigation: Main navigation
+    home: quickthumb home
+    recipes: Recipes
+    docs: Docs
+    search: Search documentation
+    open_navigation: Open navigation
+    close_navigation: Close navigation
+    get_started: Get started
+    site_navigation: Site navigation
+    explore: Explore quickthumb
+    shortcuts: Documentation shortcuts
+    documentation: Documentation
+    installation: Installation
+    concepts: Core Concepts
+    api: API Reference
+    all_docs: All documentation
+    theme: Switch theme
+    footer: Footer
+    changelog: Changelog
+    tagline: A Python creative toolkit for images, presentations, and video.
+    github: quickthumb on GitHub
+    license: MIT License
+    made_with: Made with
+    language: Language
+  social_image_alt: 'quickthumb: Endless thumbnails, from code. Two example thumbnail
+    cards.'
   social_image_url: https://quickthumb.solaqua.dev/assets/brand/social-preview.png
 
 markdown_extensions:

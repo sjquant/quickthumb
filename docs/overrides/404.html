@@ -1,0 +1,45 @@
+{% extends "main.html" %}
+{% set _ = config.extra.update({"alternate": [{"name": "English", "lang": "en", "link": "/"}, {"name": "한국어", "lang": "ko", "link": "/ko/"}]}) %}
+
+{% block extrahead %}
+  {{ super() }}
+  <meta name="robots" content="noindex">
+  <script>
+    // Static hosts can serve the root error document for missing Korean URLs.
+    document.documentElement.lang = location.pathname.startsWith('/ko/') ? 'ko' : 'en';
+    document.title = document.documentElement.lang === 'ko'
+      ? 'quickthumb - 페이지를 찾을 수 없습니다'
+      : 'quickthumb - Page not found';
+  </script>
+  <style>
+    .md-top, [data-qt-error="ko"] { display: none; }
+    html[lang="ko"] [data-qt-error="en"] { display: none; }
+    html[lang="ko"] [data-qt-error="ko"] { display: block; }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <section data-qt-error="en" lang="en">
+    <h1>404 - Not found</h1>
+    <p>This page could not be found. <a href="/">Go to the homepage</a> or <a href="/getting-started/">open the documentation</a>.</p>
+  </section>
+  <section data-qt-error="ko" lang="ko">
+    <h1>404 - 페이지를 찾을 수 없습니다</h1>
+    <p>요청한 페이지가 없습니다. <a href="/ko/">홈으로 이동</a>하거나 <a href="/ko/getting-started/">문서를 확인하세요</a>.</p>
+  </section>
+{% endblock %}
+
+{% block header %}
+  <header class="md-header qt-header">
+    <nav class="qt-header-inner" aria-label="Language / 언어">
+      <a class="qt-brand" href="/" data-qt-error="en">quickthumb</a>
+      <a class="qt-brand" href="/ko/" data-qt-error="ko">quickthumb</a>
+      <div class="qt-language-switch">
+        <a href="/" lang="en" hreflang="en">English</a>
+        <a href="/ko/" lang="ko" hreflang="ko">한국어</a>
+      </div>
+    </nav>
+  </header>
+{% endblock %}
+{% block site_nav %}{% endblock %}
+{% block footer %}{% endblock %}

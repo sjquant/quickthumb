@@ -4,10 +4,26 @@
   const menuTrigger = document.querySelector('[data-qt-menu]');
   const searchToggle = document.querySelector('#__search');
   let searchTrigger;
+  if (!drawer) return;
+
+  // Instant navigation replaces head metadata, while the shared header stays mounted.
+  window.document$?.subscribe(() => {
+    document.querySelectorAll('[data-qt-language]').forEach((link) => {
+      const alternate = document.querySelector(`link[rel="alternate"][hreflang="${link.dataset.qtLanguage}"]`);
+      if (alternate) link.href = alternate.href;
+    });
+  });
 
   document.addEventListener('click', (event) => {
     const target = event.target.closest('button, a');
     if (!target) return;
+
+    if (target.matches('[data-qt-language]')) {
+      const destination = new URL(target.href);
+      destination.hash = window.location.hash;
+      target.href = destination.href;
+      return;
+    }
 
     if (target.matches('[data-qt-menu]')) {
       drawer.showModal();

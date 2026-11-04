@@ -15,7 +15,19 @@ PROJECT = tomllib.loads((Path(__file__).parents[2] / "pyproject.toml").read_text
 
 def on_page_context(context, page, config, **kwargs):
     """Supply social images and a linked graph of the site, software, and document."""
+    if getattr(page.file, "locale", "en") != getattr(page.file, "locale_alternate_of", "en"):
+        raise ValueError(f"Missing translation: {page.file.src_uri}")
     name = _page_name(page)
+    if "i18n_config" in context:
+        config.extra["alternate"] = [
+            {
+                "name": language.name,
+                "lang": language.locale,
+                "link": urljoin(config.site_url, page.file.alternates[language.locale].url),
+            }
+            for language in context["i18n_config"].languages
+            if language.locale in page.file.alternates
+        ]
     brand = config.site_name
     context["seo_title"] = (
         name
@@ -34,9 +46,8 @@ def _social_image(page, config):
     """Prefer authored previews, then recipe outputs, then the branded site image."""
     src = page.meta.get("image")
     alt = page.meta.get("image_alt", "")
-    if not src and (
-        page.file.src_uri.startswith("cookbook/") or page.file.src_uri == "getting-started.md"
-    ):
+    source = getattr(page.file, "norm_src_uri", page.file.src_uri)
+    if not src and (source.startswith("cookbook/") or source == "getting-started.md"):
         parser = _FirstImage()
         parser.feed(page.content)
         src, alt = parser.src, parser.alt
@@ -46,7 +57,10 @@ def _social_image(page, config):
         alt = alt or _page_name(page)
     else:
         url = urljoin(config.site_url, config.extra["social_image_url"])
-        alt = "quickthumb: Endless thumbnails, from code. Two example thumbnail cards."
+        alt = config.extra.get(
+            "social_image_alt",
+            "quickthumb: Endless thumbnails, from code. Two example thumbnail cards.",
+        )
 
     image = {"url": url, "alt": alt}
     if page.meta.get("image_width") and page.meta.get("image_height"):
@@ -72,11 +86,15 @@ def _social_image(page, config):
 def _structured_data(page, config, image):
     """Link canonical pages to the documented Python package and its source repository."""
     site_url = config.site_url.rstrip("/") + "/"
+    language = getattr(page.file, "locale_alternate_of", "en")
+    locale_url = urljoin(site_url, language + "/") if language != "en" else site_url
+    source = getattr(page.file, "norm_src_uri", page.file.src_uri)
+    is_homepage = source == "index.md"
     url = page.canonical_url
     description = page.meta.get("description") or config.site_description
     author = {"@id": site_url + "#author"}
     software = {"@id": site_url + "#software"}
-    website = {"@id": site_url + "#website"}
+    website = {"@id": locale_url + "#website"}
     preview = {"@type": "ImageObject", "url": image["url"], "caption": image["alt"]}
     for dimension in ("width", "height"):
         if dimension in image:
@@ -86,10 +104,10 @@ def _structured_data(page, config, image):
         {
             "@type": "WebSite",
             **website,
-            "url": site_url,
+            "url": locale_url,
             "name": config.site_name,
             "description": config.site_description,
-            "inLanguage": "en",
+            "inLanguage": language,
             "publisher": author,
             "about": software,
         },
@@ -119,21 +137,21 @@ def _structured_data(page, config, image):
             "license": config.repo_url + "/blob/main/LICENSE",
         },
         {
-            "@type": "CollectionPage" if page.is_index and not page.is_homepage else "WebPage",
+            "@type": "CollectionPage" if page.is_index and not is_homepage else "WebPage",
             "@id": url + "#webpage",
             "url": url,
             "name": _page_name(page),
             "description": description,
-            "inLanguage": "en",
+            "inLanguage": language,
             "isPartOf": website,
             "about": software,
             "primaryImageOfPage": preview,
-            "mainEntity": software if page.is_homepage else {"@id": url + "#document"},
+            "mainEntity": software if is_homepage else {"@id": url + "#document"},
         },
     ]
-    if not page.is_homepage:
+    if not is_homepage:
         webpage = graph[-1]
-        breadcrumbs = _breadcrumbs(page, site_url, config.site_name)
+        breadcrumbs = _breadcrumbs(page, locale_url, config.site_name)
         webpage["breadcrumb"] = {"@id": url + "#breadcrumbs"}
         graph.append(
             {
@@ -145,7 +163,7 @@ def _structured_data(page, config, image):
                 ],
             }
         )
-        if page.file.src_uri == "faq.md":
+        if source == "faq.md":
             webpage["@type"] = "FAQPage"
             webpage["mainEntity"] = []
             for anchor, name, content in _rendered_sections(page, 3):
@@ -165,14 +183,14 @@ def _structured_data(page, config, image):
                     }
                 )
         else:
-            is_howto = page.file.src_uri == "getting-started.md"
+            is_howto = source == "getting-started.md"
             document = {
                 "@type": "HowTo" if is_howto else "TechArticle",
                 "@id": url + "#document",
                 "url": url,
                 "name" if is_howto else "headline": _page_name(page),
                 "description": description,
-                "inLanguage": "en",
+                "inLanguage": language,
                 "mainEntityOfPage": {"@id": url + "#webpage"},
                 "isPartOf": website,
                 "about": software,
@@ -228,7 +246,10 @@ def _breadcrumbs(page, site_url, site_name):
         if (
             landing.is_page
             and landing != page
-            and (landing.is_index or landing.file.src_uri == "changelog.md")
+            and (
+                landing.is_index
+                or getattr(landing.file, "norm_src_uri", landing.file.src_uri) == "changelog.md"
+            )
         ):
             items.append((section.title, landing.canonical_url))
     items.append((_page_name(page), page.canonical_url))

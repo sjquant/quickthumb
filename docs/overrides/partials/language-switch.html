@@ -1,0 +1,5 @@
+<nav class="qt-language-switch" aria-label="{{ config.extra.ui.language }}">
+  {% for alternative in config.extra.alternate %}
+  <a href="{{ alternative.link | url }}" hreflang="{{ alternative.lang }}" lang="{{ alternative.lang }}" data-qt-language="{{ alternative.lang }}" target="_self"{% if alternative.lang == config.theme.language %} aria-current="page"{% endif %}>{{ alternative.name }}</a>
+  {% endfor %}
+</nav>

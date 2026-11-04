@@ -91,3 +91,52 @@ def test_svg_override_preserves_authored_image(authoring_page, site_config, meta
         "caption": "Selected quickthumb icon",
         **dimensions,
     }
+
+
+def test_korean_recipe_uses_shared_image_and_locale_graph(authoring_page, site_config):
+    """A Korean recipe keeps its localized page identity and measures the shared preview asset."""
+    # Given: a translated recipe with a relative preview and a Korean image description
+    authoring_page.file = SimpleNamespace(
+        src_uri="cookbook/podcast-promo.ko.md",
+        norm_src_uri="cookbook/podcast-promo.md",
+        locale="ko",
+        locale_alternate_of="ko",
+    )
+    authoring_page.title = "팟캐스트 홍보"
+    authoring_page.canonical_url = "https://docs.example.test/ko/cookbook/podcast-promo/"
+    authoring_page.content = (
+        '<p><img src="../../../assets/examples/podcast_interview_promo.png" '
+        'alt="팟캐스트 인터뷰 홍보 이미지"></p>'
+    )
+
+    # When: the localized page's public metadata hook runs
+    context = ON_PAGE_CONTEXT({}, authoring_page, site_config)
+    nodes = {node["@id"]: node for node in json.loads(context["seo_json_ld"])["@graph"]}
+
+    # Then: the preview keeps its actual dimensions and the graph shares the product identity
+    assert context["social_image"] == {
+        "url": "https://docs.example.test/assets/examples/podcast_interview_promo.png",
+        "alt": "팟캐스트 인터뷰 홍보 이미지",
+        "width": 1280,
+        "height": 720,
+    }
+    webpage = nodes[authoring_page.canonical_url + "#webpage"]
+    assert webpage["inLanguage"] == "ko"
+    assert webpage["isPartOf"] == {"@id": "https://docs.example.test/ko/#website"}
+    assert webpage["about"] == {"@id": "https://docs.example.test/#software"}
+    assert nodes[authoring_page.canonical_url + "#document"]["inLanguage"] == "ko"
+    assert nodes[authoring_page.canonical_url + "#breadcrumbs"]["itemListElement"][0]["item"] == (
+        "https://docs.example.test/ko/"
+    )
+    assert context["seo_title"] == "quickthumb - 팟캐스트 홍보"
+
+
+def test_untranslated_page_fails_the_localized_build(authoring_page, site_config):
+    """A missing Korean translation fails the build instead of publishing an English duplicate."""
+    # Given: the plugin selected an English source for the Korean build
+    authoring_page.file.locale = "en"
+    authoring_page.file.locale_alternate_of = "ko"
+
+    # When / Then: the build rejects the missing translation before rendering its page
+    with pytest.raises(ValueError, match="Missing translation: new-page.md"):
+        ON_PAGE_CONTEXT({}, authoring_page, site_config)
