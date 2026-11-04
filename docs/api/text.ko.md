@@ -5,7 +5,7 @@ description: quickthumb 텍스트 레이어의 부분별 서식, 글꼴, 정렬,
 # 텍스트 { #text }
 
 `.text()`는 텍스트 레이어를 추가합니다.
-일반 문자열이나 구간별 서식을 적용할 `TextPart` 객체 목록을 콘텐츠로 사용할 수 있습니다.
+일반 문자열을 넣거나, 부분마다 서식을 다르게 지정할 수 있도록 `TextPart` 목록을 전달할 수 있습니다.
 
 ## 시그니처 { #signature }
 
@@ -216,8 +216,7 @@ canvas.text(
 )
 ```
 
-`TextPart`의 `fill`은 해당 구간에서만 레이어 수준의 `fill`을 덮어씁니다.
-`fill`과 `color`는 독립적이며 `fill`이 설정되면 시각적으로 우선합니다.
+`TextPart`에 `fill`을 지정하면 해당 부분에만 적용되며, 레이어 전체의 `fill`보다 우선합니다. `fill`과 `color`는 따로 설정할 수 있지만, 둘 다 있으면 실제로 보이는 색은 `fill`이 결정합니다.
 이미지 채우기 옵션은 [TextFillImage](enums.md#textfillimage)를 참고하세요.
 
 ## TextPart { #textpart }

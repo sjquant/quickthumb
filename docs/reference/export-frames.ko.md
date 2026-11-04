@@ -9,7 +9,7 @@ description: quickthumb 이미지 시퀀스, 렌더링 품질과 병렬 애니�
 ## 이미지 시퀀스 { #image-sequences }
 
 `Canvas.export_image_sequence()`와 같은 Deck 메서드는 실제 애니메이션 타임라인을 독립된 PNG, JPEG, WebP 파일과 매니페스트 하나로 기록합니다.
-목적지는 새 경로여야 하며 부모 디렉터리는 존재해야 합니다. 기본 형식은 PNG입니다.
+저장할 디렉터리는 아직 존재하지 않는 새 경로여야 하고, 그 상위 디렉터리는 미리 있어야 합니다. 기본 출력 형식은 PNG입니다.
 
 ```python
 from quickthumb import ImageSequenceOptions
@@ -81,7 +81,7 @@ Canvas/Deck 문서 필드나 래스터 형식 열거형 값을 추가하지 않�
 
 `GifOptions(render_quality="high")`, `VideoOptions(render_quality="high")`는 2배 크기 레이어 합성 표면에서 작업한 뒤 LANCZOS로 한 번 축소합니다.
 기본 `render_quality="standard"`는 기존 출력을 보존합니다.
-이 이름 공간이 있는 옵션은 JPEG/WebP용 `render(..., quality=...)`와 별개입니다.
+이 옵션은 JPEG/WebP의 압축 품질을 정하는 `render(..., quality=...)`와 별개입니다.
 애니메이션 바이트 메서드도 키워드 전용 `render_quality="high"`를 받습니다.
 
 ```python
@@ -127,7 +127,7 @@ if __name__ == "__main__":
 ```
 
 워커는 별도의 글꼴과 동영상 디코더로 내장 캔버스를 다시 구성합니다.
-제한되고 순서가 있는 프레임 작업 창만 대기시키므로 기존 샷 길이, 접힌 유지 구간, 자막 경계, 전환 순서를 보존합니다.
+정해진 개수의 프레임 작업만 순서대로 대기열에 넣습니다. 따라서 기존 샷의 길이, 반복 계산을 합친 유지 구간, 자막 경계와 전환 순서를 그대로 보존합니다.
 로컬 동영상, 자막, 시드가 있는 입자, 내장 모션은 병렬로 동작합니다.
 사용자 정의·플러그인 레이어, Canvas 하위 클래스, 원격 동영상, 시드가 없고 0이 아닌 입자는 `workers=1`이 필요합니다.
 슬라이드 준비에서 해석한 원격 이미지·글꼴은 워커용으로 고정합니다.

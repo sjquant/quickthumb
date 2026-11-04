@@ -4,7 +4,7 @@ description: quickthumb Canvas 생성, 종횡비, 레이어 구성, 렌더링, J
 
 # Canvas { #canvas }
 
-`Canvas`는 크기와 순서가 있는 레이어 목록을 담는 루트 객체입니다.
+`Canvas`는 캔버스 크기와 레이어를 담는 최상위 객체입니다. 레이어는 그리는 순서대로 관리합니다.
 제작 필드는 Deck 슬라이드와 정규 JSON에도 적용되는 [공통 레이어 용어](index.md#shared-layer-vocabulary)를 따릅니다.
 
 ## 생성 { #creation }
@@ -225,7 +225,7 @@ GIF는 오디오를 담을 수 없습니다. 전체 매개변수 표는 [Deck AP
 코덱, 알파 디코딩, 전환 상세는 [투명 WebM](../reference/export-transparency.md#transparent-webm)을 참고하세요.
 
 `.to_mov()`의 매개변수와 타이밍은 `.to_webm()`과 같으며 ProRes 4444 영상과 AAC 오디오로 고정됩니다.
-홀수 크기와 1픽셀 크기를 유지합니다. RGBA 소스는 8비트이며 16비트 알파 인코딩을 디코딩하면 8비트 알파에서 한 단계 차이가 날 수 있습니다.
+홀수 크기와 1픽셀 크기를 유지합니다. 입력 RGBA는 8비트입니다. 알파를 16비트로 인코딩했다가 디코딩하면, 8비트 알파 값에서 한 단계 차이가 날 수 있습니다.
 색상은 손실이 있는 4:4:4 YUV입니다. 측정한 변환 한계와 인코더 요구 사항은 [ProRes MOV](../reference/export-transparency.md#prores-4444-mov)를 참고하세요.
 `render()`와 `export()`는 불투명·투명 출력 모두 `VideoOptions`와 `.mov`를 받습니다.
 
@@ -271,7 +271,7 @@ url = canvas.to_data_url(format="JPEG", quality=90)
 ### `.inspect()` { #inspect }
 
 레이어 ID, 순서, 표시 여부, 경계 상자, 제작된 텍스트 레이아웃 메타데이터가 담긴 결정적인 `CanvasInspection`을 반환합니다.
-출력 파일은 쓰지 않습니다. 크기 측정을 위해 기존 글꼴·이미지 에셋을 읽을 수 있지만 부모 레이어를 그리지는 않습니다.
+출력 파일은 만들지 않습니다. 크기를 측정하려고 기존 글꼴이나 이미지 파일을 읽을 수는 있지만, 부모 레이어를 그리는 파이프라인은 실행하지 않습니다.
 
 ```python
 report = canvas.inspect()

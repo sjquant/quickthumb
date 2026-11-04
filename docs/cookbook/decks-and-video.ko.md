@@ -4,7 +4,7 @@ description: 프레젠테이션과 제품 애니메이션 동영상을 만드는
 
 # 프레젠테이션과 동영상 { #presentations-and-video }
 
-서로 관련된 레이아웃으로 썸네일, 브라우저 프레젠테이션, 애니메이션 동영상을 만듭니다.
+하나의 디자인을 바탕으로 썸네일과 브라우저용 프레젠테이션, 애니메이션 동영상을 만들어 봅니다.
 [Orbit Atlas 예제](#orbit-atlas)는 다음 결과물을 생성합니다.
 
 <div class="qt-gallery" markdown>
@@ -83,8 +83,7 @@ uv run --no-default-groups python examples/orbit_atlas.py --output-dir /tmp/orbi
 동영상에는 `PATH` 또는 `QUICKTHUMB_FFMPEG`로 지정한 FFmpeg가 필요합니다. 생략하려면 `--stills`를 전달하세요.
 PowerPoint는 `uv run`에 `--extra pptx`, 스크립트에 `--pptx`를 추가합니다.
 
-텍스트 등장 효과는 HTML과 PowerPoint에서 다르게 보일 수 있습니다.
-실제로 사용할 앱에서 확인하세요. 대체 표현은 [내보내기 상세](../exports.md)를, 예제 응용은 [전체 소스](https://github.com/sjquant/quickthumb/blob/main/examples/orbit_atlas.py)를 참고하세요.
+텍스트가 나타나는 효과는 HTML과 PowerPoint에서 다르게 보일 수 있으니 실제로 사용할 앱에서 확인하세요. 지원하지 않는 효과가 어떻게 대체되는지는 [내보내기 상세](../exports.md)에 설명되어 있습니다. 예제를 수정해 쓰려면 [전체 소스](https://github.com/sjquant/quickthumb/blob/main/examples/orbit_atlas.py)를 참고하세요.
 
 ## 투자자용 Deck { #investor-deck }
 

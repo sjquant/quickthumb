@@ -17,7 +17,7 @@
   {% endif %}
   {% set social_image = social_image | default({"url": config.extra.social_image_url, "alt": config.site_name}) %}
   <meta property="og:type" content="website">
-  <meta property="og:locale" content="{{ 'ko_KR' if config.theme.language == 'ko' else 'en_US' }}">
+  <meta property="og:locale" content="{{ {'en': 'en_US', 'ko': 'ko_KR', 'ja': 'ja_JP'}[config.theme.language] }}">
   <meta property="og:site_name" content="{{ config.site_name | e }}">
   <meta property="og:title" content="{{ page_title | e }}">
   <meta property="og:description" content="{{ page_description | e }}">

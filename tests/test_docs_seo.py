@@ -93,20 +93,28 @@ def test_svg_override_preserves_authored_image(authoring_page, site_config, meta
     }
 
 
-def test_korean_recipe_uses_shared_image_and_locale_graph(authoring_page, site_config):
-    """A Korean recipe keeps its localized page identity and measures the shared preview asset."""
-    # Given: a translated recipe with a relative preview and a Korean image description
+@pytest.mark.parametrize(
+    ("locale", "title", "alt"),
+    [
+        ("ko", "팟캐스트 홍보", "팟캐스트 인터뷰 홍보 이미지"),
+        ("ja", "ポッドキャストの宣伝", "ポッドキャストのインタビュー告知画像"),
+    ],
+)
+def test_localized_recipe_uses_shared_image_and_locale_graph(
+    authoring_page, site_config, locale, title, alt
+):
+    """A translated recipe keeps its localized identity and measures the shared preview asset."""
+    # Given: a translated recipe with a relative preview and a localized image description
     authoring_page.file = SimpleNamespace(
-        src_uri="cookbook/podcast-promo.ko.md",
+        src_uri=f"cookbook/podcast-promo.{locale}.md",
         norm_src_uri="cookbook/podcast-promo.md",
-        locale="ko",
-        locale_alternate_of="ko",
+        locale=locale,
+        locale_alternate_of=locale,
     )
-    authoring_page.title = "팟캐스트 홍보"
-    authoring_page.canonical_url = "https://docs.example.test/ko/cookbook/podcast-promo/"
+    authoring_page.title = title
+    authoring_page.canonical_url = f"https://docs.example.test/{locale}/cookbook/podcast-promo/"
     authoring_page.content = (
-        '<p><img src="../../../assets/examples/podcast_interview_promo.png" '
-        'alt="팟캐스트 인터뷰 홍보 이미지"></p>'
+        f'<p><img src="../../../assets/examples/podcast_interview_promo.png" alt="{alt}"></p>'
     )
 
     # When: the localized page's public metadata hook runs
@@ -116,26 +124,27 @@ def test_korean_recipe_uses_shared_image_and_locale_graph(authoring_page, site_c
     # Then: the preview keeps its actual dimensions and the graph shares the product identity
     assert context["social_image"] == {
         "url": "https://docs.example.test/assets/examples/podcast_interview_promo.png",
-        "alt": "팟캐스트 인터뷰 홍보 이미지",
+        "alt": alt,
         "width": 1280,
         "height": 720,
     }
     webpage = nodes[authoring_page.canonical_url + "#webpage"]
-    assert webpage["inLanguage"] == "ko"
-    assert webpage["isPartOf"] == {"@id": "https://docs.example.test/ko/#website"}
+    assert webpage["inLanguage"] == locale
+    assert webpage["isPartOf"] == {"@id": f"https://docs.example.test/{locale}/#website"}
     assert webpage["about"] == {"@id": "https://docs.example.test/#software"}
-    assert nodes[authoring_page.canonical_url + "#document"]["inLanguage"] == "ko"
+    assert nodes[authoring_page.canonical_url + "#document"]["inLanguage"] == locale
     assert nodes[authoring_page.canonical_url + "#breadcrumbs"]["itemListElement"][0]["item"] == (
-        "https://docs.example.test/ko/"
+        f"https://docs.example.test/{locale}/"
     )
-    assert context["seo_title"] == "quickthumb - 팟캐스트 홍보"
+    assert context["seo_title"] == f"quickthumb - {title}"
 
 
-def test_untranslated_page_fails_the_localized_build(authoring_page, site_config):
-    """A missing Korean translation fails the build instead of publishing an English duplicate."""
-    # Given: the plugin selected an English source for the Korean build
+@pytest.mark.parametrize("locale", ["ko", "ja"])
+def test_untranslated_page_fails_the_localized_build(authoring_page, site_config, locale):
+    """Missing translations fail localized builds rather than publishing English duplicates."""
+    # Given: the plugin selected an English source for a localized build
     authoring_page.file.locale = "en"
-    authoring_page.file.locale_alternate_of = "ko"
+    authoring_page.file.locale_alternate_of = locale
 
     # When / Then: the build rejects the missing translation before rendering its page
     with pytest.raises(ValueError, match="Missing translation: new-page.md"):

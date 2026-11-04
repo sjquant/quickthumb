@@ -8,7 +8,7 @@ quickthumb에는 Python 3.11 이상이 필요합니다.
 
 ## 독립된 가상 환경 { #isolated-environment }
 
-quickthumb 소스 체크아웃 밖에 가상 환경을 만들고 quickthumb 0.8.0을 설치합니다.
+quickthumb 소스 폴더와 별개로 가상 환경을 만든 뒤, quickthumb 0.8.0을 설치하세요.
 
 ```bash
 mkdir -p quickthumb-first-export
@@ -18,9 +18,7 @@ source .venv/bin/activate
 python -m pip install "quickthumb==0.8.0"
 ```
 
-Windows에서는 대신 `.venv\Scripts\activate`로 활성화합니다.
-위 셸 명령은 Bash/Zsh용입니다. 의존성을 설치하려면 패키지 인덱스에 접근할 수 있거나 로컬 캐시가 채워져 있어야 합니다.
-체크아웃 밖에서 실행하면 Python이 소스 디렉터리 대신 설치된 wheel을 가져옵니다.
+위 명령은 Bash/Zsh 기준입니다. Windows에서는 `.venv\Scripts\activate`로 가상 환경을 활성화하세요. 의존성을 설치하려면 패키지 인덱스에 접속할 수 있거나 필요한 파일이 로컬 캐시에 있어야 합니다. 소스 폴더 밖에서 실행해야 Python이 저장소의 코드 대신 설치된 wheel을 불러옵니다.
 
 ### 기존 uv 프로젝트 { #existing-uv-project }
 
@@ -68,8 +66,7 @@ quickthumb doctor pdf --spec card.json -o out/card.pdf
 ```
 
 필수 검사에 실패하면 종료 상태 1을 반환하므로 CI 단계로도 사용할 수 있습니다.
-이 명령은 테스트 파일을 렌더링하거나 네이티브 라이브러리, 코덱 지원, 시각적 충실도를 보증하지 않습니다.
-실제로 사용할 내보내기도 실행하세요. 자세한 내용은 [진단과 CLI](diagnostics.md#quickthumb-doctor)를 참고하세요.
+다만 이 명령은 테스트 파일을 렌더링하지 않으며, 네이티브 라이브러리가 실제로 동작하는지나 코덱 지원 여부, 출력의 시각적 재현성까지 보장하지는 않습니다. 사용할 형식으로 직접 내보내는 과정도 필요합니다. 자세한 내용은 [진단과 CLI](diagnostics.md#quickthumb-doctor)를 참고하세요.
 
 ## 개발용 체크아웃 { #development-checkout }
 

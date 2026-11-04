@@ -6,7 +6,7 @@ description: 정렬, 크기 맞춤, 도형, 필터와 색상 전환에 사용하
 
 ## Align { #align }
 
-`position` 좌표가 가리키는 레이어의 기준점과 텍스트의 가로 정렬을 제어합니다.
+레이어의 어느 점을 `position`에 맞출지 정하고, 텍스트의 가로 정렬도 제어합니다.
 
 ```python
 from quickthumb import Align
@@ -78,7 +78,7 @@ canvas.background(image="texture.jpg", blend_mode="multiply")
 
 ## FitMode { #fitmode }
 
-목표 크기 상자가 정해졌을 때 이미지 크기를 맞추는 방식을 제어합니다.
+이미지를 지정한 크기의 상자에 어떤 방식으로 맞출지 정합니다.
 
 ```python
 from quickthumb import FitMode

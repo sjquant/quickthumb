@@ -163,6 +163,112 @@ plugins:
           language: 언어
         social_image_alt: 'quickthumb: 코드로 만드는 무한한 썸네일. 예제 썸네일 카드 두 장.'
 
+    - locale: ja
+      name: 日本語
+      site_description: PythonまたはJSONで画像、プレゼンテーション、アニメーション動画を作成します。
+      nav_translations:
+        Home: ホーム
+        Getting Started: はじめに
+        Render your first cards: 最初のカードを作る
+        Installation: インストール
+        Core Concepts: 基本的な考え方
+        Choose an output format: 出力形式を選ぶ
+        Animation Timing: アニメーションのタイミング
+        API Reference: APIリファレンス
+        Overview: 概要
+        Canvas: Canvas
+        Deck (Multiple Slides): Deck（複数スライド）
+        Document Inspection: ドキュメントの検査
+        Background: 背景
+        Text: テキスト
+        Image: 画像
+        Shape: 図形
+        Path: パス
+        SVG: SVG
+        Video: 動画
+        Audio-reactive Authoring: 音に反応するアニメーション
+        Group (Auto Layout): グループ（自動レイアウト）
+        Outline: 枠線
+        Data visualizations: データの可視化
+        Effects: エフェクト
+        Enums & Gradients: 列挙型とグラデーション
+        Advanced Reference: 詳細リファレンス
+        Export: エクスポート
+        Methods and receipts: メソッドと出力レポート
+        Format fidelity and validation: 形式ごとの再現性と検証
+        SVG, HTML, PowerPoint, and PDF: SVG、HTML、PowerPoint、PDF
+        GIF, video, and narration: GIF、動画、ナレーション
+        Transparent video: 透過動画
+        Image sequences and render quality: 画像シーケンスとレンダリング品質
+        Assets and reproducibility: アセットと再現性
+        Lottie vectors: Lottieベクター
+        Animation timing details: タイミングの詳細
+        Inspecting complex layouts: 複雑なレイアウトの検査
+        JSON & AI: JSONとAI
+        JSON Schema & AI Workflow: JSON SchemaとAIワークフロー
+        Diagnostics & CLI: 診断とCLI
+        Structured Errors: 構造化エラー
+        Cookbook: レシピ集
+        Gallery: ギャラリー
+        Presentations and video: プレゼンテーションと動画
+        YouTube Thumbnails: YouTubeサムネイル
+        Instagram Card: Instagramカード
+        Podcast Promo: ポッドキャストの告知
+        Shorts / Vertical Cover: Shorts・縦長カバー
+        Launch Announcement (Auto Layout): リリース告知（自動レイアウト）
+        AI Workflow: AIワークフロー
+        Webfonts & Background Removal: Webフォントと背景除去
+        FAQ: よくある質問
+        Changelog: 変更履歴
+      admonition_translations:
+        note: 補足
+        warning: 注意
+        tip: ヒント
+        info: 情報
+        important: 重要
+        danger: 危険
+        example: 例
+        abstract: 概要
+        question: 質問
+        success: 成功
+        failure: 失敗
+        bug: 不具合
+        quote: 引用
+      theme:
+        language: ja
+        palette:
+        - toggle:
+            name: ダークモードに切り替え
+        - toggle:
+            name: ライトモードに切り替え
+      extra:
+        ui:
+          main_navigation: メインナビゲーション
+          home: quickthumbのホーム
+          recipes: レシピ
+          docs: ドキュメント
+          search: ドキュメントを検索
+          open_navigation: メニューを開く
+          close_navigation: メニューを閉じる
+          get_started: はじめる
+          site_navigation: サイトナビゲーション
+          explore: quickthumbを使う
+          shortcuts: ドキュメントへのリンク
+          documentation: ドキュメント
+          installation: インストール
+          concepts: 基本的な考え方
+          api: APIリファレンス
+          all_docs: すべてのドキュメント
+          theme: テーマを切り替え
+          footer: フッターナビゲーション
+          changelog: 変更履歴
+          tagline: 画像、プレゼンテーション、動画を作るPythonツールキット。
+          github: GitHubでquickthumbを見る
+          license: MITライセンス
+          made_with: 使用ツール
+          language: 言語
+        social_image_alt: quickthumb：コードから広がるサムネイル制作。サムネイルカードの作例2点。
+
 hooks:
   - docs/hooks/schema.py
   - docs/hooks/seo.py

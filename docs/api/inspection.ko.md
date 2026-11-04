@@ -1,5 +1,5 @@
 ---
-description: JSON으로 안전하게 표현되는 공통 결과로 Canvas와 Deck을 검사하고 문서 종류에 따른 분기 없이 정규 표본을 페이지 레이아웃에 연결합니다.
+description: Canvas와 Deck을 같은 결과 형식으로 검사하고 기준 샘플을 페이지 레이아웃과 연결합니다. 결과는 JSON으로 저장할 수 있으며 문서 종류에 따라 코드를 나눌 필요가 없습니다.
 ---
 
 # 문서 검사와 표본 추출 { #document-inspection-and-sampling }
@@ -32,7 +32,7 @@ for page_index, page in enumerate(report.pages):
 
 각 페이지는 레이어 ID, 순서, 중첩된 자식, 경계 상자, 텍스트 측정값을 유지합니다.
 크기가 섞인 Deck 페이지는 각자의 크기를 유지합니다.
-바깥 크기는 제작한 Deck 기본값과 달라도 첫 페이지의 크기입니다. 기존 `deck.inspect()`는 여전히 제작한 기본값을 보고합니다.
+결과의 최상위 크기는 첫 페이지를 기준으로 합니다. 작성한 Deck의 기본 크기와 다를 수도 있습니다. 기존 `deck.inspect()`는 이와 달리 작성 시 지정한 기본 크기를 그대로 보고합니다.
 
 `target`에는 내보내기 계열 하나(`raster`, `html`, `pptx`, `video`), 계열의 이터러블, 또는 네 계열 모두를 뜻하는 `None`을 전달합니다.
 `policy`, `fps`, `max_samples`는 변경 없이 `inspect_motion()`으로 전달됩니다.
@@ -77,7 +77,7 @@ for frame in samples.frames:
 - `frames[].index`는 관찰 순서를, `frames[].slide`는 활성 페이지를 나타냅니다. 타임라인 구간은 페이지 타이밍과 전환을 설명합니다.
 - `environment`는 렌더러 버전을 기록합니다. 각 프레임에는 해당 환경에서 결정적으로 비교할 수 있도록 원시 RGBA 데이터와 SHA-256 다이제스트가 포함됩니다.
 
-타이밍의 의미는 서로 다릅니다. `report.motion.duration`은 기존의 제작된 모션 검사 의미를 유지합니다.
+시간 값은 목적에 따라 구분해야 합니다. `report.motion.duration`은 기존 모션 검사와 마찬가지로 작성된 모션의 길이를 나타냅니다.
 `samples.duration`은 `hold` 인수와 해석된 내레이션 타이밍을 포함한 정규 캡처 길이입니다.
 예를 들어 정적 Canvas의 모션 길이는 0이지만 `hold=2`로 시간을 지정한 표본은 2초 동안 지속됩니다.
 재생을 비교할 때는 표본의 `duration`, `fps`, `timeline`, 프레임 `time`을 사용하세요.

@@ -10,7 +10,7 @@ description: quickthumb에서 투명 동영상을 내보내는 방법과 코덱�
 
 VP9 WebM은 `VideoOptions(transparent=True)` 또는 `Canvas.to_webm()`, `Deck.to_webm()`의 키워드 전용 `transparent=True`로 알파를 보존할 수 있습니다.
 기본값은 `False`이며 기존 불투명 출력은 매트와 인코더 설정을 유지합니다.
-레이어나 모션 속성이 아닌 내보내기 옵션이므로 Canvas/Deck JSON과 `inspect_motion()`에는 없습니다.
+레이어나 모션에 저장하는 속성이 아니라 내보낼 때 적용하는 옵션입니다. 따라서 Canvas/Deck JSON이나 `inspect_motion()` 결과에는 포함되지 않습니다.
 `VideoOptions.model_validate_json()`과 모델 JSON 스키마는 이 엄격한 불리언 옵션을 제공합니다.
 `validate_export()`는 계속 문서 모션을 설명하며 `render()`는 지원하지 않는 출력 형식의 투명 옵션을 거부합니다.
 
@@ -44,7 +44,7 @@ ffmpeg -c:v libvpx-vp9 -i overlay.webm -frames:v 1 -pix_fmt rgba frame.png
 ```
 
 기본 VP9 디코더는 색상만 보고하거나 디코딩할 수 있습니다.
-`alpha_mode` 메타데이터만으로 투명도가 보존되었다고 판단할 수 없습니다.
+`alpha_mode` 값이 있다고 해서 투명도가 제대로 보존되었다고 단정할 수는 없습니다.
 회귀 테스트는 libvpx로 RGBA를 디코딩하고 투명·반투명·불투명 픽셀을 비교합니다.
 제작한 반투명 패널과 투명한 주변부가 있는 오버레이는 `examples/transparent_lower_third.py`를 참고하세요.
 

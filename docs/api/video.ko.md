@@ -5,7 +5,7 @@ description: quickthumb 동영상 레이어의 자르기, 크기 맞춤, 속도,
 # 동영상 { #video }
 
 `.video()`는 캔버스에 동영상 클립을 추가합니다.
-다른 시각적 레이어와 마찬가지로 타임라인에서 자르기, 크기 조절, 반복, 위치 변경, 둥근 모서리, 색보정, 마스킹, 애니메이션을 적용할 수 있습니다.
+다른 시각적 레이어처럼 클립을 자르거나 크기와 위치를 바꾸고 반복할 수 있습니다. 모서리를 둥글게 만들거나 색보정, 마스크, 타임라인 애니메이션을 적용하는 것도 가능합니다.
 
 동영상 레이어는 애니메이션 출력(GIF, MP4, WebM, MOV)과 `render_frame(...)`에서 네이티브로 렌더링됩니다.
 정적 문서 대상(PPTX, PDF, SVG, HTML)에서는 클립을 정지 프레임으로 렌더링합니다.
@@ -303,7 +303,7 @@ scene = (
 
 ## 텍스트 범위 선택기 { #text-range-selectors }
 
-`RangeSelector`로 텍스트를 단어별, 줄별, 문자별로 애니메이션화합니다.
+`RangeSelector`를 사용하면 텍스트를 단어별, 줄별, 문자별로 나누어 움직일 수 있습니다.
 
 ```python
 from quickthumb import AnimationSpec, Canvas, KeyframeSpec, PositionTrack, RangeSelector, TimingSpec

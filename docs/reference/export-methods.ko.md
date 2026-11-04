@@ -8,7 +8,7 @@ description: quickthumb 내보내기 메서드, 결과 보고와 형식 선택 �
 
 ## 권장 출력 API { #recommended-output-api }
 
-`export()`로 Canvas나 Deck을 기록하면 `written_paths`, 기능·대체 표현 진단, 픽셀·타이밍 메타데이터, 에셋, 관찰된 렌더링 환경을 담은 `ExportResult`를 받습니다.
+`export()`로 Canvas나 Deck을 파일에 저장하면 `ExportResult`가 반환됩니다. 여기에는 저장한 경로(`written_paths`), 기능 지원 여부와 대체 표현에 관한 진단, 픽셀·타이밍 정보, 에셋, 실제 렌더링 환경이 담깁니다.
 확장자가 형식을 선택합니다. MP4, WebM, MOV, GIF는 애니메이션 타임라인을 재생합니다.
 Deck 동영상은 슬라이드별 내레이션도 혼합합니다.
 
@@ -66,7 +66,7 @@ Canvas·Deck HTML/PPTX와 Canvas SVG/PDF는 `result.capability_report`에 `featu
 네이티브 HTML/CSS, SVG/PDF 기본 요소, 편집 가능한 PowerPoint 객체, 원본 포함 SVG는 `support="native"`입니다.
 출력 PNG 조각은 `support="fallback"`, `fallback="rasterize"`입니다.
 편집 가능한 전경과 고정 발광 이미지를 조합한 PPTX는 `support="partial"`, `fallback="rasterize"`이며 전경을 편집한 뒤 효과를 갱신하려면 다시 내보내야 합니다.
-이는 표현 방식의 관찰이며 픽셀 충실도 측정이 아닙니다.
+이 보고서는 어떤 방식으로 출력했는지를 알려 줍니다. 결과의 픽셀이 원본과 얼마나 같은지 측정한 것은 아닙니다.
 
 `result.fallback_diagnostics`는 영향을 받은 검사 `layer_id`와 이유를 알려 줍니다.
 유지된 그룹은 `layer_ids`에 하위 ID를 포함합니다.
@@ -105,7 +105,7 @@ PPTX 파일은 목적지를 열기 전에 전체 프레젠테이션을 만들므
 
 이 구조 관찰은 특정 뷰어의 PowerPoint·Keynote 픽셀 일치, 글꼴 존재, 애니메이션 타이밍, 투명도를 인증하지 않습니다.
 PPTX 충실도 정책이나 자동 애플리케이션 렌더러는 없습니다.
-PPTX 기하 구조는 소스 픽셀당 9,525 EMU(인치당 96픽셀), 즉 소스 픽셀당 PDF 0.75포인트를 사용합니다.
+PPTX에서는 원본 1픽셀을 9,525 EMU로 변환합니다. 이는 인치당 96픽셀에 해당하며, PDF 단위로는 원본 1픽셀당 0.75포인트입니다.
 이후 PDF 기반 뷰어 비교에서는 PDF 내보내기의 픽셀당 1포인트를 가정하지 말고 실제 페이지 크기로 배율을 계산해야 합니다.
 
 ## 출력 호출 마이그레이션 { #migrating-output-calls }

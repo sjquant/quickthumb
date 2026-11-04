@@ -4,8 +4,7 @@ description: 재사용 가능한 Python 레이아웃 하나로 에피소드 카�
 
 # 첫 카드 렌더링 { #render-your-first-cards }
 
-에피소드 카드 레이아웃을 하나 만들고 세 가지 콘텐츠로 렌더링합니다.
-그런 다음 제목을 바꿔 나만의 버전을 만들어 보세요.
+에피소드 카드 레이아웃을 만든 뒤, 내용을 바꿔 카드 세 장을 출력해 봅니다. 제목을 바꾸면 같은 레이아웃으로 나만의 카드도 만들 수 있습니다.
 
 <div class="qt-gallery" markdown>
 ![주황색 띠 위에 큰 숫자 12와 "Ship your first release" 제목이 있는 에피소드 12 카드](assets/home/episode-12.png)
@@ -45,7 +44,7 @@ python episode_cards.py
 
 ## 3. 다음 카드 만들기 { #3-make-the-next-card }
 
-함수는 그대로 두고 `episodes`에 행을 하나 추가합니다.
+함수는 수정하지 않고 `episodes`에 다음 행을 추가하세요.
 
 ```python
 (15, "Your next big idea", "#FF4B1F"),
@@ -63,9 +62,7 @@ python episode_cards.py
 레이어는 추가한 순서대로 그려집니다. 원하는 서체를 쓰려면 각 `.text()` 호출에 `font="/path/to/your-font.ttf"`와 같은 로컬 글꼴 경로를 추가하세요.
 글꼴 자체가 충분히 굵다면 `Stroke` 효과를 제거하세요.
 
-레이아웃을 확장할 때는 `canvas.diagnose()`로 캔버스를 벗어난 레이어나 낮은 대비 같은 일반적인 문제를 확인하세요.
-이 레이아웃은 숫자를 의도적으로 잘랐으므로 `off-canvas` 항목을 하나 보고합니다.
-검사 항목과 한계는 [진단](diagnostics.md)을 참고하세요. 문제가 없는 진단 결과가 디자인의 시각적 완성도를 보증하지는 않습니다.
+레이아웃을 확장할 때는 `canvas.diagnose()`로 레이어가 캔버스를 벗어났는지, 대비가 너무 낮지는 않은지 확인하세요. 이 예제는 숫자를 일부러 잘라 배치했으므로 `off-canvas`가 한 건 보고됩니다. 자세한 검사 항목과 한계는 [진단](diagnostics.md)에 있습니다. 진단을 통과했더라도 디자인이 보기 좋은지는 직접 확인해야 합니다.
 
 ## 다음 단계 선택 { #choose-your-next-step }
 

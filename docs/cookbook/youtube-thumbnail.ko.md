@@ -4,7 +4,7 @@ description: quickthumb로 만든 1280×720 YouTube 썸네일 다섯 가지와 �
 
 # YouTube 썸네일 { #youtube-thumbnails }
 
-1280×720 레이아웃 다섯 가지입니다. 각 이미지는 바로 아래의 스크립트로 렌더링했으며 저장소의 `examples/` 폴더에 있습니다.
+1280×720 YouTube 썸네일 레이아웃 다섯 가지를 소개합니다. 각 이미지 바로 아래에 실제 렌더링에 사용한 스크립트가 있으며, 저장소의 `examples/` 폴더에서도 찾을 수 있습니다.
 
 실행하려면 [uv](https://docs.astral.sh/uv/)를 설치하고 저장소를 복제한 뒤 루트에서 스크립트를 실행하세요.
 스크립트는 `assets/`에서 에셋을 불러와 `examples/`에 PNG를 기록하며 같은 이름의 기존 파일을 덮어씁니다.
@@ -19,7 +19,7 @@ uv run python examples/youtube_thumbnail_01.py
 
 !["Better thumbnails. Faster."라는 제목과 기울어진 전후 비교 카드 두 장이 있는 썸네일](../assets/examples/youtube_thumbnail_01.png)
 
-사진 배경, 왼쪽 제목, 오른쪽의 기울어진 카드 두 장으로 전달하려는 변화를 구체적으로 보여 줍니다.
+사진을 배경으로 깔고 왼쪽에 제목, 오른쪽에 기울어진 카드 두 장을 배치했습니다. 전후 비교를 통해 어떤 변화를 얻을 수 있는지 바로 보여 줍니다.
 
 - 가로 `LinearGradient`가 거의 검정인 색에서 투명으로 이어집니다. 왼쪽은 텍스트를 읽기 충분히 어둡게 유지하고 오른쪽은 사진을 보여 줍니다.
 - 세 줄 제목은 각자 크기와 색상이 있는 `TextPart`로 구성한 `.text()` 레이어 하나입니다.

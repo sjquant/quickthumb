@@ -47,7 +47,7 @@ hide:
 
 ## 이미지를 구성하세요. { #images-heading }
 
-텍스트, 사진, 도형을 조합해 썸네일과 소셜 그래픽 등을 만드세요. 레이아웃은 코드로 남아 언제든 바꿔 쓸 수 있습니다.
+텍스트와 사진, 도형을 조합해 썸네일이나 소셜 이미지를 만드세요. 레이아웃을 코드로 관리하므로 필요할 때마다 손쉽게 바꿔 쓸 수 있습니다.
 
 [이미지 예제 보기 <span aria-hidden="true">→</span>](cookbook/decks-and-video.md#orbit-atlas){ .qt-button .qt-button-blue }
 
@@ -86,7 +86,7 @@ canvas.text(
 
 ## 프레젠테이션을 만드세요. { #slides-heading }
 
-캔버스를 모아 전환과 발표자 메모가 있는 Deck을 구성하세요. 브라우저나 PowerPoint용 프레젠테이션으로 내보낼 수 있습니다.
+캔버스를 Deck으로 묶고 전환 효과와 발표자 메모를 더하세요. 완성한 프레젠테이션은 브라우저나 PowerPoint에서 사용할 수 있습니다.
 
 [프레젠테이션 둘러보기 <span aria-hidden="true">→</span>](cookbook/decks-and-video.md#orbit-atlas){ .qt-button .qt-button-blue }
 
@@ -119,7 +119,7 @@ canvas.text(
 
 ## 아이디어에 움직임을 더하세요. { #motion-heading }
 
-레이어를 애니메이션화해 동영상이나 GIF로 렌더링하세요. 이야기를 확장하며 전환, 내레이션, 음악을 더할 수 있습니다.
+레이어에 움직임을 넣어 동영상이나 GIF로 만드세요. 전달할 내용에 맞춰 전환 효과와 내레이션, 음악도 더할 수 있습니다.
 
 [동영상 예제 보기 <span aria-hidden="true">→</span>](cookbook/decks-and-video.md#orbit-atlas){ .qt-button .qt-button-blue }
 
@@ -149,7 +149,7 @@ canvas.text(
 
 ## 한 번 만들고<br>어디서나 재사용하세요. { #reuse-heading }
 
-디자인을 Python이나 JSON으로 보관하세요. 스크립트 하나로 썸네일, Deck, 동영상을 렌더링합니다.
+디자인을 Python이나 JSON으로 저장해 두세요. 스크립트 하나로 썸네일과 Deck, 동영상을 함께 만들 수 있습니다.
 
 </div>
 <div class="qt-visual qt-reuse" markdown>

@@ -5,8 +5,7 @@ description: quickthumb로 오디오 시작점과 RMS 음량을 분석하고 타
 # 오디오 반응형 제작 { #audio-reactive-authoring }
 
 `quickthumb.audio.analyze_audio(path, cache_dir=None)`는 제작 전에 로컬 오디오 소스를 분석하며 FFmpeg가 필요합니다.
-일시적인 소리 시작 시각과 소스 기준 RMS 진폭이 담긴 검증된 `AudioAnalysis` 레코드를 반환합니다.
-시작점은 음량이 급격히 커지는 지점이며, 음악의 박자 격자나 템포 추정값이 **아닙니다**.
+소리가 갑자기 커지는 시점과 원본 오디오의 구간별 RMS 진폭을 분석해, 검증된 `AudioAnalysis` 레코드로 반환합니다. 여기서 시작점은 급격한 음량 변화를 뜻하며, 음악의 박자나 템포를 추정한 값은 **아닙니다**.
 
 시작점을 일반 숫자형 `TimingSpec.start`로 사용하세요.
 그러면 표본 추출, JSON 복원, 워커 렌더링 시 사운드트랙 옵션에 의존하지 않습니다.
@@ -31,7 +30,7 @@ if analysis.onsets:
 실행 가능한 [`examples/audio_onsets.py`](https://github.com/sjquant/quickthumb/blob/main/examples/audio_onsets.py)는 장면, 분석 사이드카, 정규 JSON, 같은 소스를 사운드트랙으로 사용하는 MP4를 만듭니다.
 숫자로 기록된 모션은 `inspect_motion()`으로도 검사할 수 있으며 각 출력 대상의 기존 색상 트랙 지원이나 명시된 대체 표현을 사용합니다.
 HTML 프레젠테이션은 사운드트랙을 재생하지 않으며 GIF에는 소리가 없습니다.
-타이밍을 미리 기록했다는 사실이 어느 형식에서든 실시간 오디오 동기화를 보장하지는 않습니다.
+타이밍을 모션에 미리 기록해 두더라도 모든 형식에서 실시간으로 오디오와 동기화되는 것은 아닙니다.
 
 ## 소스 시계와 RMS { #source-clock-and-rms }
 

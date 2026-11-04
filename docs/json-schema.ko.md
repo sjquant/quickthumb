@@ -13,7 +13,7 @@ LLM이나 템플릿으로 생성하고 데이터베이스에 저장하거나 API
 
 ## 왕복 직렬화 { #round-trip-serialization }
 
-정규 JSON은 내보내기 결과와 별개로 제작된 문서를 저장합니다.
+정규 JSON은 내보낸 결과물이 아니라 작성한 문서 자체를 저장하는 형식입니다.
 
 ```python
 from pathlib import Path
@@ -35,8 +35,7 @@ restored.export("from-json.png")
     `Canvas.from_json()`은 **JSON 문자열**을 받습니다. Python dict가 있다면 먼저 `json.dumps(data)`를 호출하세요.
     Python 함수를 JSON에 저장할 수 없으므로 `.custom(fn)` 레이어가 있는 캔버스는 직렬화할 수 없습니다.
 
-같은 해석된 문서의 정규 직렬화 결과는 결정적입니다.
-글꼴, 이미지, 미디어, 캐시 다운로드를 패키징하지는 않으므로 참조 파일을 보관하고 다른 곳에서 렌더링할 때 경로에 접근할 수 있게 하세요.
+같은 문서를 해석해 정규 JSON으로 저장하면 항상 같은 결과를 얻습니다. 다만 글꼴, 이미지, 미디어, 캐시에 내려받은 파일까지 함께 묶어 주지는 않습니다. 참조 파일을 보관하고 다른 환경에서 렌더링할 때도 해당 경로로 접근할 수 있게 해 주세요.
 플러그인 JSON도 Python 콜백이 아닌 선언된 매개변수와 에셋 참조를 유지하므로 불러올 때 대응하는 [명시적 레지스트리](#plugin-layers)를 제공하세요.
 장면 JSON이 같아도 글꼴, 렌더러 버전, 플랫폼이 다르면 같은 픽셀을 보장하지 않습니다.
 
@@ -189,7 +188,7 @@ JSON 자료형 `object`, `array`, `string`, `number`, `integer`, `boolean`, `nul
 공통 기본값을 원하는 애플리케이션을 위해 프로세스 전역 `plugin_registry`도 유지합니다.
 테스트, 서비스, 라이브러리는 등록을 격리하고 재현할 수 있도록 명시적 `PluginRegistry`를 권장합니다.
 
-제약된 생성에서는 자료형이 있는 필드에 해석된 구체적인 값을 사용하세요.
+스키마로 출력을 제한하는 생성 기능을 사용할 때는, 자료형이 정해진 필드에 토큰 대신 실제로 해석된 값을 넣으세요.
 
 ```text
 Use quickthumb.schema.json as the JSON response schema.

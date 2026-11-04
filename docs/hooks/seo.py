@@ -3,6 +3,7 @@
 import json
 import re
 import tomllib
+from datetime import date
 from html import escape, unescape
 from html.parser import HTMLParser
 from pathlib import Path
@@ -17,6 +18,7 @@ def on_page_context(context, page, config, **kwargs):
     """Supply social images and a linked graph of the site, software, and document."""
     if getattr(page.file, "locale", "en") != getattr(page.file, "locale_alternate_of", "en"):
         raise ValueError(f"Missing translation: {page.file.src_uri}")
+    context["copyright_year"] = date.today().year
     name = _page_name(page)
     if "i18n_config" in context:
         config.extra["alternate"] = [

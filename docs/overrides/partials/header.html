@@ -1,5 +1,5 @@
 {% set ui = config.extra.ui %}
-{% set locale_prefix = 'ko/' if config.theme.language == 'ko' else '' %}
+{% set locale_prefix = config.theme.language ~ '/' if config.theme.language != 'en' else '' %}
 <header class="md-header qt-header" data-md-component="header">
   <nav class="qt-header-inner" aria-label="{{ ui.main_navigation }}">
     <a class="qt-brand" href="{{ nav.homepage.url | url }}" aria-label="{{ ui.home }}">

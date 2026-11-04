@@ -5,8 +5,8 @@ description: 캔버스를 여러 페이지 PDF, PPTX, HTML 슬라이드쇼, 동�
 # Deck { #deck }
 
 `Deck`은 순서가 있는 `Canvas` 슬라이드 모음입니다.
-각 슬라이드는 개별적으로 렌더링할 때와 동일하게 그려지며 Deck은 같은 파이프라인에 여러 출력 형식의 내보내기를 더합니다.
-슬라이드는 Canvas의 [레이어 용어와 장면 로컬 ID](index.md#shared-layer-vocabulary)를 유지합니다.
+슬라이드 하나하나는 개별 Canvas로 렌더링할 때와 똑같이 그려집니다. Deck은 같은 렌더링 파이프라인을 사용하면서 여러 슬라이드를 다양한 형식으로 내보내는 기능을 더합니다.
+슬라이드에서도 Canvas와 같은 [레이어 용어와 장면 내 ID 규칙](index.md#shared-layer-vocabulary)을 사용합니다.
 
 ## 생성 { #creation }
 
@@ -124,7 +124,7 @@ deck.render("slides.jpg", quality=85)
 `VideoOptions`는 MP4/WebM/MOV 프레임률, `hold`, 매트, 사운드트랙, 오디오 반복을 제어합니다.
 사운드트랙은 `AudioTrack(path="music.mp3", loop=True)`로 전달하세요.
 `VideoOptions(transparent=True)`는 VP9 WebM이나 ProRes 4444 MOV의 알파를 보존합니다. 엄격한 불리언이고 기본값은 `False`이며 다른 출력 대상은 모두 이 옵션을 거부합니다.
-두 옵션의 `hold`는 유한한 0 이상의 엄격한 값이며 기본값은 3초입니다. 기본값과 같으면 직렬화된 옵션에서 생략됩니다.
+두 옵션의 `hold`에는 유한한 0 이상의 숫자를 지정합니다. 엄격하게 자료형을 검사하며 기본값은 3초입니다. 값이 기본값과 같으면 직렬화할 때 생략합니다.
 두 옵션 모두 렌더링에 `workers`(1–8의 엄격한 정수, 기본 1)와 `render_quality="standard"` 또는 `"high"`를 받습니다.
 spawn 설정과 지원 입력은 [병렬 애니메이션 렌더링](../reference/export-frames.md#parallel-animated-rendering)을 참고하세요.
 다른 애니메이션 형식의 전용 옵션을 전달하면 거부됩니다.

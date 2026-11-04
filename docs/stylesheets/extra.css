@@ -397,3 +397,12 @@ html[lang="ko"] .md-typeset { word-break: keep-all; overflow-wrap: anywhere; }
   .qt-header-tools { gap: 2px; }
   .qt-language-switch { gap: 6px; font-size: 11px; }
 }
+@media (max-width: 767px) {
+  .qt-language-switch { flex-wrap: wrap; justify-content: center; width: 78px; gap: 0 6px; line-height: 12px; }
+  .qt-language-switch a { padding: 6px 0; }
+}
+@media (max-width: 380px) {
+  .qt-header-inner { padding-inline: 14px; gap: 6px; }
+  .qt-header .qt-brand { font-size: 17px; }
+  .qt-header-tools { gap: 0; }
+}

@@ -1,42 +1,51 @@
 {% extends "main.html" %}
-{% set _ = config.extra.update({"alternate": [{"name": "English", "lang": "en", "link": "/"}, {"name": "한국어", "lang": "ko", "link": "/ko/"}]}) %}
+{% set _ = config.extra.update({"alternate": [{"name": "English", "lang": "en", "link": "/"}, {"name": "한국어", "lang": "ko", "link": "/ko/"}, {"name": "日本語", "lang": "ja", "link": "/ja/"}]}) %}
 
 {% block extrahead %}
   {{ super() }}
   <meta name="robots" content="noindex">
   <script>
-    // Static hosts can serve the root error document for missing Korean URLs.
-    document.documentElement.lang = location.pathname.startsWith('/ko/') ? 'ko' : 'en';
-    document.title = document.documentElement.lang === 'ko'
-      ? 'quickthumb - 페이지를 찾을 수 없습니다'
-      : 'quickthumb - Page not found';
+    // Static hosts can serve this root error document for any missing locale path.
+    document.documentElement.lang = location.pathname.match(/^\/(ko|ja)(?:\/|$)/)?.[1] || 'en';
+    document.title = 'quickthumb - ' + {
+      en: 'Page not found',
+      ko: '페이지를 찾을 수 없습니다',
+      ja: 'ページが見つかりません'
+    }[document.documentElement.lang];
   </script>
   <style>
-    .md-top, [data-qt-error="ko"] { display: none; }
-    html[lang="ko"] [data-qt-error="en"] { display: none; }
-    html[lang="ko"] [data-qt-error="ko"] { display: block; }
+    .md-top, [data-qt-error] { display: none; }
+    html[lang="en"] [data-qt-error="en"],
+    html[lang="ko"] [data-qt-error="ko"],
+    html[lang="ja"] [data-qt-error="ja"] { display: block; }
   </style>
 {% endblock %}
 
 {% block content %}
   <section data-qt-error="en" lang="en">
     <h1>404 - Not found</h1>
-    <p>This page could not be found. <a href="/">Go to the homepage</a> or <a href="/getting-started/">open the documentation</a>.</p>
+    <p>This page could not be found. <a href="/" target="_self">Go to the homepage</a> or <a href="/getting-started/" target="_self">open the documentation</a>.</p>
   </section>
   <section data-qt-error="ko" lang="ko">
     <h1>404 - 페이지를 찾을 수 없습니다</h1>
-    <p>요청한 페이지가 없습니다. <a href="/ko/">홈으로 이동</a>하거나 <a href="/ko/getting-started/">문서를 확인하세요</a>.</p>
+    <p>요청하신 페이지가 없습니다. <a href="/ko/" target="_self">홈으로 돌아가거나</a> <a href="/ko/getting-started/" target="_self">시작하기 문서를 확인해 주세요</a>.</p>
+  </section>
+  <section data-qt-error="ja" lang="ja">
+    <h1>404 - ページが見つかりません</h1>
+    <p>お探しのページはありません。<a href="/ja/" target="_self">ホームに戻る</a>か、<a href="/ja/getting-started/" target="_self">はじめにのドキュメントをご覧ください</a>。</p>
   </section>
 {% endblock %}
 
 {% block header %}
   <header class="md-header qt-header">
-    <nav class="qt-header-inner" aria-label="Language / 언어">
-      <a class="qt-brand" href="/" data-qt-error="en">quickthumb</a>
-      <a class="qt-brand" href="/ko/" data-qt-error="ko">quickthumb</a>
+    <nav class="qt-header-inner" aria-label="Language / 언어 / 言語">
+      <a class="qt-brand" href="/" data-qt-error="en" target="_self">quickthumb</a>
+      <a class="qt-brand" href="/ko/" data-qt-error="ko" target="_self">quickthumb</a>
+      <a class="qt-brand" href="/ja/" data-qt-error="ja" target="_self">quickthumb</a>
       <div class="qt-language-switch">
-        <a href="/" lang="en" hreflang="en">English</a>
-        <a href="/ko/" lang="ko" hreflang="ko">한국어</a>
+        <a href="/" lang="en" hreflang="en" target="_self">English</a>
+        <a href="/ko/" lang="ko" hreflang="ko" target="_self">한국어</a>
+        <a href="/ja/" lang="ja" hreflang="ja" target="_self">日本語</a>
       </div>
     </nav>
   </header>

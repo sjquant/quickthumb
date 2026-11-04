@@ -13,7 +13,7 @@ Python 3.11 이상을 지원합니다. 패키지는 3.11과 3.12용으로 분류
 
 ### `quickthumb` 명령을 찾을 수 없어요 { #the-quickthumb-command-isnt-found }
 
-명령줄 도구는 선택 기능입니다. `pip install "quickthumb[cli]"`로 설치하세요.
+명령줄 도구는 기본 설치에 포함되지 않습니다. `pip install "quickthumb[cli]"`로 추가하세요.
 전체 추가 기능 목록은 [설치 안내](installation.md)에 있습니다.
 
 ### SVG 레이어에서 왜 `RenderingError`가 발생하나요? { #why-does-my-svg-layer-raise-renderingerror }
@@ -61,7 +61,7 @@ canvas.text(content="A longer title that needs two lines", size=72, color="#FFFF
 
 ### `bold=True`와 `weight=900`을 설정했더니 오류가 나요 { #i-set-boldtrue-and-weight900-and-got-an-error }
 
-둘은 같은 속성을 설정하므로 하나만 사용하세요. `weight`로 더 정확하게 지정할 수 있습니다.
+두 옵션 모두 글꼴 굵기를 정하므로 하나만 사용해야 합니다. 굵기를 세밀하게 지정하려면 `weight`를 쓰세요.
 `TextPart(text="STRONG", weight=900)`처럼 사용합니다.
 
 ### Google Font를 사용하려면 어떻게 하나요? { #how-do-i-use-a-google-font }
@@ -135,8 +135,7 @@ jpeg_data_url = canvas.to_data_url(format="JPEG", quality=90)
 
 ### `to_json()` 후 `theme` 블록이 사라졌어요 { #my-theme-block-disappeared-after-to_json }
 
-명세를 불러올 때 테마 토큰을 실제 값으로 치환하므로 `to_json()`은 그 값만 기록하고 `theme` 블록은 기록하지 않습니다.
-토큰을 계속 편집하려면 원본 명세 파일을 보관하세요.
+명세를 읽을 때 테마 토큰을 실제 값으로 바꿉니다. 따라서 `to_json()`으로 저장하면 토큰 대신 값이 들어가고 `theme` 블록은 빠집니다. 나중에도 토큰을 수정하고 싶다면 원본 명세 파일을 보관하세요.
 
 ## 오류 { #errors }
 
