@@ -71,6 +71,7 @@ quickthumb = "quickthumb._entry:main"
 [dependency-groups]
 docs = [
     "mkdocs-material>=9.0",
+    "mkdocs-static-i18n>=1.3,<2",
 ]
 dev = [
     "ty>=0.0.84,<0.0.85",

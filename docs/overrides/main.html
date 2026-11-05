@@ -16,7 +16,19 @@
     {% set page_description = page.meta.description %}
   {% endif %}
   {% set social_image = social_image | default({"url": config.extra.social_image_url, "alt": config.site_name}) %}
+  {% set og_locales = {'en': 'en_US', 'ko': 'ko_KR', 'ja': 'ja_JP'} %}
   <meta property="og:type" content="website">
+  <meta property="og:locale" content="{{ og_locales[config.theme.language] }}">
+  {% if page %}
+    {% for alternative in config.extra.alternate %}
+      {% if alternative.lang == 'en' %}
+  <link rel="alternate" hreflang="x-default" href="{{ alternative.link | e }}">
+      {% endif %}
+      {% if alternative.lang != config.theme.language %}
+  <meta property="og:locale:alternate" content="{{ og_locales[alternative.lang] }}">
+      {% endif %}
+    {% endfor %}
+  {% endif %}
   <meta property="og:site_name" content="{{ config.site_name | e }}">
   <meta property="og:title" content="{{ page_title | e }}">
   <meta property="og:description" content="{{ page_description | e }}">
