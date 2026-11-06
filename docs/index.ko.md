@@ -1,6 +1,6 @@
 ---
-title: quickthumb · 코드로 만드는 시각 콘텐츠
-description: Python 또는 JSON으로 이미지, 프레젠테이션, 애니메이션 동영상을 만듭니다.
+title: quickthumb · Python으로 만들고 다시 쓰는 디자인
+description: Python으로 이미지, 프레젠테이션, 동영상을 만듭니다. 레이아웃을 코드로 남겨 사진과 제목을 바꾸며 다음 작업에도 활용할 수 있습니다.
 template: home.html
 hide:
   - navigation
@@ -11,15 +11,15 @@ hide:
 <div class="qt-container qt-hero-layout" markdown>
 <div class="qt-hero-copy" markdown>
 
-<p class="qt-eyebrow">Python 창작 도구</p>
+<p class="qt-eyebrow">Python으로 만드는 이미지와 영상</p>
 
-<h1 id="qt-heading">코드로 만드는<br>시각 콘텐츠.</h1>
+<h1 id="qt-heading">한 번 만든 디자인,<br>다음에도 쓸 수 있게.</h1>
 
-<p class="qt-hero-description">재사용 가능한 레이아웃으로 이미지, 프레젠테이션, 애니메이션 동영상을 만드세요.</p>
+<p class="qt-hero-description">이미지, 프레젠테이션, 동영상을 Python으로 만듭니다. 레이아웃을 코드로 남겨 두고, 사진과 제목을 바꿔 다시 쓸 수 있습니다.</p>
 
 <div class="qt-actions" markdown>
-[quickthumb 설치 <span aria-hidden="true">→</span>](installation.md){ .qt-button .qt-button-white }
-[예제 둘러보기](cookbook/index.md){ .qt-button .qt-button-outline }
+[실제 예제 보기 <span aria-hidden="true">→</span>](cookbook/index.md){ .qt-button .qt-button-white }
+[설치하고 시작하기](installation.md){ .qt-button .qt-button-outline }
 </div>
 
 <ul class="qt-traits">
@@ -45,11 +45,11 @@ hide:
 
 <p class="qt-kicker">이미지와 그래픽</p>
 
-## 이미지를 구성하세요. { #images-heading }
+## 다음 썸네일은, 사진과 제목만 바꿔서. { #images-heading }
 
-텍스트와 사진, 도형을 조합해 썸네일이나 소셜 이미지를 만드세요. 레이아웃을 코드로 관리하므로 필요할 때마다 손쉽게 바꿔 쓸 수 있습니다.
+텍스트와 사진, 도형의 배치를 코드로 정해 둡니다. 사진과 제목을 바꿔 같은 형식의 썸네일이나 SNS 이미지를 이어서 만들 수 있습니다.
 
-[이미지 예제 보기 <span aria-hidden="true">→</span>](cookbook/decks-and-video.md#orbit-atlas){ .qt-button .qt-button-blue }
+[썸네일 예제 보기 <span aria-hidden="true">→</span>](cookbook/decks-and-video.md#orbit-atlas){ .qt-button .qt-button-blue }
 
 </div>
 <div class="qt-visual qt-image-pair" markdown>
@@ -84,11 +84,11 @@ canvas.text(
 
 <p class="qt-kicker">프레젠테이션</p>
 
-## 프레젠테이션을 만드세요. { #slides-heading }
+## 슬라이드도 Python으로 만드세요. { #slides-heading }
 
-캔버스를 Deck으로 묶고 전환 효과와 발표자 메모를 더하세요. 완성한 프레젠테이션은 브라우저나 PowerPoint에서 사용할 수 있습니다.
+표지와 각 슬라이드를 같은 코드 안에서 구성하고, 여러 장의 슬라이드로 묶습니다. 완성한 프레젠테이션은 브라우저에서 열거나 PowerPoint로 내보낼 수 있습니다.
 
-[프레젠테이션 둘러보기 <span aria-hidden="true">→</span>](cookbook/decks-and-video.md#orbit-atlas){ .qt-button .qt-button-blue }
+[슬라이드 예제 보기 <span aria-hidden="true">→</span>](cookbook/decks-and-video.md#orbit-atlas){ .qt-button .qt-button-blue }
 
 </div>
 <div class="qt-visual qt-deck-preview" markdown>
@@ -117,9 +117,9 @@ canvas.text(
 
 <p class="qt-kicker">동영상과 애니메이션</p>
 
-## 아이디어에 움직임을 더하세요. { #motion-heading }
+## 글자가 나타나고, 사진이 움직이고. { #motion-heading }
 
-레이어에 움직임을 넣어 동영상이나 GIF로 만드세요. 전달할 내용에 맞춰 전환 효과와 내레이션, 음악도 더할 수 있습니다.
+글자와 사진에 움직임을 넣고, 장면이 바뀌는 시간을 정해 동영상이나 GIF로 만듭니다. 음악을 더한 모습은 아래 Orbit Atlas 영상에서 확인할 수 있습니다.
 
 [동영상 예제 보기 <span aria-hidden="true">→</span>](cookbook/decks-and-video.md#orbit-atlas){ .qt-button .qt-button-blue }
 
@@ -128,7 +128,7 @@ canvas.text(
 <div class="qt-video-player">
 <video controls playsinline preload="none" poster="/assets/home/orbit-film-poster.webp" aria-label="quickthumb로 생성한 Orbit Atlas 애니메이션">
 <source src="/assets/home/orbit-film.mp4" type="video/mp4">
-브라우저가 동영상을 지원하지 않습니다. <a href="/assets/home/orbit-film.mp4">애니메이션 다운로드</a>.
+브라우저가 동영상을 지원하지 않습니다. <a href="/assets/home/orbit-film.mp4">동영상 다운로드</a>.
 </video>
 <button class="qt-play" type="button" data-qt-play aria-label="Orbit Atlas 동영상 재생"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v14l11-7z"/></svg></button>
 </div>
@@ -145,11 +145,11 @@ canvas.text(
 <div class="qt-container qt-story-grid" markdown>
 <div class="qt-story-copy" markdown>
 
-<p class="qt-kicker">재사용을 위한 설계</p>
+<p class="qt-kicker">코드로 남기는 레이아웃</p>
 
-## 한 번 만들고<br>어디서나 재사용하세요. { #reuse-heading }
+## 다음 작업은 만들어 둔 코드에서 시작하세요. { #reuse-heading }
 
-디자인을 Python이나 JSON으로 저장해 두세요. 스크립트 하나로 썸네일과 Deck, 동영상을 함께 만들 수 있습니다.
+Python이나 JSON으로 남겨 둔 레이아웃을 다음 작업에 맞춰 고쳐 쓸 수 있습니다. 아래 예제는 같은 스크립트에서 썸네일, 프레젠테이션, 동영상을 각각 만듭니다.
 
 </div>
 <div class="qt-visual qt-reuse" markdown>
@@ -186,11 +186,13 @@ if not args.stills:
 
 <p class="qt-kicker">시작하기</p>
 
-## quickthumb를 설치하세요. { #install-heading }
+## 예제를 내 것으로 바꿔보세요. { #install-heading }
 
-Python 3.11 이상이 필요합니다.
+Python 3.11 이상이 필요합니다. 설치한 뒤 첫 카드 예제에서 제목과 색을 직접 바꿔 볼 수 있습니다.
 
-[설치 옵션 <span aria-hidden="true">→</span>](installation.md){ .qt-button .qt-button-dark }
+설치 방법은 [설치 안내](installation.md)에서 확인할 수 있습니다.
+
+[첫 카드 만들어 보기 <span aria-hidden="true">→</span>](getting-started.md){ .qt-button .qt-button-dark }
 
 </div>
 <div class="qt-visual" markdown>

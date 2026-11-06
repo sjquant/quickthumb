@@ -269,6 +269,113 @@ plugins:
               language: 言語
             social_image_alt: quickthumb：コードから広がるサムネイル制作。サムネイルカードの作例2点。
 
+        - locale: zh
+          name: 简体中文
+          site_description: 用 Python 或 JSON 制作图像、演示文稿和动画视频。
+          nav_translations:
+            Home: 首页
+            Getting Started: 快速开始
+            Render your first cards: 渲染第一组卡片
+            Installation: 安装
+            Core Concepts: 核心概念
+            Choose an output format: 选择输出格式
+            Animation Timing: 动画时序
+            API Reference: API 参考
+            Overview: 概览
+            Canvas: Canvas
+            Deck (Multiple Slides): Deck（多页幻灯片）
+            Document Inspection: 文档检查
+            Background: 背景
+            Text: 文本
+            Image: 图像
+            Shape: 形状
+            Path: 路径
+            SVG: SVG
+            Video: 视频
+            Audio-reactive Authoring: 音频响应式创作
+            Group (Auto Layout): 编组（自动布局）
+            Outline: 外边框
+            Data visualizations: 数据可视化
+            Effects: 效果
+            Enums & Gradients: 枚举与渐变
+            Advanced Reference: 进阶参考
+            Export: 导出
+            Methods and receipts: 导出方法与凭据
+            Format fidelity and validation: 格式保真度与验证
+            SVG, HTML, PowerPoint, and PDF: SVG、HTML、PowerPoint 和 PDF
+            GIF, video, and narration: GIF、视频与旁白
+            Transparent video: 透明视频
+            Image sequences and render quality: 图像序列与渲染质量
+            Assets and reproducibility: 资源与可复现性
+            Lottie vectors: Lottie 矢量动画
+            Animation timing details: 动画时序参考
+            Inspecting complex layouts: 检查复杂布局
+            JSON & AI: JSON 与 AI
+            JSON Schema & AI Workflow: JSON Schema 与 AI 工作流
+            Diagnostics & CLI: 诊断与 CLI
+            Structured Errors: 结构化错误
+            Cookbook: 示例集
+            Gallery: 示例画廊
+            Presentations and video: 演示文稿与视频
+            YouTube Thumbnails: YouTube 缩略图
+            Instagram Card: Instagram 卡片
+            Podcast Promo: 播客宣传图
+            Shorts / Vertical Cover: Shorts 与竖版封面
+            Launch Announcement (Auto Layout): 发布公告（自动布局）
+            AI Workflow: AI 工作流
+            Webfonts & Background Removal: Web 字体与背景去除
+            FAQ: 常见问题
+            Changelog: 更新日志
+          admonition_translations:
+            note: 说明
+            warning: 警告
+            tip: 提示
+            info: 信息
+            important: 重要
+            danger: 危险
+            example: 示例
+            abstract: 摘要
+            question: 问题
+            success: 成功
+            failure: 失败
+            bug: 缺陷
+            quote: 引用
+          theme:
+            language: zh
+            palette:
+              - toggle:
+                  name: 切换到深色主题
+              - toggle:
+                  name: 切换到浅色主题
+          extra:
+            language_code: zh-CN
+            ui:
+              main_navigation: 主导航
+              home: quickthumb 首页
+              recipes: 示例
+              docs: 文档
+              search: 搜索文档
+              open_navigation: 打开导航菜单
+              close_navigation: 关闭导航菜单
+              get_started: 开始使用
+              site_navigation: 网站导航
+              explore: 探索 quickthumb
+              shortcuts: 文档快捷链接
+              documentation: 文档
+              installation: 安装
+              concepts: 核心概念
+              api: API 参考
+              all_docs: 全部文档
+              theme: 切换主题
+              footer: 页脚导航
+              changelog: 更新日志
+              tagline: 用 Python 制作图像、演示文稿和视频。
+              github: 在 GitHub 上查看 quickthumb
+              license: MIT 许可证
+              made_with: 使用工具
+              language: 语言
+            social_image_alt: quickthumb：用代码制作缩略图。两张缩略图示例。
+
 hooks:
   - docs/hooks/schema.py
   - docs/hooks/seo.py
