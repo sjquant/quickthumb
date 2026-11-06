@@ -4,6 +4,7 @@ import pytest
 from PIL import Image
 from quickthumb import Canvas, TextPart
 from quickthumb._export_base import compute_text_layout
+from quickthumb.models import TextLayer
 
 
 @pytest.mark.parametrize("spacing", [-2, 0, 4])
@@ -13,6 +14,7 @@ def test_multiline_measurement_keeps_blank_line_in_native_export(spacing, align)
         "Ag\n\njp", size=32, position=(200, 150), align=align, letter_spacing=spacing
     )
     layer = canvas._layers[0]
+    assert isinstance(layer, TextLayer)
     measured = canvas._text.measure_text_layout(layer)
     exported = compute_text_layout(canvas, layer)
 
@@ -36,6 +38,7 @@ def test_rich_native_runs_follow_raster_paint_positions(monkeypatch, max_width, 
         max_width=max_width,
     )
     layer = canvas._layers[0]
+    assert isinstance(layer, TextLayer)
     painted = []
     paint = canvas._text._render_text_part
 
@@ -83,7 +86,9 @@ def test_rotation_stage_matches_native_transform_and_measured_size(monkeypatch, 
         rotation=rotation,
         effects=[Shadow(color="#000000", offset_x=-8, offset_y=3, blur_radius=4)],
     )
-    layer = canvas._text.effective_layer(canvas._layers[0])
+    source = canvas._layers[0]
+    assert isinstance(source, TextLayer)
+    layer = canvas._text.effective_layer(source)
     stages = []
     composites = []
     image = Image.new("RGBA", (400, 300))
