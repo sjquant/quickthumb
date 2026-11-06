@@ -1,6 +1,7 @@
 import math
 import warnings
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal, TypedDict, cast
 
 from PIL import Image, ImageDraw, ImageFilter
@@ -60,9 +61,49 @@ class TextPartData(TypedDict):
     text: str
 
 
-class TextPartMetadata(TypedDict):
+@dataclass
+class SimpleTextLayout:
     font: FontType
+    lines: list[str]
+    size: tuple[int, int]
+    multiline: bool
+    line_height: int
+    positions: list[tuple[str, int, int, tuple[int, int, int, int]]]
+    content_box: tuple[int, int, int, int] | None
+    fill_box: tuple[int, int, int, int] | None
+
+
+@dataclass
+class RichTextRun:
+    part: TextPartData
+    font: FontType
+    position: tuple[int, int]
     width: int
+
+
+@dataclass
+class RichTextLayout:
+    lines: list[list[RichTextRun]]
+    line_heights: list[int]
+    size: tuple[int, int]
+
+
+@dataclass
+class TextRotationStage:
+    size: tuple[int, int]
+    padding: int
+    rotated_size: tuple[int, int]
+    position: tuple[int, int]
+
+    def inner_layer(self, layer: TextLayer) -> TextLayer:
+        return layer.model_copy(
+            update={
+                "position": (self.padding, self.padding),
+                "align": None,
+                "rotation": 0.0,
+                "auto_scale": False,
+            }
+        )
 
 
 class TextLayoutMetadata(TypedDict):
@@ -638,7 +679,8 @@ class TextEngine:
                 self.resolve_letter_spacing(part, layer),
             )
 
-    def _measure_simple_text_layout(self, layer: TextLayer) -> TextLayoutMetadata:
+    def layout_simple_text(self, layer: TextLayer) -> SimpleTextLayout:
+        """Resolve logical dimensions and multiline paint positions once."""
         font = self._fonts.load_font(layer)
         content = layer.content if isinstance(layer.content, str) else ""
         max_width_px = (
@@ -647,13 +689,17 @@ class TextEngine:
             else None
         )
         lines = self._simple_lines_for_layer(layer, content, font, max_width_px)
-        if max_width_px is not None or "\n" in content:
-            size = self._measure_simple_lines(
-                lines,
-                font,
-                layer.letter_spacing or 0,
-                layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER,
+        multiline = max_width_px is not None or "\n" in content
+        line_height = 0
+        widths: list[int] = []
+        if multiline:
+            line_height = self._calculate_line_height(
+                font, layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER
             )
+            widths = [
+                self.measure_text_bounds(line, font, layer.letter_spacing or 0)[0] for line in lines
+            ]
+            size = (max(widths, default=0), line_height * len(lines))
         else:
             size = self.measure_text_bounds(
                 content,
@@ -662,25 +708,54 @@ class TextEngine:
                 layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER,
             )
 
+        positions = []
+        if multiline:
+            base_x, base_y = self.get_text_base_position(layer)
+            start_y = self.get_vertical_start_y(base_y, size[1], layer.align)
+            for index, (line, width) in enumerate(zip(lines, widths, strict=True)):
+                x = self.get_horizontal_start_x(base_x, width, layer.align)
+                bbox = cast(tuple[int, int, int, int], font.getbbox(line, anchor="lt"))
+                positions.append((line, x, start_y + index * line_height, bbox))
+        content_box = None
+        fill_box = None
+        if positions:
+            content_box = (
+                min(x + bbox[0] for _, x, _, bbox in positions),
+                min(y + bbox[1] for _, _, y, bbox in positions),
+                max(x + bbox[2] for _, x, _, bbox in positions),
+                max(y + bbox[3] for _, _, y, bbox in positions),
+            )
+            fill_box = content_box
+            if layer.fill and layer.letter_spacing:
+                fill_box = (
+                    min(x for _, x, _, _ in positions),
+                    content_box[1],
+                    max(
+                        x + self._calculate_spaced_text_width(line, font, layer.letter_spacing)[0]
+                        for line, x, _, _ in positions
+                    ),
+                    content_box[3],
+                )
+        return SimpleTextLayout(
+            font, lines, size, multiline, line_height, positions, content_box, fill_box
+        )
+
+    def _measure_simple_text_layout(self, layer: TextLayer) -> TextLayoutMetadata:
+        layout = self.layout_simple_text(layer)
         return {
-            "size": size,
-            "wrapped_lines": tuple(lines),
+            "size": layout.size,
+            "wrapped_lines": tuple(layout.lines),
             "effective_font_size": layer.size or DEFAULT_TEXT_SIZE,
             "effective_font_sizes": (layer.size or DEFAULT_TEXT_SIZE,),
         }
 
     def _measure_rich_text_layout(self, layer: TextLayer) -> TextLayoutMetadata:
-        lines = self._prepare_rich_text_lines(layer, apply_wrapping=layer.max_width is not None)
-        line_text = tuple("".join(part["text"] for part in line) for line in lines)
-        sizes = tuple(sorted({part["size"] for line in lines for part in line}))
+        layout = self.layout_rich_text(layer)
+        line_text = tuple("".join(run.part["text"] for run in line) for line in layout.lines)
+        sizes = tuple(sorted({run.part["size"] for line in layout.lines for run in line}))
         effective_size = min(sizes) if sizes else layer.size or DEFAULT_TEXT_SIZE
-        _, total_height = self._calculate_rich_text_dimensions(layer, lines)
-        size = (
-            max((self._measure_rich_line_width(line_parts) for line_parts in lines), default=0),
-            total_height,
-        )
         return {
-            "size": size,
+            "size": layout.size,
             "wrapped_lines": line_text,
             "effective_font_size": effective_size,
             "effective_font_sizes": sizes or (effective_size,),
@@ -695,7 +770,8 @@ class TextEngine:
             return
 
         draw = ImageDraw.Draw(image)
-        font = self._fonts.load_font(layer)
+        layout = self.layout_simple_text(layer)
+        font = layout.font
         color = self._effects.parse_color(layer.color) if layer.color else DEFAULT_TEXT_COLOR
         content = layer.content if isinstance(layer.content, str) else ""
 
@@ -704,14 +780,8 @@ class TextEngine:
         glow_effects = self._get_glow_effects(layer.effects)
         background_effects = self._get_background_effects(layer.effects)
 
-        max_width_px = (
-            parse_coordinate(layer.max_width, self._ctx.width)
-            if layer.max_width is not None
-            else None
-        )
-        if max_width_px is not None or "\n" in content:
-            lines = self._simple_lines_for_layer(layer, content, font, max_width_px)
-            self._render_multiline_text(draw, lines, font, color, layer, image)
+        if layout.multiline:
+            self._render_multiline_text(draw, layout, font, color, layer, image)
         elif layer.letter_spacing:
             self._render_letter_spaced_text(
                 draw,
@@ -753,11 +823,10 @@ class TextEngine:
             return
 
         draw = ImageDraw.Draw(image)
-        lines = self._prepare_rich_text_lines(layer, apply_wrapping=layer.max_width is not None)
-        line_heights, total_height = self._calculate_rich_text_dimensions(layer, lines)
-        base_x, start_y = self._calculate_start_position(layer, total_height)
-
-        self._draw_rich_text_lines(draw, image, layer, lines, line_heights, base_x, start_y)
+        layout = self.layout_rich_text(layer)
+        for line in layout.lines:
+            for run in line:
+                self._render_text_part(draw, image, run.part, run.font, run.position)
 
     def _calculate_rich_text_dimensions(
         self, layer: TextLayer, lines: list[list[TextPartData]]
@@ -795,23 +864,15 @@ class TextEngine:
         start_y = self.get_vertical_start_y(base_y, total_height, layer.align)
         return base_x, start_y
 
-    def _draw_rich_text_lines(
-        self,
-        draw: ImageDraw.ImageDraw,
-        image: Image.Image,
-        layer: TextLayer,
-        lines: list[list[TextPartData]],
-        line_heights: list[int],
-        base_x: int,
-        start_y: int,
-    ):
-        current_y = start_y
-        for i, line_parts in enumerate(lines):
-            line_height = line_heights[i]
-
-            line_width = 0
-            part_metadata: list[TextPartMetadata] = []
-
+    def layout_rich_text(self, layer: TextLayer) -> RichTextLayout:
+        """Resolve inherited styles, line boxes, and per-part paint positions."""
+        lines = self._prepare_rich_text_lines(layer, apply_wrapping=layer.max_width is not None)
+        line_heights, total_height = self._calculate_rich_text_dimensions(layer, lines)
+        base_x, current_y = self._calculate_start_position(layer, total_height)
+        placed_lines: list[list[RichTextRun]] = []
+        max_width = 0
+        for line_parts, line_height in zip(lines, line_heights, strict=True):
+            runs = []
             for part in line_parts:
                 font = self._fonts.load_font_variant(
                     part["font_name"],
@@ -822,28 +883,19 @@ class TextEngine:
                     part["font_source"],
                     part["font_variations"],
                 )
-
-                w, _ = self.measure_text_bounds(part["text"], font, part["letter_spacing"])
-                part_metadata.append({"font": font, "width": w})
-                line_width += w
-
+                width, _ = self.measure_text_bounds(part["text"], font, part["letter_spacing"])
+                runs.append(RichTextRun(part, font, (0, 0), width))
+            line_width = sum(run.width for run in runs)
+            max_width = max(max_width, line_width)
             current_x = self.get_horizontal_start_x(base_x, line_width, layer.align)
-
-            for j, part in enumerate(line_parts):
-                meta = part_metadata[j]
-                font = meta["font"]
-                width = meta["width"]
-
-                # Calculate vertical offset to center text within line box
-                bbox = font.getbbox(part["text"])
+            for run in runs:
+                bbox = run.font.getbbox(run.part["text"])
                 text_height = int(bbox[3] - bbox[1])
-                vertical_offset = (line_height - text_height) // 2
-                adjusted_y = current_y + vertical_offset
-
-                self._render_text_part(draw, image, part, font, (current_x, adjusted_y))
-                current_x += width
-
+                run.position = (current_x, current_y + (line_height - text_height) // 2)
+                current_x += run.width
+            placed_lines.append(runs)
             current_y += line_height
+        return RichTextLayout(placed_lines, line_heights, (max_width, total_height))
 
     def _prepare_rich_text_lines(
         self, layer: TextLayer, apply_wrapping: bool = True
@@ -1212,39 +1264,20 @@ class TextEngine:
     def _render_multiline_text(
         self,
         draw: ImageDraw.ImageDraw,
-        lines: list[str],
+        layout: SimpleTextLayout,
         font: FontType,
         color: tuple[int, ...],
         layer: TextLayer,
         image: Image.Image,
     ):
-        line_height_multiplier = layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER
-        line_height = self._calculate_line_height(font, line_height_multiplier)
-        total_height = line_height * len(lines)
-
-        base_x, base_y = self.get_text_base_position(layer)
-
-        start_y = self.get_vertical_start_y(base_y, total_height, layer.align)
-
         glow_effects = self._get_glow_effects(layer.effects)
         shadow_effects = self._get_shadow_effects(layer.effects)
         stroke_effects = self._get_stroke_effects(layer.effects)
         background_effects = self._get_background_effects(layer.effects)
-        line_layouts: list[tuple[str, int, int, tuple[int, int, int, int]]] = []
-        for i, line in enumerate(lines):
-            line_width, _ = self.measure_text_bounds(
-                line, font, layer.letter_spacing or 0, line_height_multiplier
-            )
-            y = start_y + i * line_height
-            x = self.get_horizontal_start_x(base_x, line_width, layer.align)
-            bbox = cast(tuple[int, int, int, int], font.getbbox(line, anchor="lt"))
-            line_layouts.append((line, x, y, bbox))
 
-        if background_effects and line_layouts:
-            content_left = min(x + bbox[0] for _, x, _, bbox in line_layouts)
-            content_top = min(y + bbox[1] for _, _, y, bbox in line_layouts)
-            content_right = max(x + bbox[2] for _, x, _, bbox in line_layouts)
-            content_bottom = max(y + bbox[3] for _, _, y, bbox in line_layouts)
+        line_layouts = layout.positions
+        if background_effects and layout.content_box is not None:
+            content_left, content_top, content_right, content_bottom = layout.content_box
 
             for bg in background_effects:
                 self._render_background_box(
@@ -1258,24 +1291,17 @@ class TextEngine:
 
         text_fill = layer.fill
         letter_spacing = layer.letter_spacing or 0
-        if text_fill is not None and line_layouts:
-            # Pre-compute letter-spaced widths when needed so block bounds are accurate.
-            if letter_spacing:
-                spaced_data = {
+        if text_fill is not None and layout.fill_box is not None:
+            spaced_data = (
+                {
                     line: self._calculate_spaced_text_width(line, font, letter_spacing)
                     for line, _, _, _ in line_layouts
                 }
-                block_left = min(x for _, x, _, _ in line_layouts)
-                block_right = max(x + spaced_data[line][0] for line, x, _, _ in line_layouts)
-            else:
-                spaced_data = {}
-                block_left = min(x + bbox[0] for _, x, _, bbox in line_layouts)
-                block_right = max(x + bbox[2] for _, x, _, bbox in line_layouts)
-
-            # Build a block-level fill image spanning all lines so gradients and
-            # images map to the full text block rather than repeating per line.
-            block_top = min(y + bbox[1] for _, _, y, bbox in line_layouts)
-            block_bottom = max(y + bbox[3] for _, _, y, bbox in line_layouts)
+                if letter_spacing
+                else {}
+            )
+            # One fill spans the block; each line clips its own portion below.
+            block_left, block_top, block_right, block_bottom = layout.fill_box
             block_w = max(1, block_right - block_left)
             block_h = max(1, block_bottom - block_top)
             fill_image = self._create_text_fill_image((block_w, block_h), text_fill)
@@ -1555,16 +1581,28 @@ class TextEngine:
         if layer.rotation == 0:
             return text_width, text_height
 
-        if isinstance(layer.content, list):
-            padding = self._calculate_rich_text_effects_padding(layer)
-        else:
-            padding = self._calculate_text_effects_padding(
+        return self.rotation_stage(layer, size=(text_width, text_height)).rotated_size
+
+    def rotation_stage(
+        self, layer: TextLayer, *, size: tuple[int, int] | None = None
+    ) -> TextRotationStage:
+        """Describe the padded surface shared by raster and document rotation."""
+        width, height = self.measure_text_size(layer) if size is None else size
+        padding = (
+            self._calculate_rich_text_effects_padding(layer)
+            if isinstance(layer.content, list)
+            else self._calculate_text_effects_padding(
                 self._get_stroke_effects(layer.effects),
                 self._get_shadow_effects(layer.effects),
                 self._get_glow_effects(layer.effects),
             )
-        staged_size = (text_width + padding * 2, text_height + padding * 2)
-        return expanded_rotation_size(staged_size, layer.rotation, scale=1)
+        )
+        staged_size = (width + padding * 2, height + padding * 2)
+        rotated_size = expanded_rotation_size(staged_size, layer.rotation, scale=1)
+        x, y = self.get_text_base_position(layer)
+        if layer.align:
+            x, y = apply_alignment(x, y, rotated_size, layer.align)
+        return TextRotationStage(staged_size, padding, rotated_size, (x, y))
 
     def _render_rotated_rich_text(self, image: Image.Image, layer: TextLayer):
         """Render rich text with rotation applied.
@@ -1586,30 +1624,14 @@ class TextEngine:
         Removing effects must not shrink the temporary surface, clip italic ink,
         or change Pillow's rotation framing. Opacity remains in the outer wrapper.
         """
-        text_width, text_height = self.measure_text_size(reference)
-        padding = (
-            self._calculate_rich_text_effects_padding(reference)
-            if isinstance(reference.content, list)
-            else self._calculate_text_effects_padding(
-                self._get_stroke_effects(reference.effects),
-                self._get_shadow_effects(reference.effects),
-                self._get_glow_effects(reference.effects),
-            )
-        )
-        temp_image, _ = self._create_temp_image_for_text(text_width, text_height, padding)
-        temp_layer = variant.model_copy(
-            update={
-                "position": (padding, padding),
-                "align": None,
-                "rotation": 0.0,
-                "auto_scale": False,
-            }
-        )
+        stage = self.rotation_stage(reference)
+        temp_image = Image.new("RGBA", stage.size, (0, 0, 0, 0))
+        temp_layer = stage.inner_layer(variant)
         if isinstance(temp_layer.content, list):
             self._render_rich_text(temp_image, temp_layer)
         else:
             self._render_simple_text(temp_image, temp_layer)
-        self._rotate_and_composite_text(image, temp_image, reference)
+        self._rotate_and_composite_text(image, temp_image, reference, position=stage.position)
 
     def _calculate_rich_text_effects_padding(self, layer: TextLayer) -> int:
         """Calculate padding for rich text effects from both layer and part-level effects."""
@@ -1650,28 +1672,22 @@ class TextEngine:
 
         return max(padding, 10)
 
-    def _create_temp_image_for_text(
-        self, width: int, height: int, padding: int
-    ) -> tuple[Image.Image, ImageDraw.ImageDraw]:
-        """Create transparent temporary image sized for content plus effect padding."""
-        temp_width = width + padding * 2
-        temp_height = height + padding * 2
-        temp_image = Image.new("RGBA", (temp_width, temp_height), (0, 0, 0, 0))
-        temp_draw = ImageDraw.Draw(temp_image)
-        return temp_image, temp_draw
-
     def _rotate_and_composite_text(
-        self, image: Image.Image, temp_image: Image.Image, layer: TextLayer
+        self,
+        image: Image.Image,
+        temp_image: Image.Image,
+        layer: TextLayer,
+        *,
+        position: tuple[int, int] | None = None,
     ) -> None:
         """Rotate temporary text image and composite onto main canvas with alignment."""
         rotated = temp_image.rotate(-layer.rotation, expand=True, resample=Image.Resampling.BICUBIC)
 
-        base_x, base_y = self.get_text_base_position(layer)
-
-        if layer.align:
-            base_x, base_y = apply_alignment(base_x, base_y, rotated.size, layer.align)
-
-        image.alpha_composite(rotated, (base_x, base_y))
+        if position is None:
+            position = self.get_text_base_position(layer)
+            if layer.align:
+                position = apply_alignment(*position, rotated.size, layer.align)
+        image.alpha_composite(rotated, position)
 
     def _get_text_anchor(self, align: Align | None) -> str:
         if not align:
