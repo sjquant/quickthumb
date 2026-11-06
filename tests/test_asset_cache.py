@@ -820,3 +820,140 @@ def resource_clock(monkeypatch):
     clock = [1_700_000_000.0]
     monkeypatch.setattr(time, "time", lambda: clock[0])
     return clock
+
+
+def test_nested_declared_inputs_keep_manifest_order_types_and_resolution_policy(
+    tmp_path, monkeypatch, local_assets
+):
+    """One source may serve different input roles without widening download policy."""
+    base_url, requests, _server, payloads = local_assets
+    monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "cache"))
+    payloads["/shape.svg"] = b'<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>'
+    image = f"{base_url}/asset.png"
+    font = f"{base_url}/font.ttf"
+    svg = f"{base_url}/shape.svg"
+    video = f"{base_url}/not-prefetched.mp4"
+    local_font = str(Path("assets/fonts/Roboto-Regular.ttf"))
+    narration = tmp_path / "narration.wav"
+    narration.write_bytes(b"narration")
+    canvas = _plugin_with_image(image)
+    canvas.background(image=image).group(
+        children=[
+            {"type": "image", "path": image},
+            {"type": "svg", "path": svg},
+            {
+                "type": "text",
+                "font": local_font,
+                "fill": {"type": "image", "path": image},
+                "content": [
+                    {"text": "same fill", "fill": {"type": "image", "path": image}},
+                    {"text": "remote font", "font": font},
+                ],
+            },
+        ]
+    ).video(
+        video,
+        position=(0, 0),
+        width=4,
+        height=4,
+        captions=[{"text": "caption", "start": 0, "end": 1, "font": font}],
+    )
+    document = Deck().slide(canvas, audio=str(narration))
+
+    entries = document.prefetch_assets().asset_manifest
+
+    assert [(entry.asset_type, entry.source) for entry in entries] == [
+        ("plugin", image),
+        ("image", image),
+        ("svg", svg),
+        ("font", local_font),
+        ("text-fill", image),
+        ("font", font),
+        ("video", video),
+        ("audio", str(narration)),
+    ]
+    assert entries[3].status == entries[-1].status == "local"
+    assert entries[-2].status == "unresolved"
+    assert all(entry.content_hash for entry in entries if entry.asset_type != "video")
+    # Plugins retain their opaque-byte cache namespace, separate from image decoding.
+    assert requests == ["/asset.png", "/shape.svg", "/font.ttf", "/asset.png"]
+    assert document.prefetch_assets().asset_manifest == entries
+
+
+def test_rich_font_prefetch_preserves_source_and_explicit_style_inheritance(
+    tmp_path, monkeypatch, local_assets
+):
+    """Google requests inherit unset styles; URL and local fonts keep their own meaning."""
+    from quickthumb._fonts import FontEngine
+
+    base_url, requests, _server, _payloads = local_assets
+    monkeypatch.setenv("QUICKTHUMB_ASSET_CACHE_DIR", str(tmp_path / "cache"))
+    font_url = f"{base_url}/font.ttf"
+    google_calls = []
+
+    def google_asset(self, family, bold, italic, weight, font_variations):
+        google_calls.append((family, bold, italic, weight, font_variations))
+        return self._asset_resolver.resolve_font(font_url)
+
+    monkeypatch.setattr(FontEngine, "_resolve_google_font_asset", google_asset)
+    local_font = "assets/fonts/Roboto-Regular.ttf"
+    canvas = Canvas(100, 100).group(
+        children=[
+            {
+                "type": "text",
+                "font": "Parent",
+                "font_source": "google",
+                "weight": 600,
+                "italic": True,
+                "font_variations": {"wdth": 90},
+                "content": [
+                    {"text": "inherited"},
+                    {"text": "family", "font": "Child"},
+                    {
+                        "text": "overrides",
+                        "font": "Other",
+                        "bold": False,
+                        "italic": False,
+                        "weight": 400,
+                        "font_variations": {},
+                    },
+                    {"text": "url", "font": font_url},
+                    {"text": "file", "font": local_font, "font_source": "auto"},
+                    {"text": "system", "font": "System Family", "font_source": "auto"},
+                ],
+            },
+            {
+                "type": "text",
+                "font": "BoldParent",
+                "font_source": "google",
+                "bold": True,
+                "content": [
+                    {"text": "bold", "font": "BoldChild"},
+                    {"text": "regular", "font": "RegularChild", "bold": False},
+                ],
+            },
+        ]
+    )
+
+    entries = canvas.prefetch_assets().asset_manifest
+
+    assert google_calls == [
+        ("Parent", False, True, 600, {"wdth": 90}),
+        ("Child", False, True, 600, {"wdth": 90}),
+        ("Other", False, False, 400, {}),
+        ("BoldParent", True, False, None, {}),
+        ("BoldChild", True, False, None, {}),
+        ("RegularChild", False, False, None, {}),
+    ]
+    assert [entry.source for entry in entries] == [
+        "Parent",
+        "Child",
+        "Other",
+        font_url,
+        local_font,
+        "BoldParent",
+        "BoldChild",
+        "RegularChild",
+    ]
+    assert all(entry.asset_type == "font" and entry.content_hash for entry in entries)
+    assert requests == ["/font.ttf"]
