@@ -94,14 +94,15 @@ def test_svg_override_preserves_authored_image(authoring_page, site_config, meta
 
 
 @pytest.mark.parametrize(
-    ("locale", "title", "alt"),
+    ("locale", "language", "title", "alt"),
     [
-        ("ko", "팟캐스트 홍보", "팟캐스트 인터뷰 홍보 이미지"),
-        ("ja", "ポッドキャストの宣伝", "ポッドキャストのインタビュー告知画像"),
+        ("ko", "ko", "팟캐스트 홍보", "팟캐스트 인터뷰 홍보 이미지"),
+        ("ja", "ja", "ポッドキャストの宣伝", "ポッドキャストのインタビュー告知画像"),
+        ("zh", "zh-CN", "播客宣传图", "播客访谈宣传图"),
     ],
 )
 def test_localized_recipe_uses_shared_image_and_locale_graph(
-    authoring_page, site_config, locale, title, alt
+    authoring_page, site_config, locale, language, title, alt
 ):
     """A translated recipe keeps its localized identity and measures the shared preview asset."""
     # Given: a translated recipe with a relative preview and a localized image description
@@ -129,17 +130,17 @@ def test_localized_recipe_uses_shared_image_and_locale_graph(
         "height": 720,
     }
     webpage = nodes[authoring_page.canonical_url + "#webpage"]
-    assert webpage["inLanguage"] == locale
+    assert webpage["inLanguage"] == language
     assert webpage["isPartOf"] == {"@id": f"https://docs.example.test/{locale}/#website"}
     assert webpage["about"] == {"@id": "https://docs.example.test/#software"}
-    assert nodes[authoring_page.canonical_url + "#document"]["inLanguage"] == locale
+    assert nodes[authoring_page.canonical_url + "#document"]["inLanguage"] == language
     assert nodes[authoring_page.canonical_url + "#breadcrumbs"]["itemListElement"][0]["item"] == (
         f"https://docs.example.test/{locale}/"
     )
     assert context["seo_title"] == f"quickthumb - {title}"
 
 
-@pytest.mark.parametrize("locale", ["ko", "ja"])
+@pytest.mark.parametrize("locale", ["ko", "ja", "zh"])
 def test_untranslated_page_fails_the_localized_build(authoring_page, site_config, locale):
     """Missing translations fail localized builds rather than publishing English duplicates."""
     # Given: the plugin selected an English source for a localized build

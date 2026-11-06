@@ -1,22 +1,27 @@
 {% extends "main.html" %}
-{% set _ = config.extra.update({"alternate": [{"name": "English", "lang": "en", "link": "/"}, {"name": "한국어", "lang": "ko", "link": "/ko/"}, {"name": "日本語", "lang": "ja", "link": "/ja/"}]}) %}
+{% set _ = config.extra.update({"alternate": []}) %}
+
+{% block htmltitle %}<title>quickthumb - Page not found</title>{% endblock %}
 
 {% block extrahead %}
   {{ super() }}
   <meta name="robots" content="noindex">
   <script>
     // Static hosts can serve this root error document for any missing locale path.
-    document.documentElement.lang = location.pathname.match(/^\/(ko|ja)(?:\/|$)/)?.[1] || 'en';
+    const prefix = location.pathname.match(/^\/(ko|ja|zh)(?:\/|$)/)?.[1] || 'en';
+    document.documentElement.lang = prefix === 'zh' ? 'zh-CN' : prefix;
     document.title = 'quickthumb - ' + {
       en: 'Page not found',
       ko: '페이지를 찾을 수 없습니다',
-      ja: 'ページが見つかりません'
+      ja: 'ページが見つかりません',
+      'zh-CN': '找不到页面'
     }[document.documentElement.lang];
   </script>
   <style>
     .md-top, [data-qt-error] { display: none; }
     html[lang="en"] [data-qt-error="en"],
     html[lang="ko"] [data-qt-error="ko"],
+    html[lang="zh-CN"] [data-qt-error="zh-CN"],
     html[lang="ja"] [data-qt-error="ja"] { display: block; }
   </style>
 {% endblock %}
@@ -34,19 +39,21 @@
     <h1>404 - ページが見つかりません</h1>
     <p>お探しのページはありません。<a href="/ja/" target="_self">ホームに戻る</a>か、<a href="/ja/getting-started/" target="_self">はじめにのドキュメントをご覧ください</a>。</p>
   </section>
+  <section data-qt-error="zh-CN" lang="zh-CN">
+    <h1>404 - 找不到页面</h1>
+    <p>找不到您访问的页面。您可以<a href="/zh/" target="_self">返回首页</a>，或<a href="/zh/getting-started/" target="_self">查看快速开始文档</a>。</p>
+  </section>
 {% endblock %}
 
 {% block header %}
+  {% set _ = config.extra.update({"alternate": [{"name": "English", "lang": "en", "link": "/"}, {"name": "한국어", "lang": "ko", "link": "/ko/"}, {"name": "日本語", "lang": "ja", "link": "/ja/"}, {"name": "简体中文", "lang": "zh-CN", "link": "/zh/"}]}) %}
   <header class="md-header qt-header">
-    <nav class="qt-header-inner" aria-label="Language / 언어 / 言語">
+    <nav class="qt-header-inner" aria-label="Language / 언어 / 言語 / 语言">
       <a class="qt-brand" href="/" data-qt-error="en" target="_self">quickthumb</a>
       <a class="qt-brand" href="/ko/" data-qt-error="ko" target="_self">quickthumb</a>
       <a class="qt-brand" href="/ja/" data-qt-error="ja" target="_self">quickthumb</a>
-      <div class="qt-language-switch">
-        <a href="/" lang="en" hreflang="en" target="_self">English</a>
-        <a href="/ko/" lang="ko" hreflang="ko" target="_self">한국어</a>
-        <a href="/ja/" lang="ja" hreflang="ja" target="_self">日本語</a>
-      </div>
+      <a class="qt-brand" href="/zh/" data-qt-error="zh-CN" target="_self">quickthumb</a>
+      {% include "partials/language-switch.html" %}
     </nav>
   </header>
 {% endblock %}

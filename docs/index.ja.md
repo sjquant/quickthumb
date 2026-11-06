@@ -1,6 +1,6 @@
 ---
-title: quickthumb · コードで作るビジュアル
-description: PythonまたはJSONで画像、プレゼンテーション、アニメーション動画を作成します。
+title: quickthumb · Pythonでつくる、繰り返し使えるデザイン
+description: 画像、プレゼンテーション、動画をPythonで作成。レイアウトをコードに残し、写真やタイトルを差し替えて次の制作にも活用できます。
 template: home.html
 hide:
   - navigation
@@ -11,15 +11,15 @@ hide:
 <div class="qt-container qt-hero-layout" markdown>
 <div class="qt-hero-copy" markdown>
 
-<p class="qt-eyebrow">Pythonでつくるためのツールキット</p>
+<p class="qt-eyebrow">画像・スライド・動画をPythonで</p>
 
-<h1 id="qt-heading">コードで作る<br>ビジュアル。</h1>
+<h1 id="qt-heading">一度つくったデザインを、<br>次の制作にも。</h1>
 
-<p class="qt-hero-description">レイアウトを再利用して、画像、プレゼンテーション、アニメーション動画を作れます。</p>
+<p class="qt-hero-description">画像、プレゼンテーション、動画をPythonで作成。レイアウトをコードとして残せるため、写真やタイトルを差し替えて繰り返し活用できます。</p>
 
 <div class="qt-actions" markdown>
-[quickthumbをインストール <span aria-hidden="true">→</span>](installation.md){ .qt-button .qt-button-white }
-[作例を見る](cookbook/index.md){ .qt-button .qt-button-outline }
+[作例を見る <span aria-hidden="true">→</span>](cookbook/index.md){ .qt-button .qt-button-white }
+[インストールする](installation.md){ .qt-button .qt-button-outline }
 </div>
 
 <ul class="qt-traits">
@@ -45,11 +45,11 @@ hide:
 
 <p class="qt-kicker">画像・グラフィック</p>
 
-## 画像を組み立てる。 { #images-heading }
+## 次のサムネイルは、<br>写真とタイトルを<br>差し替えて。 { #images-heading }
 
-文字、写真、図形を組み合わせて、サムネイルやSNS用画像を作れます。レイアウトはコードで管理でき、いつでも用途に合わせて変えられます。
+文字や写真、図形の配置をコードに残せます。写真やタイトルを差し替えて、同じレイアウトのサムネイルやSNS画像を続けて作れます。
 
-[画像の作例を見る <span aria-hidden="true">→</span>](cookbook/decks-and-video.md#orbit-atlas){ .qt-button .qt-button-blue }
+[サムネイルの作例を見る <span aria-hidden="true">→</span>](cookbook/decks-and-video.md#orbit-atlas){ .qt-button .qt-button-blue }
 
 </div>
 <div class="qt-visual qt-image-pair" markdown>
@@ -84,11 +84,11 @@ canvas.text(
 
 <p class="qt-kicker">プレゼンテーション</p>
 
-## スライドをつくる。 { #slides-heading }
+## スライドづくりも、<br>Pythonで。 { #slides-heading }
 
-キャンバスをDeckにまとめ、切り替え効果や発表者ノートを加えます。ブラウザーやPowerPoint向けに出力できます。
+表紙から各スライドまでコードで組み立て、ひとつのプレゼンテーションにまとめられます。ブラウザーで表示できるほか、PowerPointファイルとしても出力できます。
 
-[プレゼンテーションを見る <span aria-hidden="true">→</span>](cookbook/decks-and-video.md#orbit-atlas){ .qt-button .qt-button-blue }
+[スライドの作例を見る <span aria-hidden="true">→</span>](cookbook/decks-and-video.md#orbit-atlas){ .qt-button .qt-button-blue }
 
 </div>
 <div class="qt-visual qt-deck-preview" markdown>
@@ -117,9 +117,9 @@ canvas.text(
 
 <p class="qt-kicker">動画・アニメーション</p>
 
-## アイデアに動きを。 { #motion-heading }
+## 文字が現れ、<br>写真が動く。 { #motion-heading }
 
-レイヤーを動かして、動画やGIFとして書き出せます。伝えたい内容に合わせて、切り替え効果、ナレーション、音楽も加えられます。
+文字や写真に動きをつけ、シーンの長さを指定して動画やGIFを作成できます。音楽を加えた仕上がりは、下のOrbit Atlasの動画で確認できます。
 
 [動画の作例を見る <span aria-hidden="true">→</span>](cookbook/decks-and-video.md#orbit-atlas){ .qt-button .qt-button-blue }
 
@@ -128,7 +128,7 @@ canvas.text(
 <div class="qt-video-player">
 <video controls playsinline preload="none" poster="/assets/home/orbit-film-poster.webp" aria-label="quickthumbで生成したOrbit Atlasアニメーション">
 <source src="/assets/home/orbit-film.mp4" type="video/mp4">
-このブラウザーは動画に対応していません。 <a href="/assets/home/orbit-film.mp4">アニメーションをダウンロード</a>。
+このブラウザーは動画に対応していません。 <a href="/assets/home/orbit-film.mp4">動画をダウンロード</a>。
 </video>
 <button class="qt-play" type="button" data-qt-play aria-label="Orbit Atlasの動画を再生"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v14l11-7z"/></svg></button>
 </div>
@@ -145,11 +145,11 @@ canvas.text(
 <div class="qt-container qt-story-grid" markdown>
 <div class="qt-story-copy" markdown>
 
-<p class="qt-kicker">何度でも使える設計</p>
+<p class="qt-kicker">レイアウトをコードに残す</p>
 
-## 一度つくって、<br>何度でも使う。 { #reuse-heading }
+## 次の制作は、<br>手元のコードから。 { #reuse-heading }
 
-デザインをPythonやJSONで保存できます。スクリプト1つから、サムネイル、Deck、動画を出力できます。
+PythonやJSONで残したレイアウトは、次の制作に合わせて書き換えて再利用できます。下の作例では、ひとつのスクリプトからサムネイル、プレゼンテーション、動画をそれぞれ出力しています。
 
 </div>
 <div class="qt-visual qt-reuse" markdown>
@@ -186,11 +186,13 @@ if not args.stills:
 
 <p class="qt-kicker">はじめる</p>
 
-## quickthumbを<br>インストール。 { #install-heading }
+## 作例を、<br>自分好みにアレンジ。 { #install-heading }
 
-Python 3.11以降が必要です。
+Python 3.11以降が必要です。インストール後は、作例のタイトルや色を変えて最初の一枚を出力してみてください。
 
-[インストール方法 <span aria-hidden="true">→</span>](installation.md){ .qt-button .qt-button-dark }
+インストール手順は[インストールガイド](installation.md)をご覧ください。
+
+[最初のカードをつくる <span aria-hidden="true">→</span>](getting-started.md){ .qt-button .qt-button-dark }
 
 </div>
 <div class="qt-visual" markdown>

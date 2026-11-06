@@ -4,7 +4,6 @@
   const menuTrigger = document.querySelector('[data-qt-menu]');
   const searchToggle = document.querySelector('#__search');
   let searchTrigger;
-  if (!drawer) return;
 
   // Instant navigation replaces head metadata, while the shared header stays mounted.
   window.document$?.subscribe(updateLanguageLinks);
@@ -12,13 +11,29 @@
   window.addEventListener('hashchange', updateLanguageLinks);
   updateLanguageLinks();
 
+  document.addEventListener('click', (event) => {
+    document.querySelectorAll('.qt-language-switch[open]').forEach((menu) => {
+      if (!menu.contains(event.target)) menu.open = false;
+    });
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    document.querySelectorAll('.qt-language-switch[open]').forEach((menu) => {
+      menu.open = false;
+      menu.querySelector('summary').focus();
+    });
+  });
+
+  if (!drawer) return;
+
   // Material leaves the header and search runtime mounted during instant navigation.
   document.addEventListener('click', (event) => {
     const link = event.target.closest('a[href]');
     if (!link) return;
     const destination = new URL(link.href);
     if (destination.origin !== window.location.origin) return;
-    const locale = destination.pathname.match(/^\/(ko|ja)(?:\/|$)/)?.[1] || 'en';
+    const prefix = destination.pathname.match(/^\/(ko|ja|zh)(?:\/|$)/)?.[1] || 'en';
+    const locale = prefix === 'zh' ? 'zh-CN' : prefix;
     if (locale !== document.documentElement.lang && !link.hasAttribute('target')) {
       link.target = '_self';
     }
@@ -80,6 +95,16 @@
 
   function updateLanguageLinks() {
     document.querySelectorAll('[data-qt-language]').forEach((link) => {
+      const current = link.dataset.qtLanguage === document.documentElement.lang;
+      if (current) {
+        link.setAttribute('aria-current', 'page');
+        const menu = link.closest('.qt-language-switch');
+        menu.querySelector('[data-qt-language-current]').textContent = link.textContent;
+        menu.querySelector('summary').setAttribute('aria-label',
+          `${menu.querySelector('nav').getAttribute('aria-label')}: ${link.textContent}`);
+      } else {
+        link.removeAttribute('aria-current');
+      }
       const alternate = document.querySelector(`link[rel="alternate"][hreflang="${link.dataset.qtLanguage}"]`);
       if (!alternate) return;
       const destination = new URL(alternate.href);

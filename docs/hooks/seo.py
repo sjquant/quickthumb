@@ -24,7 +24,7 @@ def on_page_context(context, page, config, **kwargs):
         config.extra["alternate"] = [
             {
                 "name": language.name,
-                "lang": language.locale,
+                "lang": "zh-CN" if language.locale == "zh" else language.locale,
                 "link": urljoin(config.site_url, page.file.alternates[language.locale].url),
             }
             for language in context["i18n_config"].languages
@@ -88,8 +88,9 @@ def _social_image(page, config):
 def _structured_data(page, config, image):
     """Link canonical pages to the documented Python package and its source repository."""
     site_url = config.site_url.rstrip("/") + "/"
-    language = getattr(page.file, "locale_alternate_of", "en")
-    locale_url = urljoin(site_url, language + "/") if language != "en" else site_url
+    locale = getattr(page.file, "locale_alternate_of", "en")
+    language = "zh-CN" if locale == "zh" else locale
+    locale_url = urljoin(site_url, locale + "/") if locale != "en" else site_url
     source = getattr(page.file, "norm_src_uri", page.file.src_uri)
     is_homepage = source == "index.md"
     url = page.canonical_url
