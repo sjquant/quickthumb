@@ -138,7 +138,8 @@ def main() -> None:
             deadline = time.monotonic() + 15
             while not port_file.is_file():
                 if browser.poll() is not None or time.monotonic() > deadline:
-                    raise RuntimeError("Chrome did not start; inspect chrome.log")
+                    detail = (output / "chrome.log").read_text(errors="replace")[-8000:]
+                    raise RuntimeError(f"Chrome did not start; chrome.log tail:\n{detail}")
                 time.sleep(0.05)
             captured = subprocess.run(
                 [
