@@ -13,6 +13,45 @@ permissions:
   contents: read
 
 jobs:
+  lottie-player:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          enable-cache: true
+          python-version: "3.11"
+
+      - name: Install Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+
+      - name: Install reference dependencies
+        run: |
+          uv sync --locked --extra lottie --dev
+          npm ci --prefix tests/fixtures/lottie/player --ignore-scripts --no-audit --no-fund
+
+      - name: Compare actual Lottie player frames
+        run: |
+          PYTHONPATH=. uv run --locked python scripts/check_lottie_fidelity.py \
+            --chrome "$(command -v google-chrome)" \
+            --player tests/fixtures/lottie/player/node_modules/lottie-web/build/player/lottie.min.js \
+            --output "$RUNNER_TEMP/lottie-reference"
+
+      - name: Retain reference images and report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: lottie-reference
+          path: ${{ runner.temp }}/lottie-reference
+          if-no-files-found: warn
+
   quality:
     runs-on: ubuntu-latest
     steps:

@@ -45,6 +45,18 @@ pause. Preview the file in your target Lottie player before publishing.
 For a curved, filled and stroked logo, run the
 [logo morph example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_morph.py).
 
+For a complete intro with a title, a self-drawing logo that becomes a circle,
+and a rotating badge, run:
+
+```bash
+python -m examples.lottie_intro /tmp/intro.lot
+```
+
+The two-second animation ends with a half-second pause. The title is outlined,
+so playback needs no font files. Change the title, colors, and geometry in the
+[intro example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_intro.py)
+to reuse it.
+
 ## Choose artwork and timing
 
 A single Canvas can include a solid background, solid shapes, SVG Paths,
@@ -143,3 +155,25 @@ provided.
 `ExportPolicy(reduced_motion=True)` exports the authored static artwork for
 `hold` seconds. It does not choose the animation's final pose, and other
 unsupported features still need to be removed.
+
+## Playback verification
+
+The reference player is **lottie-web 5.13.0 with its SVG renderer**. The automated
+check validates eight example files against Lottie schema 1.0.1, then compares
+31 actual player frames with Quickthumb: shapes, curves and holes, sampled
+transforms/easing, parenting, trim, outlined text, morph, and the combined intro.
+Thirteen blank/frozen controls must fail the same image comparisons. CI retains
+the player images, canonical images, environment versions, and JSON measurements.
+
+The comparison allows up to 32 channel levels, 8% differing pixels, and an
+average-hash similarity of at least 0.93, both across each frame and in its artwork
+regions. These fixture limits allow rasterizer edge differences; they are not
+a guarantee for arbitrary artwork. See
+[how to repeat the player check](export-validation.md#lottie-reference-player).
+
+**Use the SVG renderer for this verified subset.** With lottie-web 5.12.2 and
+5.13.0, the optional Canvas comparison shows incorrect combined paint/layer
+opacity in some translucent scenes. Those Canvas observations do not pass the
+reference limits. Mobile/native players, other versions, and other artwork have
+not been verified by this check. Preview your actual file in its destination
+player before publishing.

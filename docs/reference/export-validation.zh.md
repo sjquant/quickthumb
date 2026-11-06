@@ -97,3 +97,16 @@ PYTHONPATH=. python scripts/check_html_fidelity.py \
 运行命令：`uv run --locked pytest tests/test_static_export_matrix.py --no-cov -q`。现有质量工作流已在安装了 SVG/PDF/PPTX 可选依赖及原生 Cairo 的环境下，通过 `pytest tests/` 运行该测试文件。缺少可选观测工具的本地环境会标注依赖原因跳过对应用例。Pytest 用例 ID 标识格式与文档类型。每个用例在其临时目录中保留源 JSON、规范 PNG、实际导出文件及 JSON 凭据；测得的凭据包含渲染器版本、规范环境、限制参数与各项度量指标。测试失败可基于共享固件与指定格式检查完整复现，无需依赖平台相关的截屏基线。
 
 这是一个受限的静态对比矩阵。它不会运行浏览器，不认证 PPTX 查看器的像素/字体/时序，也不增加 Deck PDF 保真度策略。独立的 HTML 浏览器测试套件与原生演示文稿查看器观测需要各自的执行过程与环境证据。结构检查的成功绝不能直接等同于已渲染像素保真度的判定结论。
+
+## Lottie 参考播放器 { #lottie-reference-player }
+
+验证范围和已知差异请参阅[播放验证](export-lottie.md#playback-verification)。
+
+```bash
+uv sync --locked --extra lottie --dev
+npm ci --prefix tests/fixtures/lottie/player --ignore-scripts --no-audit --no-fund
+PYTHONPATH=. uv run --locked python scripts/check_lottie_fidelity.py \
+  --chrome /path/to/chrome \
+  --player tests/fixtures/lottie/player/node_modules/lottie-web/build/player/lottie.min.js \
+  --output /tmp/quickthumb-lottie-observations
+```

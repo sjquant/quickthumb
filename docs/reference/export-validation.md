@@ -87,6 +87,36 @@ searchable vector content; this does not promise PowerPoint-style editing.
 Deck PDF comparison is rejected explicitly; export its Canvas slides individually.
 This observation does not establish PPTX or animation fidelity.
 
+## Lottie reference player
+
+The developer check uses the actual lottie-web player in a disposable Chrome
+profile. It makes no player downloads, changes no export policies, and blocks
+browser HTTP/HTTPS requests while playing self-contained vectors.
+
+From the repository root, install the locked development dependencies and the
+pinned test-only player, then select an existing Chrome executable:
+
+```bash
+uv sync --locked --extra lottie --dev
+npm ci --prefix tests/fixtures/lottie/player --ignore-scripts --no-audit --no-fund
+PYTHONPATH=. uv run --locked python scripts/check_lottie_fidelity.py \
+  --chrome /path/to/chrome \
+  --player tests/fixtures/lottie/player/node_modules/lottie-web/build/player/lottie.min.js \
+  --output /tmp/quickthumb-lottie-observations
+```
+
+Node 24 and an existing Chrome are required; the output directory must be new.
+The report records schema/player hashes, browser/Node/player versions, export
+receipts, exact frame seeks, dimensions, whole-frame and artwork-region RGBA/hash
+metrics, and pass/fail results. Frames are captured at DPR 1 without resizing.
+PNG references, actual player PNGs and exported `.lot` files remain beside it.
+
+The default gate uses the SVG renderer. Add `--renderer canvas` to investigate
+Canvas playback, or repeat `--renderer` to compare both. A failed comparison or
+an undetected blank/frozen control exits nonzero. Canvas opacity differences
+with the pinned player are a known failing comparison, not an accepted fallback.
+See [the playback scope and limits](export-lottie.md#playback-verification).
+
 ## PPTX compatibility
 
 PPTX keeps supported text and shapes editable. Glow can accompany that editable
