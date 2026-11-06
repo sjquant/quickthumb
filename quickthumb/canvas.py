@@ -12,6 +12,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from quickthumb._base import FileFormat, RenderContext, aspect_ratio_dimensions, is_url
 from quickthumb._composition import composite_layer_with_boundary, has_layer_composition
+from quickthumb._dependencies import FileReference, layer_dependencies
 from quickthumb._diagnostic_rules import PLATFORM_SAFE_MARGIN_PRESETS
 from quickthumb._diagnostics import DiagnosticsEngine
 from quickthumb._effects import EffectsEngine
@@ -352,8 +353,16 @@ class Canvas:
     def _contract_resolve_assets(self) -> None:
         """Resolve remote image and font references before building a manifest."""
         self._validate_image_paths()
-        for asset_type, source in self._remote_asset_references():
-            self._images.resolve_remote_reference(source, asset_type=asset_type)
+        for layer in self._iter_layers_deep():
+            for reference in layer_dependencies(layer):
+                if (
+                    isinstance(reference, FileReference)
+                    and reference.asset_type in {"image", "svg", "text-fill"}
+                    and is_url(reference.source)
+                ):
+                    self._images.resolve_remote_reference(
+                        reference.source, asset_type=reference.asset_type
+                    )
         self._fonts.resolve_remote_references(self._iter_layers_deep())
         self._resolve_plugin_assets()
 
@@ -362,38 +371,15 @@ class Canvas:
         self._validate_image_paths()
         for pointer, layer in self._iter_layer_pointers():
             if isinstance(layer, PluginLayer):
-                for name, source in layer.assets.items():
+                for reference in layer_dependencies(layer):
                     try:
-                        self._ctx.asset_resolver.resolve(source, "plugin")
+                        self._ctx.asset_resolver.resolve(reference.source, "plugin")
                     except RenderingError as error:
-                        error.at(json_pointer("assets", name)).at(
-                            pointer, layer.model_dump(mode="json")
-                        )
+                        error.at(reference.path).at(pointer, layer.model_dump(mode="json"))
                         raise
 
     def _contract_asset_record(self, asset_type: str, source: str):
         return self._ctx.asset_resolver.record_for(source, asset_type)
-
-    def _remote_asset_references(self):
-        for layer in self._iter_layers_deep():
-            if isinstance(layer, BackgroundLayer) and layer.image and is_url(layer.image):
-                yield "image", layer.image
-            elif isinstance(layer, ImageLayer) and is_url(layer.path):
-                yield "image", layer.path
-            elif isinstance(layer, SvgLayer) and is_url(layer.path):
-                yield "svg", layer.path
-
-            if isinstance(layer, TextLayer):
-                fills = []
-                if isinstance(layer.fill, TextFillImage):
-                    fills.append(layer.fill)
-                if isinstance(layer.content, list):
-                    for part in layer.content:
-                        if isinstance(part.fill, TextFillImage):
-                            fills.append(part.fill)
-                for fill in fills:
-                    if is_url(fill.path):
-                        yield "text-fill", fill.path
 
     def _contract_validate_structure(self) -> None:
         if not self.has_size:
@@ -2439,9 +2425,15 @@ class Canvas:
     def _validate_image_paths(self):
         for pointer, layer in self._iter_layer_pointers():
             layer_id = getattr(layer, "id", None)
-            for suffix, source in self._local_asset_fields(layer):
-                if not is_url(source) and not os.path.exists(source):
-                    raise MissingAssetError(source, path=pointer + suffix, layer_id=layer_id)
+            for reference in layer_dependencies(layer):
+                if (
+                    isinstance(reference, FileReference)
+                    and not is_url(reference.source)
+                    and not os.path.exists(reference.source)
+                ):
+                    raise MissingAssetError(
+                        reference.source, path=pointer + reference.path, layer_id=layer_id
+                    )
 
     def _iter_layer_pointers(self):
         """Yield each layer depth-first with its JSON Pointer in the canonical document."""
@@ -2454,26 +2446,6 @@ class Canvas:
                     yield from walk(layer.children, f"{pointer}/children")
 
         yield from walk(self._layers, "/layers")
-
-    @staticmethod
-    def _local_asset_fields(layer):
-        """Yield `(relative JSON Pointer, source)` for file assets a layer reads."""
-        if isinstance(layer, BackgroundLayer) and layer.image:
-            yield "/image", layer.image
-        elif isinstance(layer, (ImageLayer, SvgLayer)):
-            yield "/path", layer.path
-        elif isinstance(layer, VideoLayer):
-            yield "/source", layer.source
-        elif isinstance(layer, PluginLayer):
-            for name, source in layer.assets.items():
-                yield json_pointer("assets", name), source
-        elif isinstance(layer, TextLayer):
-            if isinstance(layer.fill, TextFillImage):
-                yield "/fill/path", layer.fill.path
-            if isinstance(layer.content, list):
-                for index, part in enumerate(layer.content):
-                    if isinstance(part.fill, TextFillImage):
-                        yield f"/content/{index}/fill/path", part.fill.path
 
     def _convert_for_format(self, image: Image.Image, file_format: FileFormat) -> Image.Image:
         if file_format == "JPEG":
