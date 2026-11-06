@@ -1,0 +1,3039 @@
+
+<!doctype html>
+<html lang="ja" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="quickthumb の出力メソッドと結果レポートのリファレンスです。">
+      
+      
+        <meta name="author" content="Seonu Jang">
+      
+      
+        <link rel="canonical" href="https://quickthumb.solaqua.dev/ja/reference/export-methods/">
+      
+      
+        <link rel="prev" href="../../exports/">
+      
+      
+        <link rel="next" href="../export-validation/">
+      
+      
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/reference/export-methods/" hreflang="en">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ko/reference/export-methods/" hreflang="ko">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ja/reference/export-methods/" hreflang="ja">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/zh/reference/export-methods/" hreflang="zh-CN">
+        
+      
+      
+      <link rel="icon" href="../../../assets/brand/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+  
+  <title>quickthumb - メソッドと出力レポート</title>
+  
+
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  
+  
+  
+  
+    
+  
+  
+  
+  
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ja_JP">
+  
+    
+      
+  <link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-methods/">
+      
+      
+  <meta property="og:locale:alternate" content="en_US">
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="ko_KR">
+      
+    
+      
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="zh_CN">
+      
+    
+  
+  <meta property="og:site_name" content="quickthumb">
+  <meta property="og:title" content="quickthumb - メソッドと出力レポート">
+  <meta property="og:description" content="quickthumb の出力メソッドと結果レポートのリファレンスです。">
+  
+  <meta property="og:url" content="https://quickthumb.solaqua.dev/ja/reference/export-methods/">
+  
+  <meta property="og:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta property="og:image:alt" content="quickthumb：コードから広がるサムネイル制作。サムネイルカードの作例2点。">
+  
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  
+  <meta name="twitter:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta name="twitter:image:alt" content="quickthumb：コードから広がるサムネイル制作。サムネイルカードの作例2点。">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="quickthumb - メソッドと出力レポート">
+  <meta name="twitter:description" content="quickthumb の出力メソッドと結果レポートのリファレンスです。">
+  
+  <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "@id": "https://quickthumb.solaqua.dev/ja/#website", "url": "https://quickthumb.solaqua.dev/ja/", "name": "quickthumb", "description": "PythonまたはJSONで画像、プレゼンテーション、アニメーション動画を作成します。", "inLanguage": "ja", "publisher": {"@id": "https://quickthumb.solaqua.dev/#author"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}}, {"@type": "Person", "@id": "https://quickthumb.solaqua.dev/#author", "name": "Seonu Jang"}, {"@type": "SoftwareApplication", "@id": "https://quickthumb.solaqua.dev/#software", "name": "quickthumb", "url": "https://quickthumb.solaqua.dev/", "description": "PythonまたはJSONで画像、プレゼンテーション、アニメーション動画を作成します。", "applicationCategory": "MultimediaApplication", "softwareVersion": "0.8.0", "softwareRequirements": "Python >=3.11", "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE", "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "sameAs": ["https://github.com/sjquant/quickthumb", "https://pypi.org/project/quickthumb/"]}, {"@type": "SoftwareSourceCode", "@id": "https://quickthumb.solaqua.dev/#source", "name": "quickthumb", "codeRepository": "https://github.com/sjquant/quickthumb", "programmingLanguage": "Python", "runtimePlatform": "Python >=3.11", "targetProduct": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE"}, {"@type": "WebPage", "@id": "https://quickthumb.solaqua.dev/ja/reference/export-methods/#webpage", "url": "https://quickthumb.solaqua.dev/ja/reference/export-methods/", "name": "メソッドと出力レポート", "description": "quickthumb の出力メソッドと結果レポートのリファレンスです。", "inLanguage": "ja", "isPartOf": {"@id": "https://quickthumb.solaqua.dev/ja/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "primaryImageOfPage": {"@type": "ImageObject", "url": "https://quickthumb.solaqua.dev/assets/brand/social-preview.png", "caption": "quickthumb：コードから広がるサムネイル制作。サムネイルカードの作例2点。", "width": 1200, "height": 630}, "mainEntity": {"@id": "https://quickthumb.solaqua.dev/ja/reference/export-methods/#document"}, "breadcrumb": {"@id": "https://quickthumb.solaqua.dev/ja/reference/export-methods/#breadcrumbs"}}, {"@type": "BreadcrumbList", "@id": "https://quickthumb.solaqua.dev/ja/reference/export-methods/#breadcrumbs", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "quickthumb", "item": "https://quickthumb.solaqua.dev/ja/"}, {"@type": "ListItem", "position": 2, "name": "メソッドと出力レポート", "item": "https://quickthumb.solaqua.dev/ja/reference/export-methods/"}]}, {"@type": "TechArticle", "@id": "https://quickthumb.solaqua.dev/ja/reference/export-methods/#document", "url": "https://quickthumb.solaqua.dev/ja/reference/export-methods/", "headline": "メソッドと出力レポート", "description": "quickthumb の出力メソッドと結果レポートのリファレンスです。", "inLanguage": "ja", "mainEntityOfPage": {"@id": "https://quickthumb.solaqua.dev/ja/reference/export-methods/#webpage"}, "isPartOf": {"@id": "https://quickthumb.solaqua.dev/ja/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}}]}</script>
+  
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#export-methods-and-receipts" class="md-skip">
+          コンテンツにスキップ
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header qt-header" data-md-component="header">
+  <nav class="qt-header-inner" aria-label="メインナビゲーション">
+    <a class="qt-brand" href="../../" aria-label="quickthumbのホーム">
+      <img src="../../../assets/brand/quickthumb-icon.svg" width="40" height="40" alt="">
+      <span>quickthumb</span>
+    </a>
+    <div class="qt-desktop-links">
+      <a href="../../cookbook/">レシピ</a>
+      <a href="../../getting-started/">ドキュメント</a>
+      <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="qt-header-tools">
+      
+
+
+<details class="qt-language-switch">
+  <summary aria-label="言語: 日本語">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    <span data-qt-language-current>日本語</span>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7.41 8.58 12 13.17l4.59-4.59L18 10l-6 6-6-6z"/></svg>
+  </summary>
+  <nav aria-label="言語">
+    
+    <a href="https://quickthumb.solaqua.dev/reference/export-methods/" hreflang="en" lang="en" data-qt-language="en" target="_self">English</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ko/reference/export-methods/" hreflang="ko" lang="ko" data-qt-language="ko" target="_self">한국어</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ja/reference/export-methods/" hreflang="ja" lang="ja" data-qt-language="ja" target="_self" aria-current="page">日本語</a>
+    
+    <a href="https://quickthumb.solaqua.dev/zh/reference/export-methods/" hreflang="zh-CN" lang="zh-CN" data-qt-language="zh-CN" target="_self">简体中文</a>
+    
+  </nav>
+</details>
+      <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="ダークモードに切り替え"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="ダークモードに切り替え" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="ライトモードに切り替え"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="ライトモードに切り替え" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+      <button class="qt-icon-button" type="button" data-qt-search aria-label="ドキュメントを検索">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </button>
+      <button class="qt-icon-button qt-menu-trigger" type="button" data-qt-menu aria-label="メニューを開く" aria-controls="qt-navigation" aria-expanded="false">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+      </button>
+      <a class="qt-button qt-button-white qt-header-cta" href="../../getting-started/">はじめる</a>
+    </div>
+  </nav>
+  <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="検索" placeholder="検索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="検索">
+        
+        <button type="reset" class="md-search__icon md-icon" title="クリア" aria-label="クリア" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            検索を初期化
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</header>
+
+<dialog class="qt-drawer" id="qt-navigation" aria-label="サイトナビゲーション">
+  <div class="qt-drawer-header">
+    <a class="qt-brand" href="../../" aria-label="quickthumbのホーム">
+      <img src="../../../assets/brand/quickthumb-icon.svg" width="36" height="36" alt="">
+      <span>quickthumb</span>
+    </a>
+    <button class="qt-icon-button" type="button" data-qt-close aria-label="メニューを閉じる" autofocus>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
+  <button class="qt-drawer-search" type="button" data-qt-search>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+    <span>ドキュメントを検索</span>
+  </button>
+  <nav class="qt-drawer-links" aria-label="quickthumbを使う">
+    <a class="qt-button qt-button-blue" href="../../getting-started/">はじめる <span aria-hidden="true">→</span></a>
+    <a href="../../cookbook/">レシピ</a>
+    <a href="../../getting-started/">ドキュメント</a>
+    <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+  <nav class="qt-drawer-docs" aria-label="ドキュメントへのリンク">
+    <p class="qt-nav-caption">ドキュメント</p>
+    <a href="../../installation/">インストール</a>
+    <a href="../../concepts/">基本的な考え方</a>
+    <a href="../../api/">APIリファレンス</a>
+  </nav>
+  <details class="qt-drawer-index">
+    <summary>すべてのドキュメント</summary>
+    
+<nav aria-label="All documentation">
+  <ul>
+    
+      <li>
+        
+          <a href="../../">ホーム</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>はじめに</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../getting-started/">最初のカードを作る</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../installation/">インストール</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../concepts/">基本的な考え方</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../output-guide/">出力形式を選ぶ</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../timing/">アニメーションのタイミング</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>APIリファレンス</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../api/">概要</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/canvas/">Canvas</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/deck/">Deck（複数スライド）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/inspection/">ドキュメントの検査</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/background/">背景</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/text/">テキスト</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/image/">画像</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/shape/">図形</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/path/">パス</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/svg/">SVG</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/video/">動画</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/audio/">音に反応するアニメーション</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/group/">グループ（自動レイアウト）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/outline/">枠線</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/data-visualizations/">データの可視化</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/effects/">エフェクト</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/enums/">列挙型とグラデーション</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details open>
+            <summary>詳細リファレンス</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <details open>
+            <summary>エクスポート</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../exports/">概要</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="./" aria-current="page">メソッドと出力レポート</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-validation/">形式ごとの再現性と検証</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-documents/">SVG、HTML、PowerPoint、PDF</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-animation/">GIF、動画、ナレーション</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-transparency/">透過動画</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-frames/">画像シーケンスとレンダリング品質</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-assets/">アセットと再現性</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-lottie/">Lottieベクター</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../timing-details/">タイミングの詳細</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../inspection-details/">複雑なレイアウトの検査</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>JSONとAI</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../json-schema/">JSON SchemaとAIワークフロー</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../diagnostics/">診断とCLI</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../errors/">構造化エラー</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>レシピ集</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../cookbook/">ギャラリー</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/decks-and-video/">プレゼンテーションと動画</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/youtube-thumbnail/">YouTubeサムネイル</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/instagram-card/">Instagramカード</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/podcast-promo/">ポッドキャストの告知</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/shorts-cover/">Shorts・縦長カバー</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/launch-announcement/">リリース告知（自動レイアウト）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/ai-workflow/">AIワークフロー</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/webfonts-rembg/">Webフォントと背景除去</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../faq/">よくある質問</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>変更履歴</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../changelog/">概要</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../releases/0.8.0/">0.8.0</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+  </ul>
+</nav>
+  </details>
+  <button class="qt-appearance" type="button" data-qt-theme>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18V6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-2.69L23.31 12 20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20z"/></svg>
+    <span>テーマを切り替え</span>
+  </button>
+</dialog>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="ナビゲーション" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../" title="quickthumb" class="md-nav__button md-logo" aria-label="quickthumb" data-md-component="logo">
+      
+  <img src="../../../assets/brand/quickthumb-icon.png" alt="logo">
+
+    </a>
+    quickthumb
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sjquant/quickthumb" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sjquant/quickthumb
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ホーム
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    はじめに
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    はじめに
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最初のカードを作る
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インストール
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    基本的な考え方
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../output-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    出力形式を選ぶ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../timing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    アニメーションのタイミング
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    APIリファレンス
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    APIリファレンス
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概要
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/canvas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canvas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/deck/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deck（複数スライド）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/inspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ドキュメントの検査
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/background/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    背景
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テキスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画像
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/shape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    図形
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    パス
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/svg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    動画
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    音に反応するアニメーション
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    グループ（自動レイアウト）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/outline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    枠線
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/data-visualizations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    データの可視化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/effects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エフェクト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/enums/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    列挙型とグラデーション
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    詳細リファレンス
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    詳細リファレンス
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エクスポート
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    エクスポート
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概要
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    メソッドと出力レポート
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    メソッドと出力レポート
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#recommended-output-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        推奨する出力 API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#format-and-option-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        形式とオプションの選択
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-layer-routing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        文書レイヤーの振り分け
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migrating-output-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        出力呼び出しの移行
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-export-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        出力の仕組み
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decks-multiple-images-and-slides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deck（複数の画像とスライド）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    形式ごとの再現性と検証
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG、HTML、PowerPoint、PDF
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GIF、動画、ナレーション
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-transparency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    透過動画
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-frames/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画像シーケンスとレンダリング品質
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-assets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    アセットと再現性
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-lottie/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lottieベクター
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../timing-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    タイミングの詳細
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inspection-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    複雑なレイアウトの検査
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSONとAI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    JSONとAI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../json-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON SchemaとAIワークフロー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    診断とCLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    構造化エラー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    レシピ集
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    レシピ集
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ギャラリー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/decks-and-video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プレゼンテーションと動画
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/youtube-thumbnail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YouTubeサムネイル
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/instagram-card/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instagramカード
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/podcast-promo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ポッドキャストの告知
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/shorts-cover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shorts・縦長カバー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/launch-announcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    リリース告知（自動レイアウト）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/ai-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AIワークフロー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/webfonts-rembg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webフォントと背景除去
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    よくある質問
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    変更履歴
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    変更履歴
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概要
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../releases/0.8.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0.8.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#recommended-output-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        推奨する出力 API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#format-and-option-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        形式とオプションの選択
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#document-layer-routing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        文書レイヤーの振り分け
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#migrating-output-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        出力呼び出しの移行
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-export-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        出力の仕組み
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decks-multiple-images-and-slides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deck（複数の画像とスライド）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="export-methods-and-receipts">出力メソッドと結果レポート</h1>
+<p><a href="../../exports/">出力リファレンス</a> · <a href="../../output-guide/">出力形式を選ぶ</a></p>
+<h2 id="recommended-output-api">推奨する出力 API</h2>
+<p><code>export()</code> で Canvas や Deck を保存すると、<code>ExportResult</code> が返ります。<code>written_paths</code>、機能・代替表現の診断、ピクセル・時間のメタデータ、アセット、観測した描画環境を含みます。形式は拡張子で選びます。MP4、WebM、MOV、GIF はアニメーションタイムラインを再生し、Deck の動画ではスライドごとのナレーションもミックスします。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">VideoOptions</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">result</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"slides.mp4"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">VideoOptions</span><span class="p">(</span><span class="n">hold</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">render_quality</span><span class="o">=</span><span class="s2">"high"</span><span class="p">))</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">written_paths</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">fallback_diagnostics</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">deck</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"slides.html"</span><span class="p">)</span>  <span class="c1"># interactive slideshow with click-triggered motion</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">canvas</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"card.webp"</span><span class="p">,</span> <span class="n">quality</span><span class="o">=</span><span class="mi">85</span><span class="p">)</span>  <span class="c1"># JPEG/WebP compression quality</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>目的</th>
+<th>使用する API</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>機能ポリシーを適用してファイルを書き、結果レポートを取得</td>
+<td><code>export(path, ...)</code></td>
+</tr>
+<tr>
+<td>デバッグ用のボックスを描く、または低レベルのファイルレンダラーを使う</td>
+<td><code>render(path, ...)</code></td>
+</tr>
+<tr>
+<td>バイト列またはメモリ上の文書を取得</td>
+<td><code>to_mp4()</code>、<code>to_gif()</code>、<code>to_html()</code> など</td>
+</tr>
+<tr>
+<td>ナレーション付き Deck を出力</td>
+<td><code>export(path, animation=VideoOptions(hold=3))</code> / <code>to_mp4(hold=3)</code></td>
+</tr>
+<tr>
+<td>無音のアニメーションフレームとマニフェストを保存</td>
+<td><code>export_image_sequence(directory, options=...)</code></td>
+</tr>
+<tr>
+<td>対応範囲を限定した Canvas 専用 Lottie ベクターを保存</td>
+<td><code>canvas.export("scene.lot", animation=LottieOptions(fps=30, hold=3))</code>。<a href="../export-lottie/#lottie-vectors">Lottie ベクター</a>を参照</td>
+</tr>
+</tbody>
+</table>
+<p>アニメーションのバイト列メソッドとオプションはすべて、最終状態の保持秒数に <code>hold</code> を使います。<code>render_quality="standard"</code> または <code>"high"</code> はアニメーション合成を制御し、<code>export()</code>/<code>render()</code> の <code>quality</code> は圧縮品質です。JPEG は整数 1〜95、WebP は 1〜100 を受け付けます。高度な spawn による並列描画が必要でなければ <code>workers=1</code> のまま使ってください。任意の<a href="../../timing/#temporal-exposure">時間方向の露光</a>で Canvas 出力にモーションブラーを付けられます。<code>export()</code> と <code>render()</code> はともに、書き込み前に <code>unsupported_motion="error"</code> などのファイル機能ポリシーを適用します。<code>export()</code> はさらに結果レポートを返します。バイト列メソッドは出力先ごとの設定を提供しますが、共通のファイル結果レポートはありません。Deck のラスター出力は番号付きファイルなので、返された <code>written_paths</code> を使ってください。画像シーケンスは新しいディレクトリを出力先とするため、別の API です。</p>
+<h2 id="format-and-option-selection">形式とオプションの選択</h2>
+<p>Canvas と Deck の選択規則は同じですが、<code>.lot</code> だけは Canvas 専用で、Deck は Lottie 出力を拒否します。</p>
+<table>
+<thead>
+<tr>
+<th>入力</th>
+<th>結果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>拡張子だけで <code>format</code> なし</td>
+<td>拡張子から形式を選びます。<code>.jpg</code>/<code>.jpeg</code> は <code>output_format="jpeg"</code>、<code>.htm</code>/<code>.html</code> は <code>"html"</code> と報告します。</td>
+</tr>
+<tr>
+<td><code>format="PNG"</code>、<code>"JPEG"</code>、<code>"WEBP"</code>（大文字・小文字を区別しない）</td>
+<td>ラスター拡張子、不明な拡張子、拡張子なしの名前に対しラスターエンコードを選びます。ファイル名は指定どおりで、形式に合わせて変更しません。</td>
+</tr>
+<tr>
+<td>文書・アニメーションの拡張子にラスターの <code>format</code></td>
+<td>SVG、PDF、HTML、PPTX、動画、<code>.lot</code> の名前に画像バイトを書かず、拒否します。</td>
+</tr>
+<tr>
+<td><code>quality</code></td>
+<td>JPEG は整数 1〜95、WebP は整数 1〜100。他の対象では拒否します。</td>
+</tr>
+<tr>
+<td><code>animation</code></td>
+<td>GIF は <code>GifOptions</code>、MP4/WebM/MOV は <code>VideoOptions</code>、Canvas の <code>.lot</code> は <code>LottieOptions</code>。その他の静的・文書形式では拒否します。</td>
+</tr>
+</tbody>
+</table>
+<p>形式選択、圧縮品質、アニメーションのオプション分類の競合は、アセットの読み込みやファイル書き込み前に拒否します。コーデック固有の制限は出力準備時に検証します。その後に描画・エンコードが失敗する場合はあります。通常のファイル出力は、複数ファイルを一括更新するアトミックなトランザクションではありません。Canvas や番号付き Deck の名前を推測せず、<code>written_paths</code> を確認してください。Deck を単一の SVG にはできないため、Canvas の各スライドを個別に出力します。新しいディレクトリとエンコードオプションの別契約は、<a href="../export-frames/#image-sequences">画像シーケンス</a>を参照してください。</p>
+<h2 id="document-layer-routing">文書レイヤーの振り分け</h2>
+<p>Canvas/Deck の HTML/PPTX と Canvas の SVG/PDF 出力は、実際に実行したレイヤーの経路を、<code>feature="layer_representation"</code> として <code>result.capability_report</code> に報告します。ネイティブ HTML/CSS、SVG/PDF の基本要素、編集可能な PowerPoint オブジェクト、元の埋め込み SVG は <code>support="native"</code> です。出力した PNG 断片は <code>support="fallback"</code> と <code>fallback="rasterize"</code> になります。PPTX の編集可能な前景と固定 glow 画像の混合は <code>support="partial"</code> と <code>fallback="rasterize"</code> です。前景を編集した後にエフェクトを更新するには再出力してください。これは表現方式の観測であり、ピクセルの忠実度測定ではありません。</p>
+<p><code>result.fallback_diagnostics</code> は、対象の検査用 <code>layer_id</code> と理由を示します。保持したグループには子孫の ID を <code>layer_ids</code> に含めます。背景に依存する共有の前方合成には単独の <code>layer_id</code> がなく、関係する全ソースを <code>layer_ids</code> に列挙します。これらは合成したピクセルで見た目が決まるため、まとめて報告します。フラット化した自動レイアウトの子も、元の検査 ID を保持します。空のラスター断片と空の文字は、要素も表現の観測結果も作りません。</p>
+<p>実行経路の <code>native_attempt=True</code> は、ネイティブ内容の出力、またはラスター代替になったネイティブ候補の実行・検証を含みます。実際に採用した表現は <code>support</code> と <code>fallback</code> で確認します。<code>False</code> はネイティブ生成・検証の前にラスターキャプチャを選んだという意味です。機能照会だけの診断では不明（<code>None</code>）のままの場合があります。親子シーンは SVG/PDF/PPTX では静的な合成を報告し、HTML では焼き込み済みアフィン CSS モーションを持つ PNG ソースも報告できます。既存のモーション機能診断とは別です。SVG/PDF の観測は作成時の静的出力を示します。PDF テキストは対応する場合にフォントを埋め込みますが、文字整形、グリフの収録範囲、埋め込み制約によって、理由付きのラスター断片を選ぶ場合があります。</p>
+<p>Deck の実行観測には、ゼロ始まりの <code>slide_index</code> も付きます。レイヤー ID は <code>deck.inspect().slides[index]</code> と同じくスライド内で有効なので、スライド間で重複する ID は両フィールドで区別してください。Canvas の観測では <code>slide_index</code> を省略します。Deck HTML の対話型キュー、遷移、ノートは残ります。この表現記録によって、クリック式のスライドショーが固定時間の再生に変わることはありません。</p>
+<p>たとえば <code>ExportPolicy(unsupported_motion="error")</code> は、静的なマスク付き図形を拒否しません。HTML のこの経路は PNG 断片でマスクを保ち、その判断を報告します。レイヤー選択ポリシーは追加しません。実行経路レポートの対象は Canvas SVG/PDF と Canvas/Deck HTML/PPTX で、Deck PDF はまだ収集しません。忠実度の指標は文書全体を記述し、個々の代替レイヤーには割り当てません。HTML の出力先を開く前に全スライドを描画するため、後続スライドの未対応機能や strict モーションの拒否でも既存ファイルを保持します。</p>
+<p>PPTX の経路は実際の OOXML 表現です。ネイティブのテキストボックスやオートシェイプは編集可能なオブジェクトとして残り、PNG 断片はラスター内容と配置を保持しますが、文字・ベクター単位の編集性を失います。ラスター化の理由にはマスク、背景合成、画像・放射状の文字塗り、未対応のフォントの意味付けなどがあります。Canvas ではスライド番号を省略し、Deck では識別します。PPTX ファイル出力は出力先を開く前にプレゼンテーション全体を構築するため、後続ソースの描画失敗でも既存ファイルを保持します。</p>
+<p>この構造的な観測は、特定の PowerPoint/Keynote ビューアーでのピクセル一致、フォントの利用可否、アニメーション時間、透明度を保証しません。PPTX 忠実度ポリシーや自動アプリケーションレンダラーはありません。PPTX の寸法はソース 1 ピクセルを 9,525 EMU（1 インチ 96 ピクセル）、つまり PDF の 0.75 ポイントとして扱います。後で PDF 経由のビューアー比較をする場合、PDF 出力の 1 ピクセル＝1 ポイントを仮定せず、実際のページ寸法から倍率を求めてください。</p>
+<h2 id="migrating-output-calls">出力呼び出しの移行</h2>
+<ul>
+<li><code>Deck.to_mp4()</code> は Canvas やファイル出力と同じくアニメーションを再生します。旧 <code>to_animated_mp4()</code> と <code>to_narrated_mp4()</code> を <code>to_mp4()</code> に置き換えてください。</li>
+<li><code>render_mp4()</code> と <code>render_narrated_mp4()</code> は <code>export("deck.mp4")</code> に置き換えます。別の静止スライド用エンコーダーは削除され、別名はありません。静止シーンを保つには静的 Canvas と <code>Cut()</code> を使いますが、既存のアニメーション Deck を凍結したり、同じエンコード結果を保証したりはしません。</li>
+<li><code>export_png_sequence()</code> は <code>export_image_sequence()</code> に置き換わりました。公開のオプション・マニフェスト・結果モデルは <code>ImageSequence*</code> となり、旧別名はありません。</li>
+<li>アニメーション Deck の <code>slide_duration=</code> とナレーションの <code>default_duration=</code> は <code>hold=</code> に置き換えます。アニメーションの <code>quality=</code> は <code>render_quality=</code> にします。保存済みの GifOptions、VideoOptions、ImageSequenceOptions JSON も対象です。別名はありません。</li>
+</ul>
+<h2 id="how-export-works">出力の仕組み</h2>
+<p>SVG、PDF、PPTX は対応するレイヤーを<strong>ネイティブ</strong>に保ち、ネイティブ表現がない部分に基準 PNG 断片を使います。位置、折り返し、整列の計算はラスターレンダラーと共通です。HTML も同じネイティブ・ラスター併用方式です。<a href="../export-documents/#html">HTML</a>を参照してください。</p>
+<p>一方 <a href="../export-lottie/#lottie-vectors">Lottie</a> は、範囲を限定したネイティブベクターだけを受け付け、未対応の内容は書き込み前に拒否します。PNG フレームには置き換えません。</p>
+<table>
+<thead>
+<tr>
+<th>レイヤー</th>
+<th>SVG</th>
+<th>PPTX</th>
+<th>PDF</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>背景色・グラデーション</td>
+<td>ネイティブ <code>rect</code> と gradient 定義</td>
+<td>ネイティブ図形の塗り（線形はネイティブ、放射状は埋め込み）</td>
+<td>ネイティブの塗り。不透明グラデーションはネイティブ、半透明は埋め込み</td>
+</tr>
+<tr>
+<td>枠線</td>
+<td>ネイティブ <code>rect</code> の線</td>
+<td>ネイティブの枠付き矩形</td>
+<td>ネイティブ矩形の線</td>
+</tr>
+<tr>
+<td>図形（すべての基本形）</td>
+<td>回転・stroke/shadow/glow を含むネイティブ要素</td>
+<td>ネイティブのオートシェイプ。多角形はフリーフォーム</td>
+<td>回転を含むネイティブパス。エフェクト付きは埋め込み</td>
+</tr>
+<tr>
+<td>テキスト（単純・リッチ）</td>
+<td>折り返し、字間、グラデーション、エフェクトを含む、行・run ごとのネイティブ <code>&lt;text&gt;</code></td>
+<td>run ごとに装飾した編集可能なテキストボックス</td>
+<td>フォントを埋め込め、複雑な整形が不要なら選択可能なネイティブ文字。未対応フォント、グラデーション・画像塗り、ぼかしはピクセルとして埋め込み</td>
+</tr>
+<tr>
+<td>グループ（自動レイアウト）</td>
+<td>レイアウト位置に子をネイティブ出力</td>
+<td>同左</td>
+<td>同左</td>
+</tr>
+<tr>
+<td>画像・画像で塗った文字</td>
+<td>PNG 断片の埋め込み</td>
+<td>画像の埋め込み</td>
+<td>画像の埋め込み</td>
+</tr>
+<tr>
+<td>SVG レイヤー</td>
+<td>ベクターの data URL として埋め込み。エフェクト付きはラスター</td>
+<td>画像の埋め込み</td>
+<td>画像の埋め込み</td>
+</tr>
+<tr>
+<td>ブレンドモード・custom レイヤー</td>
+<td>最後の blend/custom レイヤー以下を 1 枚の PNG に統合</td>
+<td>同左</td>
+<td>同左</td>
+</tr>
+</tbody>
+</table>
+<h2 id="decks-multiple-images-and-slides">Deck（複数の画像とスライド）</h2>
+<p><code>Deck</code> は Canvas の順序付きリストです。各スライドは完全な <code>Canvas</code> で、単独の場合と同じように描画します。全メソッドは <a href="../../api/deck/">Deck API リファレンス</a>を参照してください。</p>
+<p>Deck のサイズを一度指定すれば、各スライドは引数なしの <code>Canvas()</code> でそれを継承できます。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">AudioTrack</span><span class="p">,</span> <span class="n">Canvas</span><span class="p">,</span> <span class="n">Deck</span><span class="p">,</span> <span class="n">VideoOptions</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">deck</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">Deck</span><span class="p">(</span><span class="mi">1280</span><span class="p">,</span> <span class="mi">720</span><span class="p">)</span>   <span class="c1"># default slide size; Deck.from_aspect_ratio("16:9", 1280) also works</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="o">.</span><span class="n">slide</span><span class="p">(</span><span class="n">Canvas</span><span class="p">()</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#101820"</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="s2">"Cover"</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">96</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#FFFFFF"</span><span class="p">))</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="o">.</span><span class="n">slide</span><span class="p">(</span><span class="n">Canvas</span><span class="p">()</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#1A1A2E"</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="s2">"Body"</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#FFFFFF"</span><span class="p">))</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p">)</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="c1"># pre-built canvases work too: Deck(slides=[cover, body])</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"deck.pdf"</span><span class="p">)</span>     <span class="c1"># one multi-page PDF (a page per slide)</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"deck.pptx"</span><span class="p">)</span>    <span class="c1"># one multi-slide PPTX (a slide per slide)</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"deck.gif"</span><span class="p">)</span>     <span class="c1"># one animation playing transitions between slides</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="n">deck</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"deck.mp4"</span><span class="p">)</span>     <span class="c1"># animated slides with per-slide narration</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="s2">"deck.mp4"</span><span class="p">,</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="n">animation</span><span class="o">=</span><span class="n">VideoOptions</span><span class="p">(</span><span class="n">soundtrack</span><span class="o">=</span><span class="n">AudioTrack</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="s2">"music.mp3"</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="kc">True</span><span class="p">)),</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="p">)</span>  <span class="c1"># animated + mixed audio</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"animated.mp4"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">VideoOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">20</span><span class="p">))</span>  <span class="c1"># animated, silent</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"slides.png"</span><span class="p">)</span>   <span class="c1"># numbered sequence: slides_01.png, slides_02.png, …</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="n">pdf_bytes</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_pdf</span><span class="p">()</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="n">pptx_bytes</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_pptx</span><span class="p">()</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="n">gif_bytes</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_gif</span><span class="p">()</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="n">webm_bytes</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_webm</span><span class="p">()</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a><span class="n">mp4_bytes</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_mp4</span><span class="p">()</span>   <span class="c1"># timeline with per-slide narration</span>
+</code></pre></div>
+<p><code>render()</code> は拡張子で処理を選びます。<code>.pdf</code> と <code>.pptx</code> は 1 つの文書、<code>.gif</code>、<code>.mp4</code>、<code>.webm</code>、<code>.mov</code> はアニメーションになります。ラスター形式には複数ページのネイティブコンテナーがないため、ゼロ埋め番号付きでスライドごとにファイルを保存し、パスを返します。</p>
+<p>スライドの寸法は異なっても構いません。<code>deck.diagnose()</code> は各スライドの<a href="../../diagnostics/">診断</a>を <code>slide_index</code> 付きでまとめ、寸法が違えば <code>mixed-slide-size</code> 警告を追加します。PDF は各ページをそのスライドの寸法にしますが、PPTX のプレゼンテーションサイズは最初のスライドで決まるため、それより大きいスライドは PowerPoint で切り取られます。<code>.pptx</code> ではサイズを揃えてください。Deck は <code>deck.to_json()</code> / <code>Deck.from_json(...)</code> で JSON 保存・復元でき、Canvas ごとのシリアライズを再利用します。</p>
+<h2 id="cli">CLI</h2>
+<p>CLI も出力拡張子で形式を選びます。</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>quickthumb<span class="w"> </span>render<span class="w"> </span>spec.json<span class="w"> </span>-o<span class="w"> </span>card.svg
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>quickthumb<span class="w"> </span>render<span class="w"> </span>spec.json<span class="w"> </span>-o<span class="w"> </span>card.pptx
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>quickthumb<span class="w"> </span>render<span class="w"> </span>spec.json<span class="w"> </span>-o<span class="w"> </span>card.pdf
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># Live HTML slides; open /?presenter for the presenter dashboard</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>quickthumb<span class="w"> </span>serve<span class="w"> </span>slides.py
+</code></pre></div>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  ページトップへ戻る
+</button>
+        
+      </main>
+      
+        
+
+<footer class="md-footer qt-footer">
+  <div class="qt-footer-inner">
+    <div>
+      <a class="qt-brand" href="../../" aria-label="quickthumbのホーム">
+        <img src="../../../assets/brand/quickthumb-icon.svg" width="28" height="28" alt="">
+        <span>quickthumb</span>
+      </a>
+      <p class="qt-footer-tagline">画像、プレゼンテーション、動画を作るPythonツールキット。</p>
+    </div>
+    <nav class="qt-footer-links" aria-label="フッターナビゲーション">
+      <a href="../../cookbook/">レシピ</a>
+      <a href="../../getting-started/">ドキュメント</a>
+      <a href="../../installation/">インストール</a>
+      <a href="../../changelog/">変更履歴</a>
+    </nav>
+    <div class="qt-footer-meta">
+      <a class="qt-icon-button" href="https://github.com/sjquant/quickthumb" aria-label="GitHubでquickthumbを見る">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg>
+      </a>
+      <p>© 2026 Seonu Jang · MITライセンス<br>使用ツール <a href="https://squidfunk.github.io/mkdocs-material/">Material for MkDocs</a></p>
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f", "clipboard.copy": "\u30af\u30ea\u30c3\u30d7\u30dc\u30fc\u30c9\u3078\u30b3\u30d4\u30fc", "search.result.more.one": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3082\u30461\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.more.other": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3042\u3068#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.none": "\u4f55\u3082\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3067\u3057\u305f", "search.result.one": "1\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.other": "#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.placeholder": "\u691c\u7d22\u30ad\u30fc\u30ef\u30fc\u30c9\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044", "search.result.term.missing": "\u691c\u7d22\u306b\u542b\u307e\u308c\u306a\u3044", "select.version": "\u30d0\u30fc\u30b8\u30e7\u30f3\u5207\u308a\u66ff\u3048"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../../javascripts/site.js"></script>
+      
+    
+  </body>
+</html>

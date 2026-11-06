@@ -1,0 +1,3443 @@
+
+<!doctype html>
+<html lang="zh-CN" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="quickthumb 常见问题解答，涵盖安装、文本、字体、图像、输出格式、JSON 规范以及错误排查。">
+      
+      
+        <meta name="author" content="Seonu Jang">
+      
+      
+        <link rel="canonical" href="https://quickthumb.solaqua.dev/zh/faq/">
+      
+      
+        <link rel="prev" href="../cookbook/webfonts-rembg/">
+      
+      
+        <link rel="next" href="../changelog/">
+      
+      
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/faq/" hreflang="en">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ko/faq/" hreflang="ko">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ja/faq/" hreflang="ja">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/zh/faq/" hreflang="zh-CN">
+        
+      
+      
+      <link rel="icon" href="../../assets/brand/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+  
+  <title>quickthumb - 常见问题</title>
+  
+
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  
+  
+  
+  
+    
+  
+  
+  
+  
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="zh_CN">
+  
+    
+      
+  <link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/faq/">
+      
+      
+  <meta property="og:locale:alternate" content="en_US">
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="ko_KR">
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="ja_JP">
+      
+    
+      
+      
+    
+  
+  <meta property="og:site_name" content="quickthumb">
+  <meta property="og:title" content="quickthumb - 常见问题">
+  <meta property="og:description" content="quickthumb 常见问题解答，涵盖安装、文本、字体、图像、输出格式、JSON 规范以及错误排查。">
+  
+  <meta property="og:url" content="https://quickthumb.solaqua.dev/zh/faq/">
+  
+  <meta property="og:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta property="og:image:alt" content="quickthumb：用代码制作缩略图。两张缩略图示例。">
+  
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  
+  <meta name="twitter:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta name="twitter:image:alt" content="quickthumb：用代码制作缩略图。两张缩略图示例。">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="quickthumb - 常见问题">
+  <meta name="twitter:description" content="quickthumb 常见问题解答，涵盖安装、文本、字体、图像、输出格式、JSON 规范以及错误排查。">
+  
+  <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "@id": "https://quickthumb.solaqua.dev/zh/#website", "url": "https://quickthumb.solaqua.dev/zh/", "name": "quickthumb", "description": "用 Python 或 JSON 制作图像、演示文稿和动画视频。", "inLanguage": "zh-CN", "publisher": {"@id": "https://quickthumb.solaqua.dev/#author"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}}, {"@type": "Person", "@id": "https://quickthumb.solaqua.dev/#author", "name": "Seonu Jang"}, {"@type": "SoftwareApplication", "@id": "https://quickthumb.solaqua.dev/#software", "name": "quickthumb", "url": "https://quickthumb.solaqua.dev/", "description": "用 Python 或 JSON 制作图像、演示文稿和动画视频。", "applicationCategory": "MultimediaApplication", "softwareVersion": "0.8.0", "softwareRequirements": "Python >=3.11", "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE", "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "sameAs": ["https://github.com/sjquant/quickthumb", "https://pypi.org/project/quickthumb/"]}, {"@type": "SoftwareSourceCode", "@id": "https://quickthumb.solaqua.dev/#source", "name": "quickthumb", "codeRepository": "https://github.com/sjquant/quickthumb", "programmingLanguage": "Python", "runtimePlatform": "Python >=3.11", "targetProduct": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE"}, {"@type": "FAQPage", "@id": "https://quickthumb.solaqua.dev/zh/faq/#webpage", "url": "https://quickthumb.solaqua.dev/zh/faq/", "name": "常见问题", "description": "quickthumb 常见问题解答，涵盖安装、文本、字体、图像、输出格式、JSON 规范以及错误排查。", "inLanguage": "zh-CN", "isPartOf": {"@id": "https://quickthumb.solaqua.dev/zh/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "primaryImageOfPage": {"@type": "ImageObject", "url": "https://quickthumb.solaqua.dev/assets/brand/social-preview.png", "caption": "quickthumb：用代码制作缩略图。两张缩略图示例。", "width": 1200, "height": 630}, "mainEntity": [{"@id": "https://quickthumb.solaqua.dev/zh/faq/#which-python-versions-are-supported"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#the-quickthumb-command-isnt-found"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#why-does-my-svg-layer-raise-renderingerror"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#what-happens-if-i-render-a-canvas-with-no-layers"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#why-does-a-group-child-raise-group-children-must-not-set-position"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#how-do-i-check-a-design-for-problems-before-rendering"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#my-text-runs-off-the-canvas"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#i-set-boldtrue-and-weight900-and-got-an-error"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#how-do-i-use-a-google-font"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#can-i-use-images-from-a-url"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#how-do-i-remove-the-background-behind-a-person"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#whats-the-difference-between-cover-contain-and-fill"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#which-formats-can-i-export"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#can-i-set-quality-for-a-png"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#how-do-i-get-the-image-without-writing-a-file"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#can-i-pass-a-dict-to-canvasfrom_json"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#why-does-to_json-raise-validationerror"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#my-theme-block-disappeared-after-to_json"}, {"@id": "https://quickthumb.solaqua.dev/zh/faq/#what-do-the-different-errors-mean"}], "breadcrumb": {"@id": "https://quickthumb.solaqua.dev/zh/faq/#breadcrumbs"}}, {"@type": "BreadcrumbList", "@id": "https://quickthumb.solaqua.dev/zh/faq/#breadcrumbs", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "quickthumb", "item": "https://quickthumb.solaqua.dev/zh/"}, {"@type": "ListItem", "position": 2, "name": "常见问题", "item": "https://quickthumb.solaqua.dev/zh/faq/"}]}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#which-python-versions-are-supported", "url": "https://quickthumb.solaqua.dev/zh/faq/#which-python-versions-are-supported", "name": "支持哪些 Python 版本？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#which-python-versions-are-supported-answer", "text": "\u003cp>Python 3.11 或更高版本。该软件包明确支持 3.11 和 3.12，且 CI 在 3.11 上运行。这包括背景移除功能（\u003ccode>rembg\u003c/code> 额外依赖）。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#the-quickthumb-command-isnt-found", "url": "https://quickthumb.solaqua.dev/zh/faq/#the-quickthumb-command-isnt-found", "name": "找不到 quickthumb 命令？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#the-quickthumb-command-isnt-found-answer", "text": "\u003cp>命令行工具属于可选额外依赖：执行 \u003ccode>pip install \"quickthumb[cli]\"\u003c/code> 进行安装。\u003ca href=\"https://quickthumb.solaqua.dev/zh/installation/\">安装\u003c/a>列出了所有可选依赖。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#why-does-my-svg-layer-raise-renderingerror", "url": "https://quickthumb.solaqua.dev/zh/faq/#why-does-my-svg-layer-raise-renderingerror", "name": "为什么 SVG 图层会抛出 RenderingError？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#why-does-my-svg-layer-raise-renderingerror-answer", "text": "\u003cp>绘制 SVG 文件需要安装 \u003ccode>svg\u003c/code> 额外依赖：\u003ccode>pip install \"quickthumb[svg]\"\u003c/code>。\n将画布导出\u003cem>为\u003c/em> SVG 文件则无需此依赖。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#what-happens-if-i-render-a-canvas-with-no-layers", "url": "https://quickthumb.solaqua.dev/zh/faq/#what-happens-if-i-render-a-canvas-with-no-layers", "name": "渲染一个没有任何图层的画布会怎样？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#what-happens-if-i-render-a-canvas-with-no-layers-answer", "text": "\u003cp>你会得到一张与画布尺寸相同的全透明图片。这不会报错。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#why-does-a-group-child-raise-group-children-must-not-set-position", "url": "https://quickthumb.solaqua.dev/zh/faq/#why-does-a-group-child-raise-group-children-must-not-set-position", "name": "为什么分组子元素会报错 \"group children must not set position\"？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#why-does-a-group-child-raise-group-children-must-not-set-position-answer", "text": "\u003cp>分组（group）会自动为其子元素排版定位。请移除子元素上的 \u003ccode>position\u003c/code> 参数，转为设置分组本身的定位：\u003c/p>\n\u003cdiv class=\"language-python highlight\">\u003cpre>\u003cspan>\u003c/span>\u003ccode>\u003ca id=\"__codelineno-0-1\" name=\"__codelineno-0-1\" href=\"https://quickthumb.solaqua.dev/zh/faq/#__codelineno-0-1\">\u003c/a>\u003cspan class=\"n\">canvas\u003c/span>\u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">group\u003c/span>\u003cspan class=\"p\">(\u003c/span>\n\u003ca id=\"__codelineno-0-2\" name=\"__codelineno-0-2\" href=\"https://quickthumb.solaqua.dev/zh/faq/#__codelineno-0-2\">\u003c/a>    \u003cspan class=\"n\">children\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">[{\u003c/span>\u003cspan class=\"s2\">\"type\"\u003c/span>\u003cspan class=\"p\">:\u003c/span> \u003cspan class=\"s2\">\"text\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"content\"\u003c/span>\u003cspan class=\"p\">:\u003c/span> \u003cspan class=\"s2\">\"TITLE\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"size\"\u003c/span>\u003cspan class=\"p\">:\u003c/span> \u003cspan class=\"mi\">96\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"color\"\u003c/span>\u003cspan class=\"p\">:\u003c/span> \u003cspan class=\"s2\">\"#FFFFFF\"\u003c/span>\u003cspan class=\"p\">}],\u003c/span>\n\u003ca id=\"__codelineno-0-3\" name=\"__codelineno-0-3\" href=\"https://quickthumb.solaqua.dev/zh/faq/#__codelineno-0-3\">\u003c/a>    \u003cspan class=\"n\">position\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"s2\">\"8%\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"50%\"\u003c/span>\u003cspan class=\"p\">),\u003c/span>\n\u003ca id=\"__codelineno-0-4\" name=\"__codelineno-0-4\" href=\"https://quickthumb.solaqua.dev/zh/faq/#__codelineno-0-4\">\u003c/a>    \u003cspan class=\"n\">align\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"s2\">\"left\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"middle\"\u003c/span>\u003cspan class=\"p\">),\u003c/span>\n\u003ca id=\"__codelineno-0-5\" name=\"__codelineno-0-5\" href=\"https://quickthumb.solaqua.dev/zh/faq/#__codelineno-0-5\">\u003c/a>\u003cspan class=\"p\">)\u003c/span>\n\u003c/code>\u003c/pre>\u003c/div>\n\u003cp>子元素设置的 \u003ccode>align\u003c/code> 也会被忽略。请使用分组容器的 \u003ccode>item_align\u003c/code> 沿交叉轴对齐各个子元素。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#how-do-i-check-a-design-for-problems-before-rendering", "url": "https://quickthumb.solaqua.dev/zh/faq/#how-do-i-check-a-design-for-problems-before-rendering", "name": "如何在渲染前检查设计中潜在的问题？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#how-do-i-check-a-design-for-problems-before-rendering-answer", "text": "\u003cp>调用 \u003ccode>canvas.diagnose()\u003c/code>，或者针对 JSON 规范运行 \u003ccode>quickthumb lint spec.json\u003c/code>。\n它会报告字号过小、文字溢出画布、对比度不足、图层被遮挡等常见问题。详情参阅\u003ca href=\"https://quickthumb.solaqua.dev/zh/diagnostics/\">诊断与 CLI\u003c/a>。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#my-text-runs-off-the-canvas", "url": "https://quickthumb.solaqua.dev/zh/faq/#my-text-runs-off-the-canvas", "name": "文字跑出画布外面了怎么办？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#my-text-runs-off-the-canvas-answer", "text": "\u003cp>设置 \u003ccode>max_width\u003c/code> 让文本自动换行：\u003c/p>\n\u003cdiv class=\"language-python highlight\">\u003cpre>\u003cspan>\u003c/span>\u003ccode>\u003ca id=\"__codelineno-1-1\" name=\"__codelineno-1-1\" href=\"https://quickthumb.solaqua.dev/zh/faq/#__codelineno-1-1\">\u003c/a>\u003cspan class=\"n\">canvas\u003c/span>\u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">text\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"n\">content\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"A longer title that needs two lines\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">size\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">72\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">color\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"#FFFFFF\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">max_width\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"60%\"\u003c/span>\u003cspan class=\"p\">)\u003c/span>\n\u003c/code>\u003c/pre>\u003c/div>\n\u003cp>也可以加上 \u003ccode>auto_scale=True\u003c/code>（配合 \u003ccode>max_width\u003c/code>、\u003ccode>max_height\u003c/code> 或两者），使文字在超出时自动缩小字号直到合适为止。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#i-set-boldtrue-and-weight900-and-got-an-error", "url": "https://quickthumb.solaqua.dev/zh/faq/#i-set-boldtrue-and-weight900-and-got-an-error", "name": "同时设置 bold=True 和 weight=900 时为什么报错？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#i-set-boldtrue-and-weight900-and-got-an-error-answer", "text": "\u003cp>它们控制的是同一个属性，二选一即可。\u003ccode>weight\u003c/code> 能更精确地控制字重：\n\u003ccode>TextPart(text=\"STRONG\", weight=900)\u003c/code>。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#how-do-i-use-a-google-font", "url": "https://quickthumb.solaqua.dev/zh/faq/#how-do-i-use-a-google-font", "name": "如何使用 Google Fonts？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#how-do-i-use-a-google-font-answer", "text": "\u003cp>指定字体名称并将 \u003ccode>font_source=\"google\"\u003c/code>。字体在首次使用时会自动下载并缓存，\u003ccode>weight\u003c/code> 会自动匹配对应的字体文件：\u003c/p>\n\u003cdiv class=\"language-python highlight\">\u003cpre>\u003cspan>\u003c/span>\u003ccode>\u003ca id=\"__codelineno-2-1\" name=\"__codelineno-2-1\" href=\"https://quickthumb.solaqua.dev/zh/faq/#__codelineno-2-1\">\u003c/a>\u003cspan class=\"n\">canvas\u003c/span>\u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">text\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"n\">content\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"Hello\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">font\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"Inter\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">font_source\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"google\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">weight\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">800\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">size\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">72\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">color\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"#FFFFFF\"\u003c/span>\u003cspan class=\"p\">)\u003c/span>\n\u003c/code>\u003c/pre>\u003c/div>\n\u003cp>你也可以直接传入字体文件的 URL，或者通过环境变量 \u003ccode>QUICKTHUMB_FONT_DIR\u003c/code> 指向本地字体目录。参阅\u003ca href=\"https://quickthumb.solaqua.dev/zh/cookbook/webfonts-rembg/\">网络字体与背景移除\u003c/a>。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#can-i-use-images-from-a-url", "url": "https://quickthumb.solaqua.dev/zh/faq/#can-i-use-images-from-a-url", "name": "可以使用网络 URL 图片吗？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#can-i-use-images-from-a-url-answer", "text": "\u003cp>可以。\u003ccode>background(image=...)\u003c/code> 和 \u003ccode>image(path=...)\u003c/code> 均支持 \u003ccode>http(s)\u003c/code> URL。图片会在渲染期间下载并缓存。如需管理缓存，请参阅\u003ca href=\"https://quickthumb.solaqua.dev/zh/reference/export-assets/#remote-assets-and-caching\">远程资源与缓存\u003c/a>。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#how-do-i-remove-the-background-behind-a-person", "url": "https://quickthumb.solaqua.dev/zh/faq/#how-do-i-remove-the-background-behind-a-person", "name": "如何抠除人像背后的背景？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#how-do-i-remove-the-background-behind-a-person-answer", "text": "\u003cp>在图像图层上设置 \u003ccode>remove_background=True\u003c/code> 即可。该功能需要安装 \u003ccode>rembg\u003c/code> 额外依赖：\u003c/p>\n\u003cdiv class=\"language-python highlight\">\u003cpre>\u003cspan>\u003c/span>\u003ccode>\u003ca id=\"__codelineno-3-1\" name=\"__codelineno-3-1\" href=\"https://quickthumb.solaqua.dev/zh/faq/#__codelineno-3-1\">\u003c/a>\u003cspan class=\"n\">canvas\u003c/span>\u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">image\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"n\">path\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"portrait.jpg\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">position\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"s2\">\"75%\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"55%\"\u003c/span>\u003cspan class=\"p\">),\u003c/span> \u003cspan class=\"n\">width\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">420\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">height\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">520\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">remove_background\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"kc\">True\u003c/span>\u003cspan class=\"p\">)\u003c/span>\n\u003c/code>\u003c/pre>\u003c/div>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#whats-the-difference-between-cover-contain-and-fill", "url": "https://quickthumb.solaqua.dev/zh/faq/#whats-the-difference-between-cover-contain-and-fill", "name": "cover、contain 和 fill 有什么区别？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#whats-the-difference-between-cover-contain-and-fill-answer", "text": "\u003cp>\u003ccode>cover\u003c/code> 会填满指定区域，超出部分自动裁切；\u003ccode>contain\u003c/code> 会完整容纳整张图片，留出空白区域；\u003ccode>fill\u003c/code> 会忽略原始宽高比，直接拉伸图片填满区域。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#which-formats-can-i-export", "url": "https://quickthumb.solaqua.dev/zh/faq/#which-formats-can-i-export", "name": "支持导出哪些格式？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#which-formats-can-i-export-answer", "text": "\u003cp>格式由传递给 \u003ccode>render()\u003c/code> 或 \u003ccode>export()\u003c/code> 的文件后缀名决定：\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>类别\u003c/th>\n\u003cth>格式\u003c/th>\n\u003cth>依赖要求\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\n\u003ctr>\n\u003ctd>图像\u003c/td>\n\u003ctd>PNG, JPEG, WebP\u003c/td>\n\u003ctd>无\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>矢量与文档\u003c/td>\n\u003ctd>SVG, PDF, PPTX\u003c/td>\n\u003ctd>PDF 和 PPTX 需要 \u003ccode>pdf\u003c/code> / \u003ccode>pptx\u003c/code> 额外依赖\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Web\u003c/td>\n\u003ctd>HTML\u003c/td>\n\u003ctd>无\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>动画\u003c/td>\n\u003ctd>GIF, MP4, WebM\u003c/td>\n\u003ctd>MP4 和 WebM 需要 \u003ccode>ffmpeg\u003c/code>\u003c/td>\n\u003c/tr>\n\u003c/tbody>\n\u003c/table>\n\u003cp>初次导出请参阅\u003ca href=\"https://quickthumb.solaqua.dev/zh/output-guide/\">选择输出格式\u003c/a>；各格式支持保留和丢失的特性请参阅\u003ca href=\"https://quickthumb.solaqua.dev/zh/exports/\">导出参考\u003c/a>。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#can-i-set-quality-for-a-png", "url": "https://quickthumb.solaqua.dev/zh/faq/#can-i-set-quality-for-a-png", "name": "可以为 PNG 设置 quality 参数吗？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#can-i-set-quality-for-a-png-answer", "text": "\u003cp>不可以。\u003ccode>quality\u003c/code> 仅适用于 JPEG 和 WebP；为 PNG 传入该参数会抛出 \u003ccode>RenderingError\u003c/code>。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#how-do-i-get-the-image-without-writing-a-file", "url": "https://quickthumb.solaqua.dev/zh/faq/#how-do-i-get-the-image-without-writing-a-file", "name": "如何不写文件直接获取图像数据？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#how-do-i-get-the-image-without-writing-a-file-answer", "text": "\u003cdiv class=\"language-python highlight\">\u003cpre>\u003cspan>\u003c/span>\u003ccode>\u003ca id=\"__codelineno-4-1\" name=\"__codelineno-4-1\" href=\"https://quickthumb.solaqua.dev/zh/faq/#__codelineno-4-1\">\u003c/a>\u003cspan class=\"n\">png_base64\u003c/span> \u003cspan class=\"o\">=\u003c/span> \u003cspan class=\"n\">canvas\u003c/span>\u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">to_base64\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"nb\">format\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"PNG\"\u003c/span>\u003cspan class=\"p\">)\u003c/span>\n\u003ca id=\"__codelineno-4-2\" name=\"__codelineno-4-2\" href=\"https://quickthumb.solaqua.dev/zh/faq/#__codelineno-4-2\">\u003c/a>\u003cspan class=\"n\">jpeg_data_url\u003c/span> \u003cspan class=\"o\">=\u003c/span> \u003cspan class=\"n\">canvas\u003c/span>\u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">to_data_url\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"nb\">format\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"JPEG\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">quality\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">90\u003c/span>\u003cspan class=\"p\">)\u003c/span>\n\u003c/code>\u003c/pre>\u003c/div>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#can-i-pass-a-dict-to-canvasfrom_json", "url": "https://quickthumb.solaqua.dev/zh/faq/#can-i-pass-a-dict-to-canvasfrom_json", "name": "可以直接传 dict 给 Canvas.from_json() 吗？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#can-i-pass-a-dict-to-canvasfrom_json-answer", "text": "\u003cp>不可以，它接收 JSON 字符串。请先使用 \u003ccode>json.dumps(data)\u003c/code> 进行转换。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#why-does-to_json-raise-validationerror", "url": "https://quickthumb.solaqua.dev/zh/faq/#why-does-to_json-raise-validationerror", "name": "为什么 to_json() 会抛出 ValidationError？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#why-does-to_json-raise-validationerror-answer", "text": "\u003cp>说明画布中包含 \u003ccode>.custom(fn)\u003c/code> 图层。Python 函数无法序列化为 JSON，因此必须先移除该图层。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#my-theme-block-disappeared-after-to_json", "url": "https://quickthumb.solaqua.dev/zh/faq/#my-theme-block-disappeared-after-to_json", "name": "为什么执行 to_json() 后 theme 块消失了？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#my-theme-block-disappeared-after-to_json-answer", "text": "\u003cp>规范加载时，主题变量（tokens）会被直接替换为实际解析后的数值，因此 \u003ccode>to_json()\u003c/code> 输出的是具体数值，不再包含 \u003ccode>theme\u003c/code> 块。如果想继续编辑主题变量，请保留原始规范文件。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/zh/faq/#what-do-the-different-errors-mean", "url": "https://quickthumb.solaqua.dev/zh/faq/#what-do-the-different-errors-mean", "name": "不同的错误类型分别代表什么含义？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/zh/faq/#what-do-the-different-errors-mean-answer", "text": "\u003cul>\n\u003cli>\u003ccode>ValidationError\u003c/code>：参数或规范字段不合法。在添加图层或加载规范时立即抛出。\u003c/li>\n\u003cli>\u003ccode>RenderingError\u003c/code>：绘图过程中发生异常，例如网络图片下载失败。\u003c/li>\n\u003cli>\u003ccode>MissingAssetError\u003c/code>：规范中引用的本地文件不存在。\u003c/li>\n\u003c/ul>\n\u003cp>每个错误都包含 \u003ccode>details\u003c/code> 属性，提供稳定的错误代码、字段的 JSON 指针路径以及图层 ID。详情参阅\u003ca href=\"https://quickthumb.solaqua.dev/zh/errors/\">结构化错误\u003c/a>。\u003c/p>"}}]}</script>
+  
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#faq" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header qt-header" data-md-component="header">
+  <nav class="qt-header-inner" aria-label="主导航">
+    <a class="qt-brand" href="../" aria-label="quickthumb 首页">
+      <img src="../../assets/brand/quickthumb-icon.svg" width="40" height="40" alt="">
+      <span>quickthumb</span>
+    </a>
+    <div class="qt-desktop-links">
+      <a href="../cookbook/">示例</a>
+      <a href="../getting-started/">文档</a>
+      <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="qt-header-tools">
+      
+
+
+<details class="qt-language-switch">
+  <summary aria-label="语言: 简体中文">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    <span data-qt-language-current>简体中文</span>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7.41 8.58 12 13.17l4.59-4.59L18 10l-6 6-6-6z"/></svg>
+  </summary>
+  <nav aria-label="语言">
+    
+    <a href="https://quickthumb.solaqua.dev/faq/" hreflang="en" lang="en" data-qt-language="en" target="_self">English</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ko/faq/" hreflang="ko" lang="ko" data-qt-language="ko" target="_self">한국어</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ja/faq/" hreflang="ja" lang="ja" data-qt-language="ja" target="_self">日本語</a>
+    
+    <a href="https://quickthumb.solaqua.dev/zh/faq/" hreflang="zh-CN" lang="zh-CN" data-qt-language="zh-CN" target="_self" aria-current="page">简体中文</a>
+    
+  </nav>
+</details>
+      <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="切换到深色主题"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="切换到深色主题" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="切换到浅色主题"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="切换到浅色主题" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+      <button class="qt-icon-button" type="button" data-qt-search aria-label="搜索文档">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </button>
+      <button class="qt-icon-button qt-menu-trigger" type="button" data-qt-menu aria-label="打开导航菜单" aria-controls="qt-navigation" aria-expanded="false">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+      </button>
+      <a class="qt-button qt-button-white qt-header-cta" href="../getting-started/">开始使用</a>
+    </div>
+  </nav>
+  <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</header>
+
+<dialog class="qt-drawer" id="qt-navigation" aria-label="网站导航">
+  <div class="qt-drawer-header">
+    <a class="qt-brand" href="../" aria-label="quickthumb 首页">
+      <img src="../../assets/brand/quickthumb-icon.svg" width="36" height="36" alt="">
+      <span>quickthumb</span>
+    </a>
+    <button class="qt-icon-button" type="button" data-qt-close aria-label="关闭导航菜单" autofocus>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
+  <button class="qt-drawer-search" type="button" data-qt-search>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+    <span>搜索文档</span>
+  </button>
+  <nav class="qt-drawer-links" aria-label="探索 quickthumb">
+    <a class="qt-button qt-button-blue" href="../getting-started/">开始使用 <span aria-hidden="true">→</span></a>
+    <a href="../cookbook/">示例</a>
+    <a href="../getting-started/">文档</a>
+    <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+  <nav class="qt-drawer-docs" aria-label="文档快捷链接">
+    <p class="qt-nav-caption">文档</p>
+    <a href="../installation/">安装</a>
+    <a href="../concepts/">核心概念</a>
+    <a href="../api/">API 参考</a>
+  </nav>
+  <details class="qt-drawer-index">
+    <summary>全部文档</summary>
+    
+<nav aria-label="All documentation">
+  <ul>
+    
+      <li>
+        
+          <a href="../">首页</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>快速开始</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../getting-started/">渲染第一组卡片</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../installation/">安装</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../concepts/">核心概念</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../output-guide/">选择输出格式</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../timing/">动画时序</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>API 参考</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../api/">概览</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/canvas/">Canvas</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/deck/">Deck（多页幻灯片）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/inspection/">文档检查</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/background/">背景</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/text/">文本</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/image/">图像</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/shape/">形状</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/path/">路径</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/svg/">SVG</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/video/">视频</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/audio/">音频响应式创作</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/group/">编组（自动布局）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/outline/">外边框</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/data-visualizations/">数据可视化</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/effects/">效果</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/enums/">枚举与渐变</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>进阶参考</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <details>
+            <summary>导出</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../exports/">概览</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-methods/">导出方法与凭据</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-validation/">格式保真度与验证</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-documents/">SVG、HTML、PowerPoint 和 PDF</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-animation/">GIF、视频与旁白</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-transparency/">透明视频</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-frames/">图像序列与渲染质量</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-assets/">资源与可复现性</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-lottie/">Lottie 矢量动画</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/timing-details/">动画时序参考</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/inspection-details/">检查复杂布局</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>JSON 与 AI</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../json-schema/">JSON Schema 与 AI 工作流</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../diagnostics/">诊断与 CLI</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../errors/">结构化错误</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>示例集</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../cookbook/">示例画廊</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/decks-and-video/">演示文稿与视频</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/youtube-thumbnail/">YouTube 缩略图</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/instagram-card/">Instagram 卡片</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/podcast-promo/">播客宣传图</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/shorts-cover/">Shorts 与竖版封面</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/launch-announcement/">发布公告（自动布局）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/ai-workflow/">AI 工作流</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/webfonts-rembg/">Web 字体与背景去除</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="./" aria-current="page">常见问题</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>更新日志</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../changelog/">概览</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../releases/0.8.0/">0.8.0</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+  </ul>
+</nav>
+  </details>
+  <button class="qt-appearance" type="button" data-qt-theme>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18V6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-2.69L23.31 12 20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20z"/></svg>
+    <span>切换主题</span>
+  </button>
+</dialog>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../" title="quickthumb" class="md-nav__button md-logo" aria-label="quickthumb" data-md-component="logo">
+      
+  <img src="../../assets/brand/quickthumb-icon.png" alt="logo">
+
+    </a>
+    quickthumb
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sjquant/quickthumb" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sjquant/quickthumb
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    首页
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    快速开始
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    渲染第一组卡片
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    安装
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    核心概念
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../output-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    选择输出格式
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../timing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    动画时序
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API 参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/canvas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canvas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/deck/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deck（多页幻灯片）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/inspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文档检查
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/background/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    背景
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文本
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    图像
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/shape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    形状
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    路径
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/svg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    视频
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    音频响应式创作
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    编组（自动布局）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/outline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    外边框
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/data-visualizations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    数据可视化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/effects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    效果
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/enums/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    枚举与渐变
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进阶参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    进阶参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    导出
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    导出
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../exports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    导出方法与凭据
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    格式保真度与验证
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG、HTML、PowerPoint 和 PDF
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GIF、视频与旁白
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-transparency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    透明视频
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-frames/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    图像序列与渲染质量
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-assets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    资源与可复现性
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-lottie/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lottie 矢量动画
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/timing-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    动画时序参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/inspection-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    检查复杂布局
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON 与 AI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    JSON 与 AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../json-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON Schema 与 AI 工作流
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    诊断与 CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    结构化错误
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    示例集
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    示例集
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    示例画廊
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/decks-and-video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    演示文稿与视频
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/youtube-thumbnail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YouTube 缩略图
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/instagram-card/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instagram 卡片
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/podcast-promo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    播客宣传图
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/shorts-cover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shorts 与竖版封面
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/launch-announcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    发布公告（自动布局）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/ai-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI 工作流
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/webfonts-rembg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web 字体与背景去除
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        安装
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="安装">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-python-versions-are-supported" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        支持哪些 Python 版本？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-quickthumb-command-isnt-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        找不到 quickthumb 命令？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-does-my-svg-layer-raise-renderingerror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        为什么 SVG 图层会抛出 RenderingError？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#canvas-and-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        画布与图层
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="画布与图层">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-happens-if-i-render-a-canvas-with-no-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        渲染一个没有任何图层的画布会怎样？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-does-a-group-child-raise-group-children-must-not-set-position" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        为什么分组子元素会报错 "group children must not set position"？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-check-a-design-for-problems-before-rendering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        如何在渲染前检查设计中潜在的问题？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#text-and-fonts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        文字与字体
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="文字与字体">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#my-text-runs-off-the-canvas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        文字跑出画布外面了怎么办？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i-set-boldtrue-and-weight900-and-got-an-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        同时设置 bold=True 和 weight=900 时为什么报错？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-use-a-google-font" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        如何使用 Google Fonts？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        图像
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="图像">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#can-i-use-images-from-a-url" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        可以使用网络 URL 图片吗？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-remove-the-background-behind-a-person" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        如何抠除人像背后的背景？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whats-the-difference-between-cover-contain-and-fill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cover、contain 和 fill 有什么区别？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        输出
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="输出">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-formats-can-i-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        支持导出哪些格式？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#can-i-set-quality-for-a-png" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        可以为 PNG 设置 quality 参数吗？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-get-the-image-without-writing-a-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        如何不写文件直接获取图像数据？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="JSON">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#can-i-pass-a-dict-to-canvasfrom_json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        可以直接传 dict 给 Canvas.from_json() 吗？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-does-to_json-raise-validationerror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        为什么 to_json() 会抛出 ValidationError？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#my-theme-block-disappeared-after-to_json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        为什么执行 to_json() 后 theme 块消失了？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        错误排查
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="错误排查">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-do-the-different-errors-mean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        不同的错误类型分别代表什么含义？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    更新日志
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    更新日志
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../releases/0.8.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0.8.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        安装
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="安装">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-python-versions-are-supported" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        支持哪些 Python 版本？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-quickthumb-command-isnt-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        找不到 quickthumb 命令？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-does-my-svg-layer-raise-renderingerror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        为什么 SVG 图层会抛出 RenderingError？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#canvas-and-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        画布与图层
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="画布与图层">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-happens-if-i-render-a-canvas-with-no-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        渲染一个没有任何图层的画布会怎样？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-does-a-group-child-raise-group-children-must-not-set-position" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        为什么分组子元素会报错 "group children must not set position"？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-check-a-design-for-problems-before-rendering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        如何在渲染前检查设计中潜在的问题？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#text-and-fonts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        文字与字体
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="文字与字体">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#my-text-runs-off-the-canvas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        文字跑出画布外面了怎么办？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i-set-boldtrue-and-weight900-and-got-an-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        同时设置 bold=True 和 weight=900 时为什么报错？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-use-a-google-font" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        如何使用 Google Fonts？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        图像
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="图像">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#can-i-use-images-from-a-url" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        可以使用网络 URL 图片吗？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-remove-the-background-behind-a-person" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        如何抠除人像背后的背景？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whats-the-difference-between-cover-contain-and-fill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cover、contain 和 fill 有什么区别？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        输出
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="输出">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-formats-can-i-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        支持导出哪些格式？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#can-i-set-quality-for-a-png" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        可以为 PNG 设置 quality 参数吗？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-get-the-image-without-writing-a-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        如何不写文件直接获取图像数据？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="JSON">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#can-i-pass-a-dict-to-canvasfrom_json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        可以直接传 dict 给 Canvas.from_json() 吗？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-does-to_json-raise-validationerror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        为什么 to_json() 会抛出 ValidationError？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#my-theme-block-disappeared-after-to_json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        为什么执行 to_json() 后 theme 块消失了？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        错误排查
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="错误排查">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-do-the-different-errors-mean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        不同的错误类型分别代表什么含义？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="faq">常见问题</h1>
+<h2 id="installation">安装</h2>
+<h3 id="which-python-versions-are-supported">支持哪些 Python 版本？</h3>
+<p>Python 3.11 或更高版本。该软件包明确支持 3.11 和 3.12，且 CI 在 3.11 上运行。这包括背景移除功能（<code>rembg</code> 额外依赖）。</p>
+<h3 id="the-quickthumb-command-isnt-found">找不到 <code>quickthumb</code> 命令？</h3>
+<p>命令行工具属于可选额外依赖：执行 <code>pip install "quickthumb[cli]"</code> 进行安装。<a href="../installation/">安装</a>列出了所有可选依赖。</p>
+<h3 id="why-does-my-svg-layer-raise-renderingerror">为什么 SVG 图层会抛出 <code>RenderingError</code>？</h3>
+<p>绘制 SVG 文件需要安装 <code>svg</code> 额外依赖：<code>pip install "quickthumb[svg]"</code>。
+将画布导出<em>为</em> SVG 文件则无需此依赖。</p>
+<h2 id="canvas-and-layers">画布与图层</h2>
+<h3 id="what-happens-if-i-render-a-canvas-with-no-layers">渲染一个没有任何图层的画布会怎样？</h3>
+<p>你会得到一张与画布尺寸相同的全透明图片。这不会报错。</p>
+<h3 id="why-does-a-group-child-raise-group-children-must-not-set-position">为什么分组子元素会报错 "group children must not set position"？</h3>
+<p>分组（group）会自动为其子元素排版定位。请移除子元素上的 <code>position</code> 参数，转为设置分组本身的定位：</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">canvas</span><span class="o">.</span><span class="n">group</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">children</span><span class="o">=</span><span class="p">[{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"text"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"TITLE"</span><span class="p">,</span> <span class="s2">"size"</span><span class="p">:</span> <span class="mi">96</span><span class="p">,</span> <span class="s2">"color"</span><span class="p">:</span> <span class="s2">"#FFFFFF"</span><span class="p">}],</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="s2">"8%"</span><span class="p">,</span> <span class="s2">"50%"</span><span class="p">),</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">align</span><span class="o">=</span><span class="p">(</span><span class="s2">"left"</span><span class="p">,</span> <span class="s2">"middle"</span><span class="p">),</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
+</code></pre></div>
+<p>子元素设置的 <code>align</code> 也会被忽略。请使用分组容器的 <code>item_align</code> 沿交叉轴对齐各个子元素。</p>
+<h3 id="how-do-i-check-a-design-for-problems-before-rendering">如何在渲染前检查设计中潜在的问题？</h3>
+<p>调用 <code>canvas.diagnose()</code>，或者针对 JSON 规范运行 <code>quickthumb lint spec.json</code>。
+它会报告字号过小、文字溢出画布、对比度不足、图层被遮挡等常见问题。详情参阅<a href="../diagnostics/">诊断与 CLI</a>。</p>
+<h2 id="text-and-fonts">文字与字体</h2>
+<h3 id="my-text-runs-off-the-canvas">文字跑出画布外面了怎么办？</h3>
+<p>设置 <code>max_width</code> 让文本自动换行：</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">canvas</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="s2">"A longer title that needs two lines"</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">72</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#FFFFFF"</span><span class="p">,</span> <span class="n">max_width</span><span class="o">=</span><span class="s2">"60%"</span><span class="p">)</span>
+</code></pre></div>
+<p>也可以加上 <code>auto_scale=True</code>（配合 <code>max_width</code>、<code>max_height</code> 或两者），使文字在超出时自动缩小字号直到合适为止。</p>
+<h3 id="i-set-boldtrue-and-weight900-and-got-an-error">同时设置 <code>bold=True</code> 和 <code>weight=900</code> 时为什么报错？</h3>
+<p>它们控制的是同一个属性，二选一即可。<code>weight</code> 能更精确地控制字重：
+<code>TextPart(text="STRONG", weight=900)</code>。</p>
+<h3 id="how-do-i-use-a-google-font">如何使用 Google Fonts？</h3>
+<p>指定字体名称并将 <code>font_source="google"</code>。字体在首次使用时会自动下载并缓存，<code>weight</code> 会自动匹配对应的字体文件：</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">canvas</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="s2">"Hello"</span><span class="p">,</span> <span class="n">font</span><span class="o">=</span><span class="s2">"Inter"</span><span class="p">,</span> <span class="n">font_source</span><span class="o">=</span><span class="s2">"google"</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">72</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#FFFFFF"</span><span class="p">)</span>
+</code></pre></div>
+<p>你也可以直接传入字体文件的 URL，或者通过环境变量 <code>QUICKTHUMB_FONT_DIR</code> 指向本地字体目录。参阅<a href="../cookbook/webfonts-rembg/">网络字体与背景移除</a>。</p>
+<h2 id="images">图像</h2>
+<h3 id="can-i-use-images-from-a-url">可以使用网络 URL 图片吗？</h3>
+<p>可以。<code>background(image=...)</code> 和 <code>image(path=...)</code> 均支持 <code>http(s)</code> URL。图片会在渲染期间下载并缓存。如需管理缓存，请参阅<a href="../reference/export-assets/#remote-assets-and-caching">远程资源与缓存</a>。</p>
+<h3 id="how-do-i-remove-the-background-behind-a-person">如何抠除人像背后的背景？</h3>
+<p>在图像图层上设置 <code>remove_background=True</code> 即可。该功能需要安装 <code>rembg</code> 额外依赖：</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">canvas</span><span class="o">.</span><span class="n">image</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="s2">"portrait.jpg"</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="s2">"75%"</span><span class="p">,</span> <span class="s2">"55%"</span><span class="p">),</span> <span class="n">width</span><span class="o">=</span><span class="mi">420</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">520</span><span class="p">,</span> <span class="n">remove_background</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="whats-the-difference-between-cover-contain-and-fill"><code>cover</code>、<code>contain</code> 和 <code>fill</code> 有什么区别？</h3>
+<p><code>cover</code> 会填满指定区域，超出部分自动裁切；<code>contain</code> 会完整容纳整张图片，留出空白区域；<code>fill</code> 会忽略原始宽高比，直接拉伸图片填满区域。</p>
+<h2 id="output">输出</h2>
+<h3 id="which-formats-can-i-export">支持导出哪些格式？</h3>
+<p>格式由传递给 <code>render()</code> 或 <code>export()</code> 的文件后缀名决定：</p>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>格式</th>
+<th>依赖要求</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>图像</td>
+<td>PNG, JPEG, WebP</td>
+<td>无</td>
+</tr>
+<tr>
+<td>矢量与文档</td>
+<td>SVG, PDF, PPTX</td>
+<td>PDF 和 PPTX 需要 <code>pdf</code> / <code>pptx</code> 额外依赖</td>
+</tr>
+<tr>
+<td>Web</td>
+<td>HTML</td>
+<td>无</td>
+</tr>
+<tr>
+<td>动画</td>
+<td>GIF, MP4, WebM</td>
+<td>MP4 和 WebM 需要 <code>ffmpeg</code></td>
+</tr>
+</tbody>
+</table>
+<p>初次导出请参阅<a href="../output-guide/">选择输出格式</a>；各格式支持保留和丢失的特性请参阅<a href="../exports/">导出参考</a>。</p>
+<h3 id="can-i-set-quality-for-a-png">可以为 PNG 设置 <code>quality</code> 参数吗？</h3>
+<p>不可以。<code>quality</code> 仅适用于 JPEG 和 WebP；为 PNG 传入该参数会抛出 <code>RenderingError</code>。</p>
+<h3 id="how-do-i-get-the-image-without-writing-a-file">如何不写文件直接获取图像数据？</h3>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">png_base64</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_base64</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="s2">"PNG"</span><span class="p">)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">jpeg_data_url</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_data_url</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="s2">"JPEG"</span><span class="p">,</span> <span class="n">quality</span><span class="o">=</span><span class="mi">90</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="json">JSON</h2>
+<h3 id="can-i-pass-a-dict-to-canvasfrom_json">可以直接传 dict 给 <code>Canvas.from_json()</code> 吗？</h3>
+<p>不可以，它接收 JSON 字符串。请先使用 <code>json.dumps(data)</code> 进行转换。</p>
+<h3 id="why-does-to_json-raise-validationerror">为什么 <code>to_json()</code> 会抛出 <code>ValidationError</code>？</h3>
+<p>说明画布中包含 <code>.custom(fn)</code> 图层。Python 函数无法序列化为 JSON，因此必须先移除该图层。</p>
+<h3 id="my-theme-block-disappeared-after-to_json">为什么执行 <code>to_json()</code> 后 <code>theme</code> 块消失了？</h3>
+<p>规范加载时，主题变量（tokens）会被直接替换为实际解析后的数值，因此 <code>to_json()</code> 输出的是具体数值，不再包含 <code>theme</code> 块。如果想继续编辑主题变量，请保留原始规范文件。</p>
+<h2 id="errors">错误排查</h2>
+<h3 id="what-do-the-different-errors-mean">不同的错误类型分别代表什么含义？</h3>
+<ul>
+<li><code>ValidationError</code>：参数或规范字段不合法。在添加图层或加载规范时立即抛出。</li>
+<li><code>RenderingError</code>：绘图过程中发生异常，例如网络图片下载失败。</li>
+<li><code>MissingAssetError</code>：规范中引用的本地文件不存在。</li>
+</ul>
+<p>每个错误都包含 <code>details</code> 属性，提供稳定的错误代码、字段的 JSON 指针路径以及图层 ID。详情参阅<a href="../errors/">结构化错误</a>。</p>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        
+
+<footer class="md-footer qt-footer">
+  <div class="qt-footer-inner">
+    <div>
+      <a class="qt-brand" href="../" aria-label="quickthumb 首页">
+        <img src="../../assets/brand/quickthumb-icon.svg" width="28" height="28" alt="">
+        <span>quickthumb</span>
+      </a>
+      <p class="qt-footer-tagline">用 Python 制作图像、演示文稿和视频。</p>
+    </div>
+    <nav class="qt-footer-links" aria-label="页脚导航">
+      <a href="../cookbook/">示例</a>
+      <a href="../getting-started/">文档</a>
+      <a href="../installation/">安装</a>
+      <a href="../changelog/">更新日志</a>
+    </nav>
+    <div class="qt-footer-meta">
+      <a class="qt-icon-button" href="https://github.com/sjquant/quickthumb" aria-label="在 GitHub 上查看 quickthumb">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg>
+      </a>
+      <p>© 2026 Seonu Jang · MIT 许可证<br>使用工具 <a href="https://squidfunk.github.io/mkdocs-material/">Material for MkDocs</a></p>
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/site.js"></script>
+      
+    
+  </body>
+</html>
