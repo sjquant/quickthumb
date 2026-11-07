@@ -35,6 +35,7 @@ FIXTURES = {
     "text": [0],
     "morph": [0, 0.25, 0.5, 1, 1.5, 2],
     "intro": [0, 0.25, 0.5, 1, 1.5, 2, 2.25],
+    "trim_multi": [0, 0.25, 0.5, 0.75, 1, 1.25],
 }
 
 
@@ -59,6 +60,8 @@ def prepare_cases(output: Path, renderers: tuple[str, ...] = ("svg",)) -> list[d
             regions = [list(ink)] if ink else []
             if name == "intro":
                 regions = [[25, 25, 400, 85], [60, 100, 220, 280], [270, 95, 450, 275]]
+            elif name == "trim_multi":
+                regions = [[40, 40, 700, 240], [40, 320, 440, 560], [500, 320, 860, 560]]
             for renderer in renderers:
                 case = {
                     "name": f"{name}-{index}-{renderer}",
@@ -72,6 +75,16 @@ def prepare_cases(output: Path, renderers: tuple[str, ...] = ("svg",)) -> list[d
                     "limits": LIMITS,
                     "control": None,
                 }
+                if name == "trim_multi" and second == 0:
+                    # Both translucent contours cover this interior point.
+                    # A second paint would make alpha about 192 instead of 128.
+                    case["probes"] = [
+                        {
+                            "point": [220, 360],
+                            "rgba": list(reference.getpixel((220, 360))),
+                            "tolerance": 2,
+                        }
+                    ]
                 cases.append(case)
                 if index == len(seconds) - 1:
                     cases.append({**case, "name": case["name"] + "-blank", "control": "blank"})
@@ -94,6 +107,13 @@ def assess(case: dict, actual: Image.Image) -> dict:
     matched = result["verdict"] != "out_of_policy" and all(
         region["verdict"] != "out_of_policy" for region in result["regions"]
     )
+    result["probes"] = []
+    for probe in case.get("probes", []):
+        observed = actual.getpixel(tuple(probe["point"]))
+        delta = max(abs(a - b) for a, b in zip(observed, probe["rgba"], strict=True))
+        accepted = delta <= probe["tolerance"]
+        result["probes"].append({**probe, "observed": list(observed), "passed": accepted})
+        matched = matched and accepted
     result["passed"] = not matched if case["control"] else matched
     return result
 

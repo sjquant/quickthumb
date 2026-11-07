@@ -86,17 +86,18 @@ Canvas(120, 120).path(
 
 ## 播放验证 { #playback-verification }
 
-参考播放器为 **lottie-web 5.13.0 的 SVG 渲染器**。CI 使用 Lottie 1.0.1 模式验证
-8 个示例，并将实际播放器的 31 帧与 Quickthumb 比较，涵盖形状、曲线、运动、父级关系、
-trim、文字轮廓、morph 和组合片头。13 个空白或冻结运动的对照案例也必须被检测出来。
+参考播放器是 **lottie-web 5.13.0 SVG** 和 **Lottie Android 6.7.1**。Android 检查
+在 Robolectric 4.17、Android 15/API 35、mdpi、native graphics 中执行官方库的
+software Drawable。这是 Linux/JVM native Skia 验证，不是真机、模拟器、ARM 或 GPU 测试。
 
-整帧与绘图区域均采用以下限制：通道容差 32、差异像素比例不超过 8%、平均哈希相似度
-至少 0.93。这些限制允许示例中的栅格化边缘差异，并不保证所有作品都能一致。
+保留原有 31 个正常帧和 13 个空白/冻结对照，新增 6 帧和 2 个对照，覆盖不同 contour
+长度、空/完整/环绕区间、负 offset、morph 长度变化和重叠的半透明 stroke。
+9 个文件须通过 schema 1.0.1 验证；每个播放器须通过 37 个正常帧和 15 个对照。
 
-运行 `python -m examples.lottie_intro /tmp/intro.lot`，即可创建包含免字体标题、
-自绘制徽标和旋转徽章的片头。运动持续 2 秒，随后停顿 0.5 秒。
+保持通道容差 32、差异像素不超过 8%、哈希相似度至少 0.93，同时检查整帧和绘图区域。
+这些限制并不保证所有作品。额外探索中，一个带半透明 fill 的多 contour morph 帧
+未通过 Android 区域哈希限制；长度变化和共用半透明 stroke 使用独立回归示例验证。
 
-**此验证范围请使用 SVG 渲染器。** lottie-web 5.12.2 和 5.13.0 的 Canvas 渲染器在
-部分半透明场景中，绘制与图层不透明度的组合存在差异，未通过比较。移动端或原生播放器
-及其他版本尚未验证。请参阅[重新运行验证](export-validation.md#lottie-reference-player)，
-并在发布前使用实际目标播放器预览。
+**网页请使用 SVG 渲染器。** Canvas 5.12.2/5.13.0 在部分半透明场景中仍有不透明度组合
+差异。iOS native、Android 真机、ARM/GPU 和实际应用性能尚未验证。
+参阅[重新运行检查](export-validation.md#lottie-reference-player)，发布前在目标播放器中预览。

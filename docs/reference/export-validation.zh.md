@@ -110,3 +110,14 @@ PYTHONPATH=. uv run --locked python scripts/check_lottie_fidelity.py \
   --player tests/fixtures/lottie/player/node_modules/lottie-web/build/player/lottie.min.js \
   --output /tmp/quickthumb-lottie-observations
 ```
+
+### 重新运行 Android native graphics
+
+使用网页检查的 manifest 以及现有 JDK 21、Maven 3.9+。Maven 会获取测试专用依赖。
+
+```bash
+PYTHONPATH=. uv run --locked python scripts/check_lottie_android.py \
+  --maven /path/to/mvn --java-home /path/to/jdk-21 \
+  --cases /tmp/quickthumb-lottie-observations/cases.json \
+  --output /tmp/quickthumb-android-observations
+```

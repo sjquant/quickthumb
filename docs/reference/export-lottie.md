@@ -158,12 +158,18 @@ unsupported features still need to be removed.
 
 ## Playback verification
 
-The reference player is **lottie-web 5.13.0 with its SVG renderer**. The automated
-check validates eight example files against Lottie schema 1.0.1, then compares
-31 actual player frames with Quickthumb: shapes, curves and holes, sampled
-transforms/easing, parenting, trim, outlined text, morph, and the combined intro.
-Thirteen blank/frozen controls must fail the same image comparisons. CI retains
-the player images, canonical images, environment versions, and JSON measurements.
+The reference players are **lottie-web 5.13.0 (SVG)** and **Lottie Android 6.7.1**
+with Robolectric 4.17 native graphics on Android 15/API 35 at mdpi. The Android
+check runs the official library's software Drawable renderer on Linux/JVM with
+native Skia; it is not a physical device, emulator, ARM or GPU test.
+
+The original 31 frames and 13 blank/frozen controls remain in the check. Six more
+frames and two controls cover unequal contours, empty/full and wrapped windows,
+negative offsets, changing morph lengths, and overlapping translucent strokes.
+All nine files validate against Lottie schema 1.0.1. Each player is checked against
+37 canonical frames and must detect 15 blank/frozen controls, without relaxing
+the image limits. CI retains the web images and measurements; Android reports
+its comparison results in the same job.
 
 The comparison allows up to 32 channel levels, 8% differing pixels, and an
 average-hash similarity of at least 0.93, both across each frame and in its artwork
@@ -174,6 +180,8 @@ a guarantee for arbitrary artwork. See
 **Use the SVG renderer for this verified subset.** With lottie-web 5.12.2 and
 5.13.0, the optional Canvas comparison shows incorrect combined paint/layer
 opacity in some translucent scenes. Those Canvas observations do not pass the
-reference limits. Mobile/native players, other versions, and other artwork have
-not been verified by this check. Preview your actual file in its destination
-player before publishing.
+reference limits. iOS native, Android physical devices, ARM/GPU rendering and real-app performance
+remain unverified. Arbitrary combinations of artwork are not covered: an
+exploratory translucent multi-contour morph still exceeded the Android region
+hash limit, although the isolated contour-length and shared-stroke regressions
+pass. Preview your actual file in its destination player before publishing.

@@ -117,6 +117,29 @@ an undetected blank/frozen control exits nonzero. Canvas opacity differences
 with the pinned player are a known failing comparison, not an accepted fallback.
 See [the playback scope and limits](export-lottie.md#playback-verification).
 
+### Android native graphics check
+
+After generating the web manifest above, select an existing full JDK 21 and Maven
+3.9+. Maven resolves pinned test-only Android/Robolectric dependencies from Maven
+Central and Google Maven; no Android SDK, device or product dependency is needed.
+
+```bash
+PYTHONPATH=. uv run --locked python scripts/check_lottie_android.py \
+  --maven /path/to/mvn --java-home /path/to/jdk-21 \
+  --cases /tmp/quickthumb-lottie-observations/cases.json \
+  --output /tmp/quickthumb-android-observations
+```
+
+The output must be new. `--settings` accepts an existing Maven proxy/mirror setup;
+`--trust-store` selects an existing Java CA store, and `--runtime-home` selects a
+writable SDK cache. The actual Android parser consumes original bytes, without
+key reordering or another normalization. Frame seeks, render exceptions, native
+runtime identity and pixel/probe results are recorded in `report.json` beside
+PNGs and `maven.log`. A Maven success alone does not establish matching output:
+the Python gate checks the same budgets, controls and shared-paint pixel probe
+as the web check and exits nonzero on any unexpected result. iOS, physical Android
+devices and hardware rendering are outside this test.
+
 ## PPTX compatibility
 
 PPTX keeps supported text and shapes editable. Glow can accompany that editable

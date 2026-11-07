@@ -110,3 +110,14 @@ PYTHONPATH=. uv run --locked python scripts/check_lottie_fidelity.py \
   --player tests/fixtures/lottie/player/node_modules/lottie-web/build/player/lottie.min.js \
   --output /tmp/quickthumb-lottie-observations
 ```
+
+### Android native graphics 재실행
+
+웹 검사의 manifest와 기존 JDK 21·Maven 3.9+를 사용합니다. Maven이 test 전용 의존성을 가져옵니다.
+
+```bash
+PYTHONPATH=. uv run --locked python scripts/check_lottie_android.py \
+  --maven /path/to/mvn --java-home /path/to/jdk-21 \
+  --cases /tmp/quickthumb-lottie-observations/cases.json \
+  --output /tmp/quickthumb-android-observations
+```

@@ -31,6 +31,15 @@ def test_reference_gate_checks_ink_regions_and_dimensions(tmp_path):
     assert not assess(case, Image.new("RGBA", reference.size))["passed"]
     assert assess({**case, "control": "blank"}, Image.new("RGBA", reference.size))["passed"]
     assert not assess({**case, "control": "frozen"}, reference)["passed"]
+    single_pixel_damage = reference.copy()
+    single_pixel_damage.putpixel((50, 50), (21, 154, 140, 192))
+    probe_case = {
+        **case,
+        "regions": [],
+        "probes": [{"point": [50, 50], "rgba": [21, 154, 140, 255], "tolerance": 2}],
+    }
+    assert assess(probe_case, reference)["passed"]
+    assert not assess(probe_case, single_pixel_damage)["passed"]
 
 
 def test_reference_fixtures_validate_and_include_integrated_motion(tmp_path):
