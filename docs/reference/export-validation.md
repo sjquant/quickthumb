@@ -87,6 +87,59 @@ searchable vector content; this does not promise PowerPoint-style editing.
 Deck PDF comparison is rejected explicitly; export its Canvas slides individually.
 This observation does not establish PPTX or animation fidelity.
 
+## Lottie reference player
+
+The developer check uses the actual lottie-web player in a disposable Chrome
+profile. It makes no player downloads, changes no export policies, and blocks
+browser HTTP/HTTPS requests while playing self-contained vectors.
+
+From the repository root, install the locked development dependencies and the
+pinned test-only player, then select an existing Chrome executable:
+
+```bash
+uv sync --locked --extra lottie --dev
+npm ci --prefix tests/fixtures/lottie/player --ignore-scripts --no-audit --no-fund
+PYTHONPATH=. uv run --locked python scripts/check_lottie_fidelity.py \
+  --chrome /path/to/chrome \
+  --player tests/fixtures/lottie/player/node_modules/lottie-web/build/player/lottie.min.js \
+  --output /tmp/quickthumb-lottie-observations
+```
+
+Node 24 and an existing Chrome are required; the output directory must be new.
+The report records schema/player hashes, browser/Node/player versions, export
+receipts, exact frame seeks, dimensions, whole-frame and artwork-region RGBA/hash
+metrics, and pass/fail results. Frames are captured at DPR 1 without resizing.
+PNG references, actual player PNGs and exported `.lot` files remain beside it.
+
+The default gate uses the SVG renderer. Add `--renderer canvas` to investigate
+Canvas playback, or repeat `--renderer` to compare both. A failed comparison or
+an undetected blank/frozen control exits nonzero. Canvas opacity differences
+with the pinned player are a known failing comparison, not an accepted fallback.
+See [the playback scope and limits](export-lottie.md#playback-verification).
+
+### Android native graphics check
+
+After generating the web manifest above, select an existing full JDK 21 and Maven
+3.9+. Maven resolves pinned test-only Android/Robolectric dependencies from Maven
+Central and Google Maven; no Android SDK, device or product dependency is needed.
+
+```bash
+PYTHONPATH=. uv run --locked python scripts/check_lottie_android.py \
+  --maven /path/to/mvn --java-home /path/to/jdk-21 \
+  --cases /tmp/quickthumb-lottie-observations/cases.json \
+  --output /tmp/quickthumb-android-observations
+```
+
+The output must be new. `--settings` accepts an existing Maven proxy/mirror setup;
+`--trust-store` selects an existing Java CA store, and `--runtime-home` selects a
+writable SDK cache. The actual Android parser consumes original bytes, without
+key reordering or another normalization. Frame seeks, render exceptions, native
+runtime identity and pixel/probe results are recorded in `report.json` beside
+PNGs and `maven.log`. A Maven success alone does not establish matching output:
+the Python gate checks the same budgets, controls and shared-paint pixel probe
+as the web check and exits nonzero on any unexpected result. iOS, physical Android
+devices and hardware rendering are outside this test.
+
 ## PPTX compatibility
 
 PPTX keeps supported text and shapes editable. Glow can accompany that editable

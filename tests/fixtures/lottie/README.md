@@ -10,3 +10,9 @@ The schema is test data, never loaded by the product or fetched by tests.
 It is licensed under the included Community Specification License 1.0.
 Upstream license notice: <https://github.com/lottie/lottie-spec/blob/main/License.md>.
 This fixture is not licensed as the separately used lottie-web player bundle.
+
+`player/package-lock.json` pins the test-only lottie-web 5.13.0 dependency and
+integrity hash. `npm ci --prefix tests/fixtures/lottie/player --ignore-scripts`
+installs the MIT-licensed upstream package locally; it is not vendored, bundled
+with quickthumb, or required for exports. The reproducible player comparison is
+documented in `docs/reference/export-validation.md`.

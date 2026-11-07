@@ -125,3 +125,25 @@ Lottie 불러오기, ZIP 패키징, 기존 Lottie 파일 편집은 제공하지 
 
 `ExportPolicy(reduced_motion=True)`는 제작한 정적 아트워크를 `hold`초 동안 내보냅니다.
 애니메이션의 최종 자세를 선택하지 않으며 다른 미지원 기능은 여전히 제거해야 합니다.
+
+## 재생 검증 { #playback-verification }
+
+기준 플레이어는 **lottie-web 5.13.0 SVG**와 **Lottie Android 6.7.1**입니다.
+Android 검사는 Robolectric 4.17, Android 15/API 35, mdpi와 native graphics에서
+공식 라이브러리의 software Drawable을 실행합니다. Linux/JVM의 native Skia 검증이며
+실기기·에뮬레이터·ARM·GPU 검증은 아닙니다.
+
+기존 정상 프레임 31개와 빈 출력·멈춘 모션 대조 13개를 유지합니다. 길이가 다른 contour,
+빈/전체·감기는 구간, 음수 offset, morph 길이 변화와 겹치는 반투명 stroke를 확인하는
+정상 프레임 6개와 대조 2개를 추가했습니다. 9개 파일을 schema 1.0.1로 검증하고,
+각 플레이어가 정상 37개와 오류 대조 15개를 통과해야 합니다.
+
+프레임과 작품 영역 모두 채널 허용차 32, 차이 픽셀 8% 이하, 해시 유사도 0.93 이상을
+적용하며 완화하지 않습니다. 이는 해당 예제의 기준이며 모든 작품에 대한 보장은 아닙니다.
+추가 탐색에서 반투명 fill을 가진 다중 contour morph 한 프레임은 Android 영역 해시
+기준을 넘지 못했습니다. 길이 변화와 공통 반투명 stroke 회귀는 각각 분리해 검사합니다.
+
+**웹에서는 SVG 렌더러를 사용하세요.** Canvas 5.12.2·5.13.0의 일부 반투명 장면은
+불투명도 결합 차이로 비교에 실패합니다. iOS native, Android 실기기·ARM/GPU와 앱의
+실제 성능은 미검증입니다. [재실행 방법](export-validation.md#lottie-reference-player)을
+참고하고 실제 대상 플레이어에서 발행 전 확인하세요.

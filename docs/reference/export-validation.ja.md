@@ -97,3 +97,27 @@ PYTHONPATH=. python scripts/check_html_fidelity.py \
 `uv run --locked pytest tests/test_static_export_matrix.py --no-cov -q` を実行してください。既存の品質ワークフローは、SVG/PDF/PPTX extra とネイティブ Cairo を用意して `pytest tests/` からこのファイルを実行しています。任意の観測機能がないローカル環境では、依存関係の理由を示して該当ケースをスキップします。Pytest のケース ID は形式と文書種別を示します。各ケースの一時ディレクトリには、ソース JSON、基準 PNG、実際の出力、JSON 結果レポートを保持します。測定したレポートには、レンダラーのバージョン、基準環境、限界値、指標が入ります。失敗はプラットフォーム固有のスクリーンショットではなく、共通の検証データと名前付き形式検査から再現できます。
 
 これは範囲を限定した静的な検査です。ブラウザー実行、PPTX ビューアーのピクセル・フォント・時間の保証、Deck PDF の忠実度ポリシーの追加は行いません。別の HTML ブラウザーハーネスやネイティブのプレゼンテーションビューアー観測には、それぞれの実行と環境の証拠が必要です。構造上の成功を、描画ピクセルの忠実度の判定として報告してはいけません。
+
+## Lottie 基準プレイヤー { #lottie-reference-player }
+
+検証範囲と既知の差異は[再生の検証](export-lottie.md#playback-verification)を参照してください。
+
+```bash
+uv sync --locked --extra lottie --dev
+npm ci --prefix tests/fixtures/lottie/player --ignore-scripts --no-audit --no-fund
+PYTHONPATH=. uv run --locked python scripts/check_lottie_fidelity.py \
+  --chrome /path/to/chrome \
+  --player tests/fixtures/lottie/player/node_modules/lottie-web/build/player/lottie.min.js \
+  --output /tmp/quickthumb-lottie-observations
+```
+
+### Android native graphics の再実行
+
+Web 検査の manifest と既存の JDK 21、Maven 3.9+ を使用します。Maven はテスト専用依存を取得します。
+
+```bash
+PYTHONPATH=. uv run --locked python scripts/check_lottie_android.py \
+  --maven /path/to/mvn --java-home /path/to/jdk-21 \
+  --cases /tmp/quickthumb-lottie-observations/cases.json \
+  --output /tmp/quickthumb-android-observations
+```

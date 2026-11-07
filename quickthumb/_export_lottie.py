@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -361,7 +362,20 @@ def _shapes(canvas, layer):
             "r": _property(0),
             "o": _property(100),
         }
-        stroke = {"ty": "gr", "it": [*contours, paints[0], {"ty": "tm", "m": 2}, transform]}
+        # Trim geometry before a shared paint. One modifier per contour avoids
+        # Android's mode-2 wrapped-window omission without painting intersections twice.
+        if len(contours) == 1:
+            items = [contours[0], paints[0], {"ty": "tm", "m": 1}, transform]
+        else:
+            items = [
+                *[
+                    {"ty": "gr", "it": [contour, {"ty": "tm", "m": 1}, transform]}
+                    for contour in contours
+                ],
+                paints[0],
+                transform,
+            ]
+        stroke = {"ty": "gr", "it": items}
         # Native groups, like styles, paint in reverse order. Fill remains untrimmed.
         return [stroke] + (
             [{"ty": "gr", "it": [*contours, paints[-1], transform]}] if layer.color else []
@@ -525,7 +539,25 @@ def write_lottie(
         "assets": [],
         "layers": list(reversed(layers)),
     }
-    document = canonical_json(payload)
+    # Keep canonical value validation and deterministic ordering local to this
+    # format: Android's streaming shape parser discards fields preceding `ty`.
+
+    def type_first(value):
+        if isinstance(value, dict):
+            return {
+                key: type_first(value[key])
+                for key in sorted(value, key=lambda key: (key != "ty", key))
+            }
+        if isinstance(value, list):
+            return [type_first(item) for item in value]
+        return value
+
+    document = json.dumps(
+        type_first(json.loads(canonical_json(payload))),
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+    )
     Path(output_path).write_text(document, encoding="utf-8")
     from quickthumb._export_video import _AnimationFacts
 

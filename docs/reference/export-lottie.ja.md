@@ -83,3 +83,25 @@ Canvas(120, 120).path(
 グラデーション、エフェクト・プリセット、stagger、マスク、ビューポートクリップ、色・破線トラック、モーションパス、画像、プラグイン、Deckは未対応です。ポリシーで要求しても静止・ラスターに置き換えることはできません。Lottieの読み込み、ZIP化、既存ファイルの編集は提供しません。
 
 `ExportPolicy(reduced_motion=True)`は作成時の静的な絵を`hold`秒出力します。アニメーションの最終ポーズを選ぶわけではありません。他の未対応機能は取り除く必要があります。
+
+## 再生の検証 { #playback-verification }
+
+基準は **lottie-web 5.13.0 SVG** と **Lottie Android 6.7.1** です。Android は
+Robolectric 4.17、Android 15/API 35、mdpi、native graphics 上で公式ライブラリの
+software Drawable を実行します。Linux/JVM の native Skia 検証であり、実機、
+エミュレーター、ARM、GPU の検証ではありません。
+
+既存の正常 31 フレームと空白・停止の対照 13 件を保持し、異なる contour 長、
+空・全体・循環区間、負の offset、morph の長さ変化、半透明 stroke の重なりを
+確認する 6 フレームと対照 2 件を追加しました。9 ファイルを schema 1.0.1 で検証し、
+各プレイヤーが正常 37 フレームと対照 15 件に合格する必要があります。
+
+フレームと描画領域のチャンネル許容差 32、差分 8% 以下、ハッシュ類似度 0.93 以上を
+維持します。全作品の保証ではありません。追加探索の半透明 fill を持つ複数 contour
+morph の 1 フレームは Android の領域ハッシュ基準に不合格でした。長さ変化と共通の
+半透明 stroke は独立した回帰例で確認します。
+
+**Web では SVG レンダラーを使用してください。** Canvas 5.12.2/5.13.0 は一部の
+半透明シーンで不透明度の組み合わせが異なります。iOS native、Android 実機、ARM/GPU、
+実アプリの性能は未検証です。[再実行方法](export-validation.md#lottie-reference-player)を
+参照し、公開前に対象プレイヤーで確認してください。

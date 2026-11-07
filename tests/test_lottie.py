@@ -347,7 +347,7 @@ def test_trim_keeps_fill_native_and_samples_cyclic_stroke_windows(tmp_path):
     stroke, fill, _transform = payload["layers"][0]["shapes"][0]["it"]
     assert [item["ty"] for item in fill["it"]] == ["sh", "fl", "tr"]
     modifier = stroke["it"][-2]
-    assert modifier["ty"] == "tm" and modifier["m"] == 2
+    assert modifier["ty"] == "tm" and modifier["m"] == 1
     # The non-grid delayed start and held boundary survive the same native clock.
     assert modifier["e"]["a"] == 1
     assert [key["t"] for key in modifier["e"]["k"]][:4] == [0, 1, 2, 2.5]

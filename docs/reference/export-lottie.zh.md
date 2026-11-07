@@ -83,3 +83,21 @@ Canvas(120, 120).path(
 渐变、图层效果/预设、stagger 交错动效、遮罩、视口裁剪、色彩/虚线轨道、运动路径、图片、插件以及 Deck 输出均不受支持。Lottie 导出绝不会自动替换为静态画面或光栅回退切片，即便导出策略中显式请求也是如此。系统不提供 Lottie 文件反向导入、ZIP 归档打包或对既有 Lottie 文件的二次编辑功能。
 
 `ExportPolicy(reduced_motion=True)` 会将创作时的静态设计画面导出并保持 `hold` 秒。它不会自动选择动画的最终姿态，其余不受支持的功能特性仍需显式移除。
+
+## 播放验证 { #playback-verification }
+
+参考播放器是 **lottie-web 5.13.0 SVG** 和 **Lottie Android 6.7.1**。Android 检查
+在 Robolectric 4.17、Android 15/API 35、mdpi、native graphics 中执行官方库的
+software Drawable。这是 Linux/JVM native Skia 验证，不是真机、模拟器、ARM 或 GPU 测试。
+
+保留原有 31 个正常帧和 13 个空白/冻结对照，新增 6 帧和 2 个对照，覆盖不同 contour
+长度、空/完整/环绕区间、负 offset、morph 长度变化和重叠的半透明 stroke。
+9 个文件须通过 schema 1.0.1 验证；每个播放器须通过 37 个正常帧和 15 个对照。
+
+保持通道容差 32、差异像素不超过 8%、哈希相似度至少 0.93，同时检查整帧和绘图区域。
+这些限制并不保证所有作品。额外探索中，一个带半透明 fill 的多 contour morph 帧
+未通过 Android 区域哈希限制；长度变化和共用半透明 stroke 使用独立回归示例验证。
+
+**网页请使用 SVG 渲染器。** Canvas 5.12.2/5.13.0 在部分半透明场景中仍有不透明度组合
+差异。iOS native、Android 真机、ARM/GPU 和实际应用性能尚未验证。
+参阅[重新运行检查](export-validation.md#lottie-reference-player)，发布前在目标播放器中预览。

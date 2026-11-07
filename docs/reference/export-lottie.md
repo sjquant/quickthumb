@@ -45,6 +45,18 @@ pause. Preview the file in your target Lottie player before publishing.
 For a curved, filled and stroked logo, run the
 [logo morph example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_morph.py).
 
+For a complete intro with a title, a self-drawing logo that becomes a circle,
+and a rotating badge, run:
+
+```bash
+python -m examples.lottie_intro /tmp/intro.lot
+```
+
+The two-second animation ends with a half-second pause. The title is outlined,
+so playback needs no font files. Change the title, colors, and geometry in the
+[intro example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_intro.py)
+to reuse it.
+
 ## Choose artwork and timing
 
 A single Canvas can include a solid background, solid shapes, SVG Paths,
@@ -143,3 +155,33 @@ provided.
 `ExportPolicy(reduced_motion=True)` exports the authored static artwork for
 `hold` seconds. It does not choose the animation's final pose, and other
 unsupported features still need to be removed.
+
+## Playback verification
+
+The reference players are **lottie-web 5.13.0 (SVG)** and **Lottie Android 6.7.1**
+with Robolectric 4.17 native graphics on Android 15/API 35 at mdpi. The Android
+check runs the official library's software Drawable renderer on Linux/JVM with
+native Skia; it is not a physical device, emulator, ARM or GPU test.
+
+The original 31 frames and 13 blank/frozen controls remain in the check. Six more
+frames and two controls cover unequal contours, empty/full and wrapped windows,
+negative offsets, changing morph lengths, and overlapping translucent strokes.
+All nine files validate against Lottie schema 1.0.1. Each player is checked against
+37 canonical frames and must detect 15 blank/frozen controls, without relaxing
+the image limits. CI retains the web images and measurements; Android reports
+its comparison results in the same job.
+
+The comparison allows up to 32 channel levels, 8% differing pixels, and an
+average-hash similarity of at least 0.93, both across each frame and in its artwork
+regions. These fixture limits allow rasterizer edge differences; they are not
+a guarantee for arbitrary artwork. See
+[how to repeat the player check](export-validation.md#lottie-reference-player).
+
+**Use the SVG renderer for this verified subset.** With lottie-web 5.12.2 and
+5.13.0, the optional Canvas comparison shows incorrect combined paint/layer
+opacity in some translucent scenes. Those Canvas observations do not pass the
+reference limits. iOS native, Android physical devices, ARM/GPU rendering and real-app performance
+remain unverified. Arbitrary combinations of artwork are not covered: an
+exploratory translucent multi-contour morph still exceeded the Android region
+hash limit, although the isolated contour-length and shared-stroke regressions
+pass. Preview your actual file in its destination player before publishing.
