@@ -62,7 +62,7 @@ lottie = [
 pdf = [
     "fonttools>=4.67.0,<5.0.0",
     "pypdfium2>=5.14.0,<6.0.0",
-    "reportlab>=4.0.0,<6.0.0",
+    "reportlab>=5.1.0,<6.0.0",
 ]
 
 [project.scripts]
@@ -82,7 +82,7 @@ dev = [
     "inline-snapshot>=0.31.1,<0.37.0",
     "cairosvg>=2.7.0,<3.0.0",
     "python-pptx>=1.0.2,<2.0",
-    "reportlab>=4.0.0,<6.0.0",
+    "reportlab>=5.1.0,<6.0.0",
     "fonttools>=4.67.0,<5.0.0",
     "pypdfium2>=5.14.0,<6.0.0",
     "pre-commit>=4.7.0,<5.0.0",
