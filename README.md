@@ -5,41 +5,48 @@
 <h1 align="center">quickthumb</h1>
 
 <p align="center">
-  <strong>Thumbnails and social images, from Python or JSON.</strong>
-  <br />
-  Build a layout once. Update the content for your next post.
+  <a href="README.md">English</a> · <a href="README.ko.md">한국어</a> · <a href="README.ja.md">日本語</a> · <a href="README.zh-CN.md">简体中文</a>
 </p>
 
 <p align="center">
-  <a href="https://quickthumb.solaqua.dev/getting-started/">Get started</a>
-  ·
-  <a href="https://quickthumb.solaqua.dev/cookbook/">Browse recipes</a>
-  ·
-  <a href="https://quickthumb.solaqua.dev/api/">API reference</a>
+  <strong>Your next thumbnail, from the same layout.</strong>
 </p>
 
-Define a layout once, then update the headline, episode, or accent color for each
-new image. Use quickthumb in Python scripts and content pipelines that need
-recurring thumbnails, episode cards, or social graphics.
+quickthumb is a **Python library for developers who publish recurring thumbnails and social images**.
+Keep your layout in code, then pass in a new headline, episode number, or color
+to make the next image. Use Python functions or JSON specs in your content pipeline.
 
-![Launch announcement created with quickthumb](examples/launch_announcement.png)
+<p align="center">
+  <a href="https://quickthumb.solaqua.dev/getting-started/">Get started</a> · <a href="https://quickthumb.solaqua.dev/cookbook/">Browse recipes</a> · <a href="https://quickthumb.solaqua.dev/api/">API reference</a>
+</p>
 
-| YouTube thumbnail | Commentary thumbnail | Podcast episode |
+## Make your first three cards
+
+This example turns one layout into three **1280 × 720 episode cards**.
+It uses the base package and built-in font, with no asset downloads after installation.
+
+| 12 | 13 | 14 |
 | --- | --- | --- |
-| [![YouTube thumbnail](examples/youtube_thumbnail_01.png)](https://quickthumb.solaqua.dev/cookbook/youtube-thumbnail/) | [![Commentary thumbnail](examples/youtube_reaction.png)](https://quickthumb.solaqua.dev/cookbook/youtube-thumbnail/#reaction) | [![Podcast interview promo](examples/podcast_interview_promo.png)](https://quickthumb.solaqua.dev/cookbook/podcast-promo/) |
+| ![Episode 12](docs/assets/home/episode-12.png) | ![Episode 13](docs/assets/home/episode-13.png) | ![Episode 14](docs/assets/home/episode-14.png) |
 
-[Explore these layouts and their source →](https://quickthumb.solaqua.dev/cookbook/)
-
-## Quick start
-
-Requires **Python 3.11+**. In your Python environment:
+Requires **Python 3.11+**. Run in a working directory outside the quickthumb
+checkout. Need a virtual environment? See [Installation](https://quickthumb.solaqua.dev/installation/)
+for Bash/Zsh and Windows setup. Then install:
 
 ```bash
 python -m pip install quickthumb
 ```
 
-Save this as `episode_cards.py`. It uses the built-in font and needs no downloads
-after installation:
+Save the complete example below as `episode_cards.py`, then run:
+
+```bash
+python episode_cards.py
+```
+
+Open `episode-12.png`, `episode-13.png`, and `episode-14.png` in the same directory.
+**Each run overwrites these three files.**
+
+The sample titles stay in English so you can try it with the built-in font.
 
 ```python
 from quickthumb import Canvas, Stroke
@@ -107,36 +114,46 @@ for episode, title, accent in episodes:
     episode_card(episode, title, accent).render(f"episode-{episode}.png")
 ```
 
-Run `python episode_cards.py`, then open `episode-12.png`, `episode-13.png`, and
-`episode-14.png` in the same directory. Each is 1280 × 720 pixels.
-Change a title in `episodes` and run it again to replace the corresponding card.
+Change a title or accent color
+in `episodes` and run again to see the same layout with new content.
+Test your longest titles before running a batch.
 
-[Follow the first-use guide →](https://quickthumb.solaqua.dev/getting-started/)
-for environment setup and ways to adapt the layout.
+For other languages, choose a local font with the glyphs you need; see
+[Text](https://quickthumb.solaqua.dev/api/text/). The [first-use guide](https://quickthumb.solaqua.dev/getting-started/)
+explains how to adapt this layout.
 
-## Build a layout you can reuse
+## Keep the layout. Let the content change
 
-- **Keep content separate from layout.** Pass data into a Python function, or
-  load a [JSON spec](https://quickthumb.solaqua.dev/json-schema/) from your pipeline.
-- **Make room for changing text.** Set wrapping and fitting bounds, or use
+- **Separate content from layout.** Reuse a Python function, or load a
+  [JSON spec](https://quickthumb.solaqua.dev/json-schema/) from your pipeline.
+- **Fit changing titles.** Set wrapping and fitting bounds, or use
   [auto-layout groups](https://quickthumb.solaqua.dev/api/group/) for rows and columns.
-- **Catch common layout problems.** `diagnose()` flags issues such as off-canvas
-  layers, small text, and low contrast before export.
+- **Check before export.** `diagnose()` flags common issues such as off-canvas
+  layers, small text, and low contrast. It does not judge design quality;
+  see [diagnostic limits](https://quickthumb.solaqua.dev/diagnostics/).
 
-Rendering can be repeated with fixed assets, fonts, and rendering environment.
-See [reproducibility requirements](https://quickthumb.solaqua.dev/exports/#render-reproducibility)
-when matching pixels across runs or machines.
+To reproduce a render, retain the assets, fonts, and rendering environment.
+See [reproducibility requirements](https://quickthumb.solaqua.dev/reference/export-assets/#render-reproducibility)
+before expecting matching pixels across runs or machines.
 
-## Export and extend
+## Start from a working design
+
+![Launch announcement created with quickthumb](examples/launch_announcement.png)
+
+| YouTube thumbnail | Commentary thumbnail | Podcast episode |
+| --- | --- | --- |
+| [![YouTube thumbnail](examples/youtube_thumbnail_01.png)](https://quickthumb.solaqua.dev/cookbook/youtube-thumbnail/) | [![Commentary thumbnail](examples/youtube_reaction.png)](https://quickthumb.solaqua.dev/cookbook/youtube-thumbnail/#reaction) | [![Podcast episode](examples/podcast_interview_promo.png)](https://quickthumb.solaqua.dev/cookbook/podcast-promo/) |
+
+[Explore the layouts and their source →](https://quickthumb.solaqua.dev/cookbook/)
+
+## Need another output?
 
 The base package exports PNG, JPEG, WebP, SVG, HTML, and GIF. PDF and PPTX need
 optional packages; MP4 and WebM need FFmpeg. Format support and visual behavior
-vary: see [Installation](https://quickthumb.solaqua.dev/installation/) and
-[Exporting](https://quickthumb.solaqua.dev/exports/).
+vary: see [Installation](https://quickthumb.solaqua.dev/installation/) and [Exporting](https://quickthumb.solaqua.dev/exports/).
 
 For multi-slide presentations and narrated video, see the
-[Deck guide](https://quickthumb.solaqua.dev/api/deck/).
-For generated JSON specs, see the
+[Deck guide](https://quickthumb.solaqua.dev/api/deck/). For generated JSON specs, see the
 [JSON & AI workflow](https://quickthumb.solaqua.dev/json-schema/).
 
 ## License
