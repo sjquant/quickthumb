@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, cast, runtime_checkable
 
+from quickthumb._dependencies import FontReference, layer_dependencies
 from quickthumb.asset_cache import ResolvedAsset, format_timestamp
 from quickthumb.errors import (
     ErrorDetail,
@@ -32,7 +33,6 @@ from quickthumb.models import (
     LottieOptions,
     MotionBlur,
     PixelMetrics,
-    PluginLayer,
     PrefetchResult,
     TimingMetrics,
     ValidationReport,
@@ -667,59 +667,14 @@ def _asset_manifest(
     seen: set[tuple[str, str]] = set()
 
     for layer in _contract_layers(source):
-        for asset_type, value in _layer_asset_values(layer):
-            _append_asset_entry(entries, seen, asset_type, value, record_for)
+        for reference in layer_dependencies(layer):
+            if isinstance(reference, FontReference) and not reference.is_asset:
+                continue
+            _append_asset_entry(entries, seen, reference.asset_type, reference.source, record_for)
     for path in _contract_audio_paths(source):
         if path is not None:
             _append_asset_entry(entries, seen, "audio", path, record_for)
     return entries
-
-
-def _layer_asset_values(layer: object):
-    layer_type = getattr(layer, "type", None)
-    if isinstance(layer, PluginLayer):
-        for source in layer.assets.values():
-            yield "plugin", source
-    for field in ("path", "source"):
-        value = getattr(layer, field, None)
-        if isinstance(value, str):
-            asset_type = {
-                "image": "image",
-                "svg": "svg",
-                "video": "video",
-            }.get(str(layer_type), field)
-            yield asset_type, value
-    image = getattr(layer, "image", None)
-    if isinstance(image, str):
-        yield "image", image
-    font = getattr(layer, "font", None)
-    font_source = getattr(layer, "font_source", None)
-    if isinstance(font, str) and (_is_url(font) or os.path.isfile(font) or font_source == "google"):
-        yield "font", font
-    captions = getattr(layer, "captions", None)
-    if isinstance(captions, list):
-        for caption in captions:
-            caption_font = getattr(caption, "font", None)
-            if isinstance(caption_font, str) and (
-                _is_url(caption_font) or os.path.isfile(caption_font)
-            ):
-                yield "font", caption_font
-    fill = getattr(layer, "fill", None)
-    fill_path = getattr(fill, "path", None)
-    if isinstance(fill_path, str):
-        yield "text-fill", fill_path
-    content = getattr(layer, "content", None)
-    if isinstance(content, list):
-        for part in content:
-            part_fill_path = getattr(getattr(part, "fill", None), "path", None)
-            if isinstance(part_fill_path, str):
-                yield "text-fill", part_fill_path
-            part_font = getattr(part, "font", None)
-            part_font_source = getattr(part, "font_source", None) or font_source
-            if isinstance(part_font, str) and (
-                _is_url(part_font) or os.path.isfile(part_font) or part_font_source == "google"
-            ):
-                yield "font", part_font
 
 
 def _append_asset_entry(

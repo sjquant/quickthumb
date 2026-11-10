@@ -97,3 +97,60 @@ PYTHONPATH=. python scripts/check_html_fidelity.py \
 `uv run --locked pytest tests/test_static_export_matrix.py --no-cov -q` を実行してください。既存の品質ワークフローは、SVG/PDF/PPTX extra とネイティブ Cairo を用意して `pytest tests/` からこのファイルを実行しています。任意の観測機能がないローカル環境では、依存関係の理由を示して該当ケースをスキップします。Pytest のケース ID は形式と文書種別を示します。各ケースの一時ディレクトリには、ソース JSON、基準 PNG、実際の出力、JSON 結果レポートを保持します。測定したレポートには、レンダラーのバージョン、基準環境、限界値、指標が入ります。失敗はプラットフォーム固有のスクリーンショットではなく、共通の検証データと名前付き形式検査から再現できます。
 
 これは範囲を限定した静的な検査です。ブラウザー実行、PPTX ビューアーのピクセル・フォント・時間の保証、Deck PDF の忠実度ポリシーの追加は行いません。別の HTML ブラウザーハーネスやネイティブのプレゼンテーションビューアー観測には、それぞれの実行と環境の証拠が必要です。構造上の成功を、描画ピクセルの忠実度の判定として報告してはいけません。
+
+## Lottie 基準プレイヤー { #lottie-reference-player }
+
+基準は **lottie-web 5.13.0 SVG** と公式 **Lottie Android 6.7.1** です。Androidは
+Robolectric 4.17 NATIVE graphics、Android 15/API 35、mdpi、software Drawableを
+Linux/JVMで実行します。9ファイルをschema 1.0.1で検証し、各プレーヤーで正常37フレームと
+空白・停止対照15件を確認します。既存31+13に、複数輪郭トリム・長さ変化・共通の半透明線を
+調べる6+2を追加しました。全体と描画領域の両方でチャンネル許容差32、差分8%以下、
+ハッシュ0.93以上を維持し、共通線の内部画素はチャンネル差2以下を要求します。
+
+既存のWeb CI artifactにAndroidの`report.json`、`execution.json`、`maven.log`を失敗時も
+保持します。Native PNGはジョブ内に残るため、同じmanifestを再実行して取得できます。
+実際のAndroidライブラリ/native graphicsであり、実機・エミュレーター・ARM/GPU・iOS・
+アプリ性能のテストではありません。利用手順は[ガイド](export-lottie.md#play-it-on-the-web)へ。
+
+### 半透明fill/strokeの調査
+
+探索例の960×640、frame 0ではAndroid ROI `(500,320)-(860,560)`のハッシュが
+**0.921875**で基準**0.93**に届きません。画素差分**3.2928%**は8%以内です。
+全体ハッシュ1.0、差分1.5653%で、同じ入力の再出力でも再現します。他のレイヤーや
+morphアニメーションを除いても同じ結果です。fillのみ・strokeのみは合格し、Androidの
+結合結果は分離したfillの上にstrokeを合成した結果と完全に一致します。
+
+許容差32を超える2,845画素はすべてアルファ境界付近です。両レンダラーの分離した
+fill/strokeのアルファ範囲が7×7近傍で2以内の65,459画素では最大チャンネル差は2です。
+morph長さの計算より描画境界のラスタライズ・合成を示唆しますが、exporterの欠陥や
+旧版からの回帰は証明していません。52件の検査を維持し、不透明fillのmorphと共通の
+半透明strokeは別々に検査します。
+
+再現には`examples.lottie_trim_multi.build_canvas()`の`id="morph"`だけを
+`color="#159A8C40"`にして`LottieOptions(fps=24, hold=0.5)`で出力し、
+`render_frame(0)`とAndroid frame 0を上記ROI・基準で比較します。他レイヤー、
+`animation`、`stroke`または`color`を除いて対照を作れます。
+
+文字の上限は1レイヤー1,024文字、65,536頂点、フォント64 MiBです。複数文字のRAQMは
+明示した0以外の字間、字間なしBASICは加算可能な送り幅を必要とします。精度・作業量の
+検査は中間サンプルのコンパイルを含め書き込み前に完了します。
+
+```bash
+uv sync --locked --extra lottie --dev
+npm ci --prefix tests/fixtures/lottie/player --ignore-scripts --no-audit --no-fund
+PYTHONPATH=. uv run --locked python scripts/check_lottie_fidelity.py \
+  --chrome /path/to/chrome \
+  --player tests/fixtures/lottie/player/node_modules/lottie-web/build/player/lottie.min.js \
+  --output /tmp/quickthumb-lottie-observations
+```
+
+### Android native graphics の再実行
+
+Web 検査の manifest と既存の JDK 21、Maven 3.9+ を使用します。Maven はテスト専用依存を取得します。
+
+```bash
+PYTHONPATH=. uv run --locked python scripts/check_lottie_android.py \
+  --maven /path/to/mvn --java-home /path/to/jdk-21 \
+  --cases /tmp/quickthumb-lottie-observations/cases.json \
+  --output /tmp/quickthumb-android-observations
+```

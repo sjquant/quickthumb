@@ -1,0 +1,7 @@
+{
+  "name": "quickthumb-lottie-reference",
+  "private": true,
+  "dependencies": {
+    "lottie-web": "5.13.0"
+  }
+}

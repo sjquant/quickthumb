@@ -137,11 +137,28 @@ def layer_pose(canvas, layer, shapes, timeline, fps, boundaries, geometry=None):
         )
     )
     trim = None
+    trim_work = 0
+    trim_lengths = None
     if isinstance(layer, PathLayer) and layer.stroke:
         from quickthumb._lottie_trim import needs_trim, trim_length_bound, trim_properties
 
         if needs_trim(layer):
-            trim = shapes[0]["it"][-2]
+            stroke_items = shapes[0]["it"]
+            trim = (
+                [stroke_items[-2]]
+                if stroke_items[-2]["ty"] == "tm"
+                else [group["it"][-2] for group in stroke_items[:-2]]
+            )
+            if len(times) * len(trim) > _MAX_OBSERVATIONS:
+                raise RenderingError(
+                    "Lottie exceeds 100000 trim samples; lower fps or simplify paths",
+                    path="/animation",
+                )
+            trim_rows = [[] for _ in trim]
+            if len(trim) > 1 and not morph:
+                from quickthumb._lottie_trim import contour_lengths
+
+                trim_lengths, trim_work = contour_lengths(layer)
             length_bound = trim_length_bound(layer)
     for time in times:
         state = (
@@ -200,7 +217,23 @@ def layer_pose(canvas, layer, shapes, timeline, fps, boundaries, geometry=None):
         if trim is not None:
             if morph:
                 length_bound = trim_length_bound(sampled)
-            trim_rows.append(trim_properties(layer, state, length_bound))
+            if len(trim) == 1:
+                properties = [trim_properties(layer, state, length_bound)]
+            else:
+                from quickthumb._lottie_trim import contour_lengths, contour_trim_properties
+
+                if morph:
+                    trim_lengths, work = contour_lengths(sampled)
+                    trim_work += work
+                if trim_work + morph_vertices + len(times) * len(trim) > _MAX_OBSERVATIONS:
+                    raise RenderingError(
+                        "Lottie exceeds 100000 trim geometry observations; simplify paths",
+                        path="/animation",
+                    )
+                assert trim_lengths is not None
+                properties = contour_trim_properties(layer, state, length_bound, trim_lengths)
+            for rows_for_contour, values in zip(trim_rows, properties, strict=True):
+                rows_for_contour.append(values)
     if morph:
         # lottie-web fixes each animated shape's vertex count and closedness at creation.
         lengths = [
@@ -223,24 +256,30 @@ def layer_pose(canvas, layer, shapes, timeline, fps, boundaries, geometry=None):
                         contour["o"].append([0, 0])
                     contour["o"][-1] = closing_handle
 
+        seen = set()
+
         def animate_paths(items):
-            contour = 0
             for shape in items:
                 if shape["ty"] == "gr":
                     animate_paths(shape["it"])
-                elif shape["ty"] == "sh":
+                elif shape["ty"] == "sh" and id(shape) not in seen:
+                    contour = len(seen)
+                    seen.add(id(shape))
                     shape["ks"] = _sampled_properties(
                         times, [{"ks": row[contour]} for row in morph_rows], fps
                     )["ks"]
-                    contour += 1
 
         animate_paths(shapes)
     if trim is not None:
-        trim.update(_sampled_properties(times, trim_rows, fps))
+        for modifier, contour_rows in zip(trim, trim_rows, strict=True):
+            modifier.update(_sampled_properties(times, contour_rows, fps))
     return (
         transformed,
         _sampled_properties(times, rows, fps),
-        (len(times) if timeline else 0) + morph_vertices,
+        (len(times) if timeline else 0)
+        + morph_vertices
+        + (len(times) * (len(trim) - 1) if trim else 0)
+        + trim_work,
     )
 
 
