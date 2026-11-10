@@ -870,7 +870,7 @@ class TextEngine:
         line_heights, total_height = self._calculate_rich_text_dimensions(layer, lines)
         base_x, current_y = self._calculate_start_position(layer, total_height)
         placed_lines: list[list[RichTextRun]] = []
-        max_width = 0
+        line_widths = []
         for line_parts, line_height in zip(lines, line_heights, strict=True):
             runs = []
             for part in line_parts:
@@ -886,7 +886,7 @@ class TextEngine:
                 width, _ = self.measure_text_bounds(part["text"], font, part["letter_spacing"])
                 runs.append(RichTextRun(part, font, (0, 0), width))
             line_width = sum(run.width for run in runs)
-            max_width = max(max_width, line_width)
+            line_widths.append(line_width)
             current_x = self.get_horizontal_start_x(base_x, line_width, layer.align)
             for run in runs:
                 bbox = run.font.getbbox(run.part["text"])
@@ -895,7 +895,9 @@ class TextEngine:
                 current_x += run.width
             placed_lines.append(runs)
             current_y += line_height
-        return RichTextLayout(placed_lines, line_heights, (max_width, total_height))
+        return RichTextLayout(
+            placed_lines, line_heights, (max(line_widths, default=0), total_height)
+        )
 
     def _prepare_rich_text_lines(
         self, layer: TextLayer, apply_wrapping: bool = True

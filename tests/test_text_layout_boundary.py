@@ -116,3 +116,51 @@ def test_rotation_stage_matches_native_transform_and_measured_size(monkeypatch, 
         position[0] + (rotated_size[0] - staged_size[0]) / 2,
         position[1] + (rotated_size[1] - staged_size[1]) / 2,
     )
+
+
+@pytest.mark.parametrize("content", ["AA", "AA\nAA", "AA\n"])
+def test_rich_measurement_preserves_negative_line_width(content):
+    canvas = Canvas(150, 120).text([TextPart(text=content, letter_spacing=-25)], size=16)
+    layer = canvas._layers[0]
+    assert isinstance(layer, TextLayer)
+    font = canvas._fonts.load_font(layer)
+    widths = [canvas._text.measure_text_bounds(line, font, -25)[0] for line in content.split("\n")]
+    expected = max(widths)
+    if not content.endswith("\n"):
+        assert expected < 0
+    assert canvas._text.measure_text_size(layer)[0] == expected
+    assert canvas._text.rotation_stage(layer).size[0] == expected + 20
+
+
+@pytest.mark.parametrize("rich", [False, True])
+@pytest.mark.parametrize("align", [("center", "middle"), ("right", "bottom")])
+@pytest.mark.parametrize("rotation", [27, 1e-14, -1e-14, 89.99999999999999, 90.00000000000001])
+def test_rotated_text_keeps_legacy_pillow_alignment(rich, align, rotation):
+    from quickthumb._base import apply_alignment
+
+    content = [TextPart(text="AA", letter_spacing=-25)] if rich else "AA"
+    canvas = Canvas(150, 120).text(
+        content, size=16, position=(100, 90), align=align, rotation=rotation
+    )
+    layer = canvas._layers[0]
+    assert isinstance(layer, TextLayer)
+    width, height = canvas._text.measure_text_size(layer)
+    staged_size = (width + 20, height + 20)
+    staging = Image.new("RGBA", staged_size)
+    inner = layer.model_copy(update={"position": (10, 10), "align": None, "rotation": 0})
+    canvas._text.render_text_layer(staging, inner)
+    rotated = staging.rotate(-rotation, expand=True, resample=Image.Resampling.BICUBIC)
+    assert layer.align is not None
+    position = apply_alignment(100, 90, rotated.size, layer.align)
+    expected = Image.new("RGBA", (150, 120))
+    expected.alpha_composite(rotated, position)
+
+    actual = Image.new("RGBA", (150, 120))
+    canvas._text.render_text_layer(actual, layer)
+    assert actual.tobytes() == expected.tobytes()
+    assert canvas._text.measure_text_rendered_size(layer) == rotated.size
+    exported = compute_text_layout(canvas, layer)
+    assert exported.origin == (
+        position[0] + (rotated.width - staged_size[0]) / 2,
+        position[1] + (rotated.height - staged_size[1]) / 2,
+    )
