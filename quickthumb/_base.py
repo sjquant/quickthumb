@@ -139,15 +139,16 @@ def expanded_rotation_size(
     downscale by `scale` with rounding. Use scale=1 for render paths that rotate
     without supersampling (e.g. text layers).
     """
-    angle = rotation % 360
+    # Match Pillow's normalization before its fast paths and 15-digit trig rounding.
+    angle = -rotation % 360.0
     if angle in (0, 180):
         return size
     if angle in (90, 270):
         return size[1], size[0]
 
     w, h = size[0] * scale, size[1] * scale
-    rad = -math.radians(-rotation % 360)
-    cos, sin = math.cos(rad), math.sin(rad)
+    rad = -math.radians(angle)
+    cos, sin = round(math.cos(rad), 15), round(math.sin(rad), 15)
     matrix = [cos, sin, 0.0, -sin, cos, 0.0]
     cx, cy = w / 2.0, h / 2.0
     matrix[2] = cx - (matrix[0] * cx + matrix[1] * cy)

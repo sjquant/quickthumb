@@ -4,8 +4,8 @@ The exporters keep layers as native vector/text primitives where the target
 format can express them, and fall back to embedding pixel-exact PNG fragments
 rendered by the regular PIL pipeline everywhere else. This module hosts the
 pieces they share: layer flattening, backdrop-dependency splitting, per-layer
-rasterization, font-face resolution/embedding, and a text block layout that
-mirrors TextEngine's positioning math run for run.
+rasterization, font-face resolution/embedding, and document text runs adapted
+from TextEngine's resolved placement.
 """
 
 from __future__ import annotations
@@ -22,12 +22,8 @@ from typing import TYPE_CHECKING, TypeVar
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 from quickthumb._base import (
-    DEFAULT_LINE_HEIGHT_MULTIPLIER,
     DEFAULT_TEXT_COLOR,
     FontType,
-    apply_alignment,
-    expanded_rotation_size,
-    parse_coordinate,
 )
 from quickthumb._composition import has_layer_composition, layer_depends_on_backdrop
 from quickthumb.errors import RenderingError
@@ -935,7 +931,7 @@ class TextRunLayout:
 
 @dataclass
 class TextBlockLayout:
-    """A text layer resolved into positioned runs, mirroring TextEngine output."""
+    """A document view of the text engine's positioned runs."""
 
     lines: list[list[TextRunLayout]]
     line_heights: list[int]
@@ -980,37 +976,13 @@ def _compute_rotated_layout(canvas: Canvas, layer: TextLayer) -> TextBlockLayout
     """Mirror the engine's rotate-a-staging-image path as a transform description."""
     text = canvas._text
 
-    text_w, text_h = text.measure_text_size(layer)
-    if isinstance(layer.content, list):
-        padding = text._calculate_rich_text_effects_padding(layer)
-    else:
-        padding = text._calculate_text_effects_padding(
-            text._get_stroke_effects(layer.effects),
-            text._get_shadow_effects(layer.effects),
-            text._get_glow_effects(layer.effects),
-        )
-
-    temp_w, temp_h = text_w + padding * 2, text_h + padding * 2
-    rotated_size = expanded_rotation_size((temp_w, temp_h), layer.rotation, scale=1)
-
-    base_x, base_y = text.get_text_base_position(layer)
-    if layer.align:
-        base_x, base_y = apply_alignment(base_x, base_y, rotated_size, layer.align)
-
+    stage = text.rotation_stage(layer)
+    temp_w, temp_h = stage.size
     origin = (
-        base_x + (rotated_size[0] - temp_w) / 2,
-        base_y + (rotated_size[1] - temp_h) / 2,
+        stage.position[0] + (stage.rotated_size[0] - temp_w) / 2,
+        stage.position[1] + (stage.rotated_size[1] - temp_h) / 2,
     )
-
-    inner_layer = layer.model_copy(
-        update={
-            "position": (padding, padding),
-            "align": None,
-            "rotation": 0.0,
-            "auto_scale": False,
-        }
-    )
-    inner = compute_text_layout(canvas, inner_layer)
+    inner = compute_text_layout(canvas, stage.inner_layer(layer))
     return TextBlockLayout(
         lines=inner.lines,
         line_heights=inner.line_heights,
@@ -1028,25 +1000,15 @@ def _layout_simple(
     canvas: Canvas, layer: TextLayer
 ) -> tuple[list[list[TextRunLayout]], list[int], list[Background], Box | None]:
     text = canvas._text
-    font = canvas._fonts.load_font(layer)
+    layout = text.layout_simple_text(layer)
+    font = layout.font
     color = color_to_rgba(canvas, layer.color) if layer.color else (*DEFAULT_TEXT_COLOR, 255)
     content = layer.content if isinstance(layer.content, str) else ""
 
     if not content:
         return [], [], [], None
-
-    if layer.max_width:
-        max_width_px = parse_coordinate(layer.max_width, canvas._ctx.width)
-        lines_text = text._wrap_text(
-            content,
-            font,
-            max_width_px,
-            layer.letter_spacing,
-            balance_lines=layer.balance_lines,
-        )
-        return _layout_simple_multiline(canvas, layer, lines_text, font, color)
-    if "\n" in content:
-        return _layout_simple_multiline(canvas, layer, content.split("\n"), font, color)
+    if layout.multiline:
+        return _layout_simple_multiline(canvas, layer, layout, color)
     if layer.letter_spacing:
         return _layout_simple_letter_spaced(canvas, layer, content, font, color)
     return _layout_simple_anchor(canvas, layer, content, font, color)
@@ -1171,43 +1133,16 @@ def _layout_simple_letter_spaced(canvas, layer, content, font, color):
     return [[run]], [], [], None
 
 
-def _layout_simple_multiline(canvas, layer, lines_text, font, color):
-    """Wrapped or explicit multi-line text: mirrors _render_multiline_text."""
+def _layout_simple_multiline(canvas, layer, layout, color):
+    """Adapt the engine's positioned lines into document runs."""
     text = canvas._text
-    multiplier = layer.line_height or DEFAULT_LINE_HEIGHT_MULTIPLIER
-    line_height = text._calculate_line_height(font, multiplier)
-    total_height = line_height * len(lines_text)
-
-    base_x, base_y = text.get_text_base_position(layer)
-    start_y = text.get_vertical_start_y(base_y, total_height, layer.align)
+    font = layout.font
+    line_layouts = layout.positions
     letter_spacing = layer.letter_spacing or 0
 
-    line_layouts: list[tuple[str, float, float, tuple]] = []
-    for index, line in enumerate(lines_text):
-        line_width, _ = text.measure_text_bounds(line, font, letter_spacing, multiplier)
-        y = start_y + index * line_height
-        x = text.get_horizontal_start_x(base_x, line_width, layer.align)
-        bbox = font.getbbox(line, anchor="lt")
-        line_layouts.append((line, x, y, bbox))
-
-    # Background and fill boxes span the whole block, exactly as the engine computes.
-    content_box = union_boxes(
-        [(x + bbox[0], y + bbox[1], x + bbox[2], y + bbox[3]) for _, x, y, bbox in line_layouts]
-    )
-    assert content_box is not None  # lines_text is never empty here
-    if layer.fill and letter_spacing:
-        spaced_widths = {
-            line: text._calculate_spaced_text_width(line, font, letter_spacing)[0]
-            for line, _, _, _ in line_layouts
-        }
-        fill_box = (
-            min(x for _, x, _, _ in line_layouts),
-            content_box[1],
-            max(x + spaced_widths[line] for line, x, _, _ in line_layouts),
-            content_box[3],
-        )
-    else:
-        fill_box = content_box
+    content_box = layout.content_box
+    fill_box = layout.fill_box
+    assert content_box is not None  # wrapped and explicit lines include empty lines
 
     backgrounds = text._get_background_effects(layer.effects)
     lines: list[list[TextRunLayout]] = []
@@ -1248,48 +1183,22 @@ def _layout_simple_multiline(canvas, layer, lines_text, font, color):
         )
         lines.append([run])
 
-    line_heights = [line_height] * len(lines_text)
+    line_heights = [layout.line_height] * len(layout.lines)
     return lines, line_heights, backgrounds, content_box
 
 
 def _layout_rich(canvas, layer) -> tuple[list[list[TextRunLayout]], list[int]]:
-    """Rich (multi-part) text: mirrors _render_rich_text / _draw_rich_text_lines."""
+    """Adapt the engine's positioned rich parts into document runs."""
     text = canvas._text
-    fonts = canvas._fonts
-
-    lines_data = text._prepare_rich_text_lines(layer, apply_wrapping=layer.max_width is not None)
-    line_heights, total_height = text._calculate_rich_text_dimensions(layer, lines_data)
-    base_x, start_y = text._calculate_start_position(layer, total_height)
-
+    layout = text.layout_rich_text(layer)
     lines: list[list[TextRunLayout]] = []
-    current_y = start_y
-    for index, line_parts in enumerate(lines_data):
-        line_height = line_heights[index]
-
-        metadata = []
-        line_width = 0
-        for part in line_parts:
-            font = fonts.load_font_variant(
-                part["font_name"],
-                part["size"],
-                part["bold"],
-                part["italic"],
-                part["weight"],
-                part["font_source"],
-                part["font_variations"],
-            )
-            width, _ = text.measure_text_bounds(part["text"], font, part["letter_spacing"])
-            metadata.append((font, width))
-            line_width += width
-
-        current_x = text.get_horizontal_start_x(base_x, line_width, layer.align)
+    for line in layout.lines:
         runs: list[TextRunLayout] = []
-        for part, (font, width) in zip(line_parts, metadata, strict=True):
+        for placed in line:
+            part, font = placed.part, placed.font
+            current_x, adjusted_y = placed.position
             bbox_default = font.getbbox(part["text"])
             text_height = int(bbox_default[3] - bbox_default[1])
-            vertical_offset = (line_height - text_height) // 2
-            adjusted_y = current_y + vertical_offset
-
             bbox_top = font.getbbox(part["text"], anchor="lt")
             bbox_baseline = font.getbbox(part["text"], anchor="ls")
             letter_spacing = part["letter_spacing"]
@@ -1357,9 +1266,7 @@ def _layout_rich(canvas, layer) -> tuple[list[list[TextRunLayout]], list[int]]:
                     bg_box=bg_box,
                 )
             )
-            current_x += width
 
         lines.append(runs)
-        current_y += line_height
 
-    return lines, line_heights
+    return lines, layout.line_heights
