@@ -1,0 +1,2896 @@
+
+<!doctype html>
+<html lang="ja" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="再利用できるPythonのレイアウトからエピソードカードを3枚作り、内容を変えて自分のカードに仕上げます。">
+      
+      
+        <meta name="author" content="Seonu Jang">
+      
+      
+        <link rel="canonical" href="https://quickthumb.solaqua.dev/ja/getting-started/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../installation/">
+      
+      
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/getting-started/" hreflang="en">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ko/getting-started/" hreflang="ko">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ja/getting-started/" hreflang="ja">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/zh/getting-started/" hreflang="zh-CN">
+        
+      
+      
+      <link rel="icon" href="../../assets/brand/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+  
+  <title>quickthumb - 最初のカードを作る</title>
+  
+
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  
+  
+  
+  
+    
+  
+  
+  
+  
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ja_JP">
+  
+    
+      
+  <link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/getting-started/">
+      
+      
+  <meta property="og:locale:alternate" content="en_US">
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="ko_KR">
+      
+    
+      
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="zh_CN">
+      
+    
+  
+  <meta property="og:site_name" content="quickthumb">
+  <meta property="og:title" content="quickthumb - 最初のカードを作る">
+  <meta property="og:description" content="再利用できるPythonのレイアウトからエピソードカードを3枚作り、内容を変えて自分のカードに仕上げます。">
+  
+  <meta property="og:url" content="https://quickthumb.solaqua.dev/ja/getting-started/">
+  
+  <meta property="og:image" content="https://quickthumb.solaqua.dev/assets/home/episode-12.png">
+  <meta property="og:image:alt" content="オレンジ色の帯に大きな12と「Ship your first release」を配置したエピソード12のカード">
+  
+  <meta property="og:image:width" content="1280">
+  <meta property="og:image:height" content="720">
+  
+  <meta name="twitter:image" content="https://quickthumb.solaqua.dev/assets/home/episode-12.png">
+  <meta name="twitter:image:alt" content="オレンジ色の帯に大きな12と「Ship your first release」を配置したエピソード12のカード">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="quickthumb - 最初のカードを作る">
+  <meta name="twitter:description" content="再利用できるPythonのレイアウトからエピソードカードを3枚作り、内容を変えて自分のカードに仕上げます。">
+  
+  <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "@id": "https://quickthumb.solaqua.dev/ja/#website", "url": "https://quickthumb.solaqua.dev/ja/", "name": "quickthumb", "description": "PythonまたはJSONで画像、プレゼンテーション、アニメーション動画を作成します。", "inLanguage": "ja", "publisher": {"@id": "https://quickthumb.solaqua.dev/#author"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}}, {"@type": "Person", "@id": "https://quickthumb.solaqua.dev/#author", "name": "Seonu Jang"}, {"@type": "SoftwareApplication", "@id": "https://quickthumb.solaqua.dev/#software", "name": "quickthumb", "url": "https://quickthumb.solaqua.dev/", "description": "PythonまたはJSONで画像、プレゼンテーション、アニメーション動画を作成します。", "applicationCategory": "MultimediaApplication", "softwareVersion": "0.8.0", "softwareRequirements": "Python >=3.11", "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE", "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "sameAs": ["https://github.com/sjquant/quickthumb", "https://pypi.org/project/quickthumb/"]}, {"@type": "SoftwareSourceCode", "@id": "https://quickthumb.solaqua.dev/#source", "name": "quickthumb", "codeRepository": "https://github.com/sjquant/quickthumb", "programmingLanguage": "Python", "runtimePlatform": "Python >=3.11", "targetProduct": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE"}, {"@type": "WebPage", "@id": "https://quickthumb.solaqua.dev/ja/getting-started/#webpage", "url": "https://quickthumb.solaqua.dev/ja/getting-started/", "name": "最初のカードを作る", "description": "再利用できるPythonのレイアウトからエピソードカードを3枚作り、内容を変えて自分のカードに仕上げます。", "inLanguage": "ja", "isPartOf": {"@id": "https://quickthumb.solaqua.dev/ja/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "primaryImageOfPage": {"@type": "ImageObject", "url": "https://quickthumb.solaqua.dev/assets/home/episode-12.png", "caption": "オレンジ色の帯に大きな12と「Ship your first release」を配置したエピソード12のカード", "width": 1280, "height": 720}, "mainEntity": {"@id": "https://quickthumb.solaqua.dev/ja/getting-started/#document"}, "breadcrumb": {"@id": "https://quickthumb.solaqua.dev/ja/getting-started/#breadcrumbs"}}, {"@type": "BreadcrumbList", "@id": "https://quickthumb.solaqua.dev/ja/getting-started/#breadcrumbs", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "quickthumb", "item": "https://quickthumb.solaqua.dev/ja/"}, {"@type": "ListItem", "position": 2, "name": "最初のカードを作る", "item": "https://quickthumb.solaqua.dev/ja/getting-started/"}]}, {"@type": "HowTo", "@id": "https://quickthumb.solaqua.dev/ja/getting-started/#document", "url": "https://quickthumb.solaqua.dev/ja/getting-started/", "name": "最初のカードを作る", "description": "再利用できるPythonのレイアウトからエピソードカードを3枚作り、内容を変えて自分のカードに仕上げます。", "inLanguage": "ja", "mainEntityOfPage": {"@id": "https://quickthumb.solaqua.dev/ja/getting-started/#webpage"}, "isPartOf": {"@id": "https://quickthumb.solaqua.dev/ja/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "step": [{"@type": "HowToStep", "@id": "https://quickthumb.solaqua.dev/ja/getting-started/#1-install-quickthumb", "url": "https://quickthumb.solaqua.dev/ja/getting-started/#1-install-quickthumb", "name": "1. quickthumbをインストールする", "text": "\u003cp>\u003cstrong>Python 3.11以降\u003c/strong>が必要です。Python環境で次を実行します。\u003c/p>\n\u003cdiv class=\"language-bash highlight\">\u003cpre>\u003cspan>\u003c/span>\u003ccode>\u003ca id=\"__codelineno-0-1\" name=\"__codelineno-0-1\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-0-1\">\u003c/a>python\u003cspan class=\"w\"> \u003c/span>-m\u003cspan class=\"w\"> \u003c/span>pip\u003cspan class=\"w\"> \u003c/span>install\u003cspan class=\"w\"> \u003c/span>quickthumb\n\u003c/code>\u003c/pre>\u003c/div>\n\u003cp>環境の準備から始める場合は、\u003ca href=\"https://quickthumb.solaqua.dev/ja/installation/#isolated-environment\">インストール\u003c/a>の手順を終えてから戻ってください。この例で使うのは基本パッケージと内蔵フォントだけです。インストール後にフォントや写真をダウンロードしたり、追加のレンダラーを用意したりする必要はありません。\u003c/p>"}, {"@type": "HowToStep", "@id": "https://quickthumb.solaqua.dev/ja/getting-started/#2-save-and-run-the-layout", "url": "https://quickthumb.solaqua.dev/ja/getting-started/#2-save-and-run-the-layout", "name": "2. レイアウトを保存して実行する", "text": "\u003cp>quickthumbのチェックアウトとは別の作業ディレクトリに、次のコードを\u003ccode>episode_cards.py\u003c/code>として保存します。\u003c/p>\n\u003cdiv class=\"language-python highlight\">\u003cpre>\u003cspan>\u003c/span>\u003ccode>\u003ca id=\"__codelineno-1-1\" name=\"__codelineno-1-1\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-1\">\u003c/a>\u003cspan class=\"kn\">from\u003c/span>\u003cspan class=\"w\"> \u003c/span>\u003cspan class=\"nn\">quickthumb\u003c/span>\u003cspan class=\"w\"> \u003c/span>\u003cspan class=\"kn\">import\u003c/span> \u003cspan class=\"n\">Canvas\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">Stroke\u003c/span>\n\u003ca id=\"__codelineno-1-2\" name=\"__codelineno-1-2\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-2\">\u003c/a>\n\u003ca id=\"__codelineno-1-3\" name=\"__codelineno-1-3\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-3\">\u003c/a>\u003cspan class=\"n\">INK\u003c/span> \u003cspan class=\"o\">=\u003c/span> \u003cspan class=\"s2\">\"#111111\"\u003c/span>\n\u003ca id=\"__codelineno-1-4\" name=\"__codelineno-1-4\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-4\">\u003c/a>\u003cspan class=\"n\">WHITE\u003c/span> \u003cspan class=\"o\">=\u003c/span> \u003cspan class=\"s2\">\"#FFFFFF\"\u003c/span>\n\u003ca id=\"__codelineno-1-5\" name=\"__codelineno-1-5\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-5\">\u003c/a>\n\u003ca id=\"__codelineno-1-6\" name=\"__codelineno-1-6\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-6\">\u003c/a>\n\u003ca id=\"__codelineno-1-7\" name=\"__codelineno-1-7\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-7\">\u003c/a>\u003cspan class=\"k\">def\u003c/span>\u003cspan class=\"w\"> \u003c/span>\u003cspan class=\"nf\">episode_card\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"n\">episode\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">title\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">accent\u003c/span>\u003cspan class=\"p\">):\u003c/span>\n\u003ca id=\"__codelineno-1-8\" name=\"__codelineno-1-8\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-8\">\u003c/a>    \u003cspan class=\"k\">return\u003c/span> \u003cspan class=\"p\">(\u003c/span>\n\u003ca id=\"__codelineno-1-9\" name=\"__codelineno-1-9\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-9\">\u003c/a>        \u003cspan class=\"n\">Canvas\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"mi\">1280\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"mi\">720\u003c/span>\u003cspan class=\"p\">)\u003c/span>\n\u003ca id=\"__codelineno-1-10\" name=\"__codelineno-1-10\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-10\">\u003c/a>        \u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">background\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"n\">color\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"n\">INK\u003c/span>\u003cspan class=\"p\">)\u003c/span>\n\u003ca id=\"__codelineno-1-11\" name=\"__codelineno-1-11\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-11\">\u003c/a>        \u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">shape\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"s2\">\"rectangle\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">position\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"mi\">0\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"mi\">0\u003c/span>\u003cspan class=\"p\">),\u003c/span> \u003cspan class=\"n\">width\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">1280\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">height\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">360\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">color\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"n\">accent\u003c/span>\u003cspan class=\"p\">)\u003c/span>\n\u003ca id=\"__codelineno-1-12\" name=\"__codelineno-1-12\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-12\">\u003c/a>        \u003cspan class=\"c1\"># The numeral stands on the band and crops at the top edge.\u003c/span>\n\u003ca id=\"__codelineno-1-13\" name=\"__codelineno-1-13\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-13\">\u003c/a>        \u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">text\u003c/span>\u003cspan class=\"p\">(\u003c/span>\n\u003ca id=\"__codelineno-1-14\" name=\"__codelineno-1-14\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-14\">\u003c/a>            \u003cspan class=\"nb\">str\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"n\">episode\u003c/span>\u003cspan class=\"p\">),\u003c/span>\n\u003ca id=\"__codelineno-1-15\" name=\"__codelineno-1-15\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-15\">\u003c/a>            \u003cspan class=\"n\">size\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">540\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-16\" name=\"__codelineno-1-16\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-16\">\u003c/a>            \u003cspan class=\"n\">color\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"n\">INK\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-17\" name=\"__codelineno-1-17\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-17\">\u003c/a>            \u003cspan class=\"c1\"># A stroke in the text color thickens the regular-weight built-in font.\u003c/span>\n\u003ca id=\"__codelineno-1-18\" name=\"__codelineno-1-18\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-18\">\u003c/a>            \u003cspan class=\"n\">effects\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">[\u003c/span>\u003cspan class=\"n\">Stroke\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"n\">width\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">8\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">color\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"n\">INK\u003c/span>\u003cspan class=\"p\">)],\u003c/span>\n\u003ca id=\"__codelineno-1-19\" name=\"__codelineno-1-19\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-19\">\u003c/a>            \u003cspan class=\"n\">position\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"mi\">1240\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"mi\">360\u003c/span>\u003cspan class=\"p\">),\u003c/span>\n\u003ca id=\"__codelineno-1-20\" name=\"__codelineno-1-20\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-20\">\u003c/a>            \u003cspan class=\"n\">align\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"s2\">\"right\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"bottom\"\u003c/span>\u003cspan class=\"p\">),\u003c/span>\n\u003ca id=\"__codelineno-1-21\" name=\"__codelineno-1-21\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-21\">\u003c/a>            \u003cspan class=\"n\">letter_spacing\u003c/span>\u003cspan class=\"o\">=-\u003c/span>\u003cspan class=\"mi\">10\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-22\" name=\"__codelineno-1-22\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-22\">\u003c/a>        \u003cspan class=\"p\">)\u003c/span>\n\u003ca id=\"__codelineno-1-23\" name=\"__codelineno-1-23\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-23\">\u003c/a>        \u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">text\u003c/span>\u003cspan class=\"p\">(\u003c/span>\n\u003ca id=\"__codelineno-1-24\" name=\"__codelineno-1-24\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-24\">\u003c/a>            \u003cspan class=\"s2\">\"THE BUILDER'S\u003c/span>\u003cspan class=\"se\">\\n\u003c/span>\u003cspan class=\"s2\">NOTEBOOK\"\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-25\" name=\"__codelineno-1-25\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-25\">\u003c/a>            \u003cspan class=\"n\">size\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">26\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-26\" name=\"__codelineno-1-26\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-26\">\u003c/a>            \u003cspan class=\"n\">color\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"n\">INK\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-27\" name=\"__codelineno-1-27\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-27\">\u003c/a>            \u003cspan class=\"n\">effects\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">[\u003c/span>\u003cspan class=\"n\">Stroke\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"n\">width\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">1\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">color\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"n\">INK\u003c/span>\u003cspan class=\"p\">)],\u003c/span>\n\u003ca id=\"__codelineno-1-28\" name=\"__codelineno-1-28\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-28\">\u003c/a>            \u003cspan class=\"n\">position\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"mi\">48\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"mi\">44\u003c/span>\u003cspan class=\"p\">),\u003c/span>\n\u003ca id=\"__codelineno-1-29\" name=\"__codelineno-1-29\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-29\">\u003c/a>            \u003cspan class=\"n\">letter_spacing\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">1\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-30\" name=\"__codelineno-1-30\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-30\">\u003c/a>        \u003cspan class=\"p\">)\u003c/span>\n\u003ca id=\"__codelineno-1-31\" name=\"__codelineno-1-31\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-31\">\u003c/a>        \u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">text\u003c/span>\u003cspan class=\"p\">(\u003c/span>\n\u003ca id=\"__codelineno-1-32\" name=\"__codelineno-1-32\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-32\">\u003c/a>            \u003cspan class=\"s2\">\"EPISODE\"\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-33\" name=\"__codelineno-1-33\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-33\">\u003c/a>            \u003cspan class=\"n\">size\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">26\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-34\" name=\"__codelineno-1-34\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-34\">\u003c/a>            \u003cspan class=\"n\">color\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"n\">INK\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-35\" name=\"__codelineno-1-35\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-35\">\u003c/a>            \u003cspan class=\"n\">effects\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">[\u003c/span>\u003cspan class=\"n\">Stroke\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"n\">width\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">1\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">color\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"n\">INK\u003c/span>\u003cspan class=\"p\">)],\u003c/span>\n\u003ca id=\"__codelineno-1-36\" name=\"__codelineno-1-36\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-36\">\u003c/a>            \u003cspan class=\"n\">position\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"mi\">48\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"mi\">330\u003c/span>\u003cspan class=\"p\">),\u003c/span>\n\u003ca id=\"__codelineno-1-37\" name=\"__codelineno-1-37\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-37\">\u003c/a>            \u003cspan class=\"n\">align\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"s2\">\"left\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"bottom\"\u003c/span>\u003cspan class=\"p\">),\u003c/span>\n\u003ca id=\"__codelineno-1-38\" name=\"__codelineno-1-38\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-38\">\u003c/a>            \u003cspan class=\"n\">letter_spacing\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">1\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-39\" name=\"__codelineno-1-39\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-39\">\u003c/a>        \u003cspan class=\"p\">)\u003c/span>\n\u003ca id=\"__codelineno-1-40\" name=\"__codelineno-1-40\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-40\">\u003c/a>        \u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">text\u003c/span>\u003cspan class=\"p\">(\u003c/span>\n\u003ca id=\"__codelineno-1-41\" name=\"__codelineno-1-41\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-41\">\u003c/a>            \u003cspan class=\"n\">title\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-42\" name=\"__codelineno-1-42\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-42\">\u003c/a>            \u003cspan class=\"n\">size\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">136\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-43\" name=\"__codelineno-1-43\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-43\">\u003c/a>            \u003cspan class=\"n\">color\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"n\">WHITE\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-44\" name=\"__codelineno-1-44\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-44\">\u003c/a>            \u003cspan class=\"n\">effects\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">[\u003c/span>\u003cspan class=\"n\">Stroke\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"n\">width\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">2\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">color\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"n\">WHITE\u003c/span>\u003cspan class=\"p\">)],\u003c/span>\n\u003ca id=\"__codelineno-1-45\" name=\"__codelineno-1-45\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-45\">\u003c/a>            \u003cspan class=\"n\">position\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"mi\">48\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"mi\">688\u003c/span>\u003cspan class=\"p\">),\u003c/span>\n\u003ca id=\"__codelineno-1-46\" name=\"__codelineno-1-46\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-46\">\u003c/a>            \u003cspan class=\"n\">align\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"s2\">\"left\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"bottom\"\u003c/span>\u003cspan class=\"p\">),\u003c/span>\n\u003ca id=\"__codelineno-1-47\" name=\"__codelineno-1-47\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-47\">\u003c/a>            \u003cspan class=\"n\">max_width\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">1184\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-48\" name=\"__codelineno-1-48\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-48\">\u003c/a>            \u003cspan class=\"n\">max_height\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">290\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-49\" name=\"__codelineno-1-49\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-49\">\u003c/a>            \u003cspan class=\"n\">auto_scale\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"kc\">True\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-50\" name=\"__codelineno-1-50\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-50\">\u003c/a>            \u003cspan class=\"n\">balance_lines\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"kc\">True\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-51\" name=\"__codelineno-1-51\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-51\">\u003c/a>            \u003cspan class=\"n\">line_height\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mf\">1.04\u003c/span>\u003cspan class=\"p\">,\u003c/span>\n\u003ca id=\"__codelineno-1-52\" name=\"__codelineno-1-52\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-52\">\u003c/a>        \u003cspan class=\"p\">)\u003c/span>\n\u003ca id=\"__codelineno-1-53\" name=\"__codelineno-1-53\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-53\">\u003c/a>    \u003cspan class=\"p\">)\u003c/span>\n\u003ca id=\"__codelineno-1-54\" name=\"__codelineno-1-54\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-54\">\u003c/a>\n\u003ca id=\"__codelineno-1-55\" name=\"__codelineno-1-55\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-55\">\u003c/a>\n\u003ca id=\"__codelineno-1-56\" name=\"__codelineno-1-56\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-56\">\u003c/a>\u003cspan class=\"n\">episodes\u003c/span> \u003cspan class=\"o\">=\u003c/span> \u003cspan class=\"p\">[\u003c/span>\n\u003ca id=\"__codelineno-1-57\" name=\"__codelineno-1-57\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-57\">\u003c/a>    \u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"mi\">12\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"Ship your first release\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"#FF4B1F\"\u003c/span>\u003cspan class=\"p\">),\u003c/span>\n\u003ca id=\"__codelineno-1-58\" name=\"__codelineno-1-58\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-58\">\u003c/a>    \u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"mi\">13\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"Make room for better work\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"#FFD400\"\u003c/span>\u003cspan class=\"p\">),\u003c/span>\n\u003ca id=\"__codelineno-1-59\" name=\"__codelineno-1-59\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-59\">\u003c/a>    \u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"mi\">14\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"Build less. Finish more.\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"#4D8DFF\"\u003c/span>\u003cspan class=\"p\">),\u003c/span>\n\u003ca id=\"__codelineno-1-60\" name=\"__codelineno-1-60\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-60\">\u003c/a>\u003cspan class=\"p\">]\u003c/span>\n\u003ca id=\"__codelineno-1-61\" name=\"__codelineno-1-61\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-61\">\u003c/a>\n\u003ca id=\"__codelineno-1-62\" name=\"__codelineno-1-62\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-62\">\u003c/a>\u003cspan class=\"k\">for\u003c/span> \u003cspan class=\"n\">episode\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">title\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">accent\u003c/span> \u003cspan class=\"ow\">in\u003c/span> \u003cspan class=\"n\">episodes\u003c/span>\u003cspan class=\"p\">:\u003c/span>\n\u003ca id=\"__codelineno-1-63\" name=\"__codelineno-1-63\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-1-63\">\u003c/a>    \u003cspan class=\"n\">episode_card\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"n\">episode\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">title\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">accent\u003c/span>\u003cspan class=\"p\">)\u003c/span>\u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">render\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"sa\">f\u003c/span>\u003cspan class=\"s2\">\"episode-\u003c/span>\u003cspan class=\"si\">{\u003c/span>\u003cspan class=\"n\">episode\u003c/span>\u003cspan class=\"si\">}\u003c/span>\u003cspan class=\"s2\">.png\"\u003c/span>\u003cspan class=\"p\">)\u003c/span>\n\u003c/code>\u003c/pre>\u003c/div>\n\u003cp>そのディレクトリで実行します。\u003c/p>\n\u003cdiv class=\"language-bash highlight\">\u003cpre>\u003cspan>\u003c/span>\u003ccode>\u003ca id=\"__codelineno-2-1\" name=\"__codelineno-2-1\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-2-1\">\u003c/a>python\u003cspan class=\"w\"> \u003c/span>episode_cards.py\n\u003c/code>\u003c/pre>\u003c/div>\n\u003cp>同じディレクトリにある\u003ccode>episode-12.png\u003c/code>、\u003ccode>episode-13.png\u003c/code>、\u003ccode>episode-14.png\u003c/code>を開いてください。いずれも1280 × 720の画像です。スクリプトは毎回同じファイル名で保存するため、同名のファイルがあれば上書きします。\u003c/p>"}, {"@type": "HowToStep", "@id": "https://quickthumb.solaqua.dev/ja/getting-started/#3-make-the-next-card", "url": "https://quickthumb.solaqua.dev/ja/getting-started/#3-make-the-next-card", "name": "3. 次のカードを作る", "text": "\u003cp>関数はそのままにして、\u003ccode>episodes\u003c/code>へ1行追加します。\u003c/p>\n\u003cdiv class=\"language-python highlight\">\u003cpre>\u003cspan>\u003c/span>\u003ccode>\u003ca id=\"__codelineno-3-1\" name=\"__codelineno-3-1\" href=\"https://quickthumb.solaqua.dev/ja/getting-started/#__codelineno-3-1\">\u003c/a>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"mi\">15\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"Your next big idea\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"#FF4B1F\"\u003c/span>\u003cspan class=\"p\">),\u003c/span>\n\u003c/code>\u003c/pre>\u003c/div>\n\u003cp>再び実行し、\u003ccode>episode-15.png\u003c/code>を開きます。同じレイアウトを使い、エピソード番号、タイトル、色だけを変更できました。\u003c/p>\n\u003cp>タイトルは\u003ccode>max_width\u003c/code>の範囲内で折り返します。\u003ccode>auto_scale=True\u003c/code>を指定すると、設定した幅と高さに収まるまで文字が小さくなります。まとめてカードを作る前に、実際に使う最も長いタイトルで確認してください。\u003c/p>"}]}]}</script>
+  
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#render-your-first-cards" class="md-skip">
+          コンテンツにスキップ
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header qt-header" data-md-component="header">
+  <nav class="qt-header-inner" aria-label="メインナビゲーション">
+    <a class="qt-brand" href="../" aria-label="quickthumbのホーム">
+      <img src="../../assets/brand/quickthumb-icon.svg" width="40" height="40" alt="">
+      <span>quickthumb</span>
+    </a>
+    <div class="qt-desktop-links">
+      <a href="../cookbook/">レシピ</a>
+      <a href="./">ドキュメント</a>
+      <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="qt-header-tools">
+      
+
+
+<details class="qt-language-switch">
+  <summary aria-label="言語: 日本語">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    <span data-qt-language-current>日本語</span>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7.41 8.58 12 13.17l4.59-4.59L18 10l-6 6-6-6z"/></svg>
+  </summary>
+  <nav aria-label="言語">
+    
+    <a href="https://quickthumb.solaqua.dev/getting-started/" hreflang="en" lang="en" data-qt-language="en" target="_self">English</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ko/getting-started/" hreflang="ko" lang="ko" data-qt-language="ko" target="_self">한국어</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ja/getting-started/" hreflang="ja" lang="ja" data-qt-language="ja" target="_self" aria-current="page">日本語</a>
+    
+    <a href="https://quickthumb.solaqua.dev/zh/getting-started/" hreflang="zh-CN" lang="zh-CN" data-qt-language="zh-CN" target="_self">简体中文</a>
+    
+  </nav>
+</details>
+      <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="ダークモードに切り替え"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="ダークモードに切り替え" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="ライトモードに切り替え"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="ライトモードに切り替え" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+      <button class="qt-icon-button" type="button" data-qt-search aria-label="ドキュメントを検索">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </button>
+      <button class="qt-icon-button qt-menu-trigger" type="button" data-qt-menu aria-label="メニューを開く" aria-controls="qt-navigation" aria-expanded="false">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+      </button>
+      <a class="qt-button qt-button-white qt-header-cta" href="./">はじめる</a>
+    </div>
+  </nav>
+  <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="検索" placeholder="検索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="検索">
+        
+        <button type="reset" class="md-search__icon md-icon" title="クリア" aria-label="クリア" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            検索を初期化
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</header>
+
+<dialog class="qt-drawer" id="qt-navigation" aria-label="サイトナビゲーション">
+  <div class="qt-drawer-header">
+    <a class="qt-brand" href="../" aria-label="quickthumbのホーム">
+      <img src="../../assets/brand/quickthumb-icon.svg" width="36" height="36" alt="">
+      <span>quickthumb</span>
+    </a>
+    <button class="qt-icon-button" type="button" data-qt-close aria-label="メニューを閉じる" autofocus>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
+  <button class="qt-drawer-search" type="button" data-qt-search>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+    <span>ドキュメントを検索</span>
+  </button>
+  <nav class="qt-drawer-links" aria-label="quickthumbを使う">
+    <a class="qt-button qt-button-blue" href="./">はじめる <span aria-hidden="true">→</span></a>
+    <a href="../cookbook/">レシピ</a>
+    <a href="./">ドキュメント</a>
+    <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+  <nav class="qt-drawer-docs" aria-label="ドキュメントへのリンク">
+    <p class="qt-nav-caption">ドキュメント</p>
+    <a href="../installation/">インストール</a>
+    <a href="../concepts/">基本的な考え方</a>
+    <a href="../api/">APIリファレンス</a>
+  </nav>
+  <details class="qt-drawer-index">
+    <summary>すべてのドキュメント</summary>
+    
+<nav aria-label="All documentation">
+  <ul>
+    
+      <li>
+        
+          <a href="../">ホーム</a>
+        
+      </li>
+    
+      <li>
+        
+          <details open>
+            <summary>はじめに</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="./" aria-current="page">最初のカードを作る</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../installation/">インストール</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../concepts/">基本的な考え方</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../output-guide/">出力形式を選ぶ</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../timing/">アニメーションのタイミング</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>APIリファレンス</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../api/">概要</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/canvas/">Canvas</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/deck/">Deck（複数スライド）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/inspection/">ドキュメントの検査</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/background/">背景</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/text/">テキスト</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/image/">画像</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/shape/">図形</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/path/">パス</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/svg/">SVG</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/video/">動画</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/audio/">音に反応するアニメーション</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/group/">グループ（自動レイアウト）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/outline/">枠線</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/data-visualizations/">データの可視化</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/effects/">エフェクト</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/enums/">列挙型とグラデーション</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>詳細リファレンス</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <details>
+            <summary>エクスポート</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../exports/">概要</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-methods/">メソッドと出力レポート</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-validation/">形式ごとの再現性と検証</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-documents/">SVG、HTML、PowerPoint、PDF</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-animation/">GIF、動画、ナレーション</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-transparency/">透過動画</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-frames/">画像シーケンスとレンダリング品質</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-assets/">アセットと再現性</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-lottie/">Lottieベクター</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/timing-details/">タイミングの詳細</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/inspection-details/">複雑なレイアウトの検査</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>JSONとAI</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../json-schema/">JSON SchemaとAIワークフロー</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../diagnostics/">診断とCLI</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../errors/">構造化エラー</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>レシピ集</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../cookbook/">ギャラリー</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/decks-and-video/">プレゼンテーションと動画</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/youtube-thumbnail/">YouTubeサムネイル</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/instagram-card/">Instagramカード</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/podcast-promo/">ポッドキャストの告知</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/shorts-cover/">Shorts・縦長カバー</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/launch-announcement/">リリース告知（自動レイアウト）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/ai-workflow/">AIワークフロー</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/webfonts-rembg/">Webフォントと背景除去</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../faq/">よくある質問</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>変更履歴</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../changelog/">概要</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../releases/0.8.0/">0.8.0</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+  </ul>
+</nav>
+  </details>
+  <button class="qt-appearance" type="button" data-qt-theme>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18V6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-2.69L23.31 12 20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20z"/></svg>
+    <span>テーマを切り替え</span>
+  </button>
+</dialog>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="ナビゲーション" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../" title="quickthumb" class="md-nav__button md-logo" aria-label="quickthumb" data-md-component="logo">
+      
+  <img src="../../assets/brand/quickthumb-icon.png" alt="logo">
+
+    </a>
+    quickthumb
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sjquant/quickthumb" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sjquant/quickthumb
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ホーム
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    はじめに
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    はじめに
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最初のカードを作る
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最初のカードを作る
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-install-quickthumb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. quickthumbをインストールする
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-save-and-run-the-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. レイアウトを保存して実行する
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-make-the-next-card" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. 次のカードを作る
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adapt-the-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        デザインを調整する
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#choose-your-next-step" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        次のステップを選ぶ
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インストール
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    基本的な考え方
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../output-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    出力形式を選ぶ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../timing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    アニメーションのタイミング
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    APIリファレンス
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    APIリファレンス
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概要
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/canvas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canvas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/deck/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deck（複数スライド）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/inspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ドキュメントの検査
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/background/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    背景
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テキスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画像
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/shape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    図形
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    パス
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/svg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    動画
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    音に反応するアニメーション
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    グループ（自動レイアウト）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/outline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    枠線
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/data-visualizations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    データの可視化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/effects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エフェクト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/enums/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    列挙型とグラデーション
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    詳細リファレンス
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    詳細リファレンス
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エクスポート
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    エクスポート
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../exports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概要
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    メソッドと出力レポート
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    形式ごとの再現性と検証
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG、HTML、PowerPoint、PDF
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GIF、動画、ナレーション
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-transparency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    透過動画
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-frames/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画像シーケンスとレンダリング品質
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-assets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    アセットと再現性
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-lottie/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lottieベクター
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/timing-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    タイミングの詳細
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/inspection-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    複雑なレイアウトの検査
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSONとAI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    JSONとAI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../json-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON SchemaとAIワークフロー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    診断とCLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    構造化エラー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    レシピ集
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    レシピ集
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ギャラリー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/decks-and-video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プレゼンテーションと動画
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/youtube-thumbnail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YouTubeサムネイル
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/instagram-card/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instagramカード
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/podcast-promo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ポッドキャストの告知
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/shorts-cover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shorts・縦長カバー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/launch-announcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    リリース告知（自動レイアウト）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/ai-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AIワークフロー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/webfonts-rembg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webフォントと背景除去
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    よくある質問
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    変更履歴
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    変更履歴
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概要
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../releases/0.8.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0.8.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-install-quickthumb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. quickthumbをインストールする
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-save-and-run-the-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. レイアウトを保存して実行する
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-make-the-next-card" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. 次のカードを作る
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adapt-the-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        デザインを調整する
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#choose-your-next-step" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        次のステップを選ぶ
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="render-your-first-cards">最初のカードを作る</h1>
+<p>エピソードカードのレイアウトを1つ作り、3種類の内容でレンダリングします。その後、タイトルを変えて自分用のカードを作ってみましょう。</p>
+<div class="qt-gallery">
+<p><img alt="オレンジ色の帯に大きな12と「Ship your first release」を配置したエピソード12のカード" src="../../assets/home/episode-12.png" /></p>
+<p><img alt="黄色い帯に大きな13と「Make room for better work」を配置したエピソード13のカード" src="../../assets/home/episode-13.png" /></p>
+<p><img alt="青い帯に大きな14と「Build less. Finish more.」を配置したエピソード14のカード" src="../../assets/home/episode-14.png" /></p>
+</div>
+<h2 id="1-install-quickthumb">1. quickthumbをインストールする</h2>
+<p><strong>Python 3.11以降</strong>が必要です。Python環境で次を実行します。</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>quickthumb
+</code></pre></div>
+<p>環境の準備から始める場合は、<a href="../installation/#isolated-environment">インストール</a>の手順を終えてから戻ってください。この例で使うのは基本パッケージと内蔵フォントだけです。インストール後にフォントや写真をダウンロードしたり、追加のレンダラーを用意したりする必要はありません。</p>
+<h2 id="2-save-and-run-the-layout">2. レイアウトを保存して実行する</h2>
+<p>quickthumbのチェックアウトとは別の作業ディレクトリに、次のコードを<code>episode_cards.py</code>として保存します。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">Canvas</span><span class="p">,</span> <span class="n">Stroke</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">INK</span> <span class="o">=</span> <span class="s2">"#111111"</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">WHITE</span> <span class="o">=</span> <span class="s2">"#FFFFFF"</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">episode_card</span><span class="p">(</span><span class="n">episode</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">accent</span><span class="p">):</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="k">return</span> <span class="p">(</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="n">Canvas</span><span class="p">(</span><span class="mi">1280</span><span class="p">,</span> <span class="mi">720</span><span class="p">)</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>        <span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="n">INK</span><span class="p">)</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>        <span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="s2">"rectangle"</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">width</span><span class="o">=</span><span class="mi">1280</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">360</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">accent</span><span class="p">)</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="c1"># The numeral stands on the band and crops at the top edge.</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>        <span class="o">.</span><span class="n">text</span><span class="p">(</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">episode</span><span class="p">),</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>            <span class="n">size</span><span class="o">=</span><span class="mi">540</span><span class="p">,</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>            <span class="n">color</span><span class="o">=</span><span class="n">INK</span><span class="p">,</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>            <span class="c1"># A stroke in the text color thickens the regular-weight built-in font.</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>            <span class="n">effects</span><span class="o">=</span><span class="p">[</span><span class="n">Stroke</span><span class="p">(</span><span class="n">width</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">INK</span><span class="p">)],</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>            <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="mi">1240</span><span class="p">,</span> <span class="mi">360</span><span class="p">),</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>            <span class="n">align</span><span class="o">=</span><span class="p">(</span><span class="s2">"right"</span><span class="p">,</span> <span class="s2">"bottom"</span><span class="p">),</span>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>            <span class="n">letter_spacing</span><span class="o">=-</span><span class="mi">10</span><span class="p">,</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>        <span class="p">)</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>        <span class="o">.</span><span class="n">text</span><span class="p">(</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>            <span class="s2">"THE BUILDER'S</span><span class="se">\n</span><span class="s2">NOTEBOOK"</span><span class="p">,</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>            <span class="n">size</span><span class="o">=</span><span class="mi">26</span><span class="p">,</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>            <span class="n">color</span><span class="o">=</span><span class="n">INK</span><span class="p">,</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>            <span class="n">effects</span><span class="o">=</span><span class="p">[</span><span class="n">Stroke</span><span class="p">(</span><span class="n">width</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">INK</span><span class="p">)],</span>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>            <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="mi">48</span><span class="p">,</span> <span class="mi">44</span><span class="p">),</span>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>            <span class="n">letter_spacing</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>        <span class="p">)</span>
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>        <span class="o">.</span><span class="n">text</span><span class="p">(</span>
+<a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>            <span class="s2">"EPISODE"</span><span class="p">,</span>
+<a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>            <span class="n">size</span><span class="o">=</span><span class="mi">26</span><span class="p">,</span>
+<a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>            <span class="n">color</span><span class="o">=</span><span class="n">INK</span><span class="p">,</span>
+<a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>            <span class="n">effects</span><span class="o">=</span><span class="p">[</span><span class="n">Stroke</span><span class="p">(</span><span class="n">width</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">INK</span><span class="p">)],</span>
+<a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>            <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="mi">48</span><span class="p">,</span> <span class="mi">330</span><span class="p">),</span>
+<a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>            <span class="n">align</span><span class="o">=</span><span class="p">(</span><span class="s2">"left"</span><span class="p">,</span> <span class="s2">"bottom"</span><span class="p">),</span>
+<a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>            <span class="n">letter_spacing</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a>        <span class="p">)</span>
+<a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a>        <span class="o">.</span><span class="n">text</span><span class="p">(</span>
+<a id="__codelineno-1-41" name="__codelineno-1-41" href="#__codelineno-1-41"></a>            <span class="n">title</span><span class="p">,</span>
+<a id="__codelineno-1-42" name="__codelineno-1-42" href="#__codelineno-1-42"></a>            <span class="n">size</span><span class="o">=</span><span class="mi">136</span><span class="p">,</span>
+<a id="__codelineno-1-43" name="__codelineno-1-43" href="#__codelineno-1-43"></a>            <span class="n">color</span><span class="o">=</span><span class="n">WHITE</span><span class="p">,</span>
+<a id="__codelineno-1-44" name="__codelineno-1-44" href="#__codelineno-1-44"></a>            <span class="n">effects</span><span class="o">=</span><span class="p">[</span><span class="n">Stroke</span><span class="p">(</span><span class="n">width</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">WHITE</span><span class="p">)],</span>
+<a id="__codelineno-1-45" name="__codelineno-1-45" href="#__codelineno-1-45"></a>            <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="mi">48</span><span class="p">,</span> <span class="mi">688</span><span class="p">),</span>
+<a id="__codelineno-1-46" name="__codelineno-1-46" href="#__codelineno-1-46"></a>            <span class="n">align</span><span class="o">=</span><span class="p">(</span><span class="s2">"left"</span><span class="p">,</span> <span class="s2">"bottom"</span><span class="p">),</span>
+<a id="__codelineno-1-47" name="__codelineno-1-47" href="#__codelineno-1-47"></a>            <span class="n">max_width</span><span class="o">=</span><span class="mi">1184</span><span class="p">,</span>
+<a id="__codelineno-1-48" name="__codelineno-1-48" href="#__codelineno-1-48"></a>            <span class="n">max_height</span><span class="o">=</span><span class="mi">290</span><span class="p">,</span>
+<a id="__codelineno-1-49" name="__codelineno-1-49" href="#__codelineno-1-49"></a>            <span class="n">auto_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-1-50" name="__codelineno-1-50" href="#__codelineno-1-50"></a>            <span class="n">balance_lines</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-1-51" name="__codelineno-1-51" href="#__codelineno-1-51"></a>            <span class="n">line_height</span><span class="o">=</span><span class="mf">1.04</span><span class="p">,</span>
+<a id="__codelineno-1-52" name="__codelineno-1-52" href="#__codelineno-1-52"></a>        <span class="p">)</span>
+<a id="__codelineno-1-53" name="__codelineno-1-53" href="#__codelineno-1-53"></a>    <span class="p">)</span>
+<a id="__codelineno-1-54" name="__codelineno-1-54" href="#__codelineno-1-54"></a>
+<a id="__codelineno-1-55" name="__codelineno-1-55" href="#__codelineno-1-55"></a>
+<a id="__codelineno-1-56" name="__codelineno-1-56" href="#__codelineno-1-56"></a><span class="n">episodes</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-1-57" name="__codelineno-1-57" href="#__codelineno-1-57"></a>    <span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="s2">"Ship your first release"</span><span class="p">,</span> <span class="s2">"#FF4B1F"</span><span class="p">),</span>
+<a id="__codelineno-1-58" name="__codelineno-1-58" href="#__codelineno-1-58"></a>    <span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="s2">"Make room for better work"</span><span class="p">,</span> <span class="s2">"#FFD400"</span><span class="p">),</span>
+<a id="__codelineno-1-59" name="__codelineno-1-59" href="#__codelineno-1-59"></a>    <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="s2">"Build less. Finish more."</span><span class="p">,</span> <span class="s2">"#4D8DFF"</span><span class="p">),</span>
+<a id="__codelineno-1-60" name="__codelineno-1-60" href="#__codelineno-1-60"></a><span class="p">]</span>
+<a id="__codelineno-1-61" name="__codelineno-1-61" href="#__codelineno-1-61"></a>
+<a id="__codelineno-1-62" name="__codelineno-1-62" href="#__codelineno-1-62"></a><span class="k">for</span> <span class="n">episode</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">accent</span> <span class="ow">in</span> <span class="n">episodes</span><span class="p">:</span>
+<a id="__codelineno-1-63" name="__codelineno-1-63" href="#__codelineno-1-63"></a>    <span class="n">episode_card</span><span class="p">(</span><span class="n">episode</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">accent</span><span class="p">)</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="sa">f</span><span class="s2">"episode-</span><span class="si">{</span><span class="n">episode</span><span class="si">}</span><span class="s2">.png"</span><span class="p">)</span>
+</code></pre></div>
+<p>そのディレクトリで実行します。</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>episode_cards.py
+</code></pre></div>
+<p>同じディレクトリにある<code>episode-12.png</code>、<code>episode-13.png</code>、<code>episode-14.png</code>を開いてください。いずれも1280 × 720の画像です。スクリプトは毎回同じファイル名で保存するため、同名のファイルがあれば上書きします。</p>
+<h2 id="3-make-the-next-card">3. 次のカードを作る</h2>
+<p>関数はそのままにして、<code>episodes</code>へ1行追加します。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="s2">"Your next big idea"</span><span class="p">,</span> <span class="s2">"#FF4B1F"</span><span class="p">),</span>
+</code></pre></div>
+<p>再び実行し、<code>episode-15.png</code>を開きます。同じレイアウトを使い、エピソード番号、タイトル、色だけを変更できました。</p>
+<p>タイトルは<code>max_width</code>の範囲内で折り返します。<code>auto_scale=True</code>を指定すると、設定した幅と高さに収まるまで文字が小さくなります。まとめてカードを作る前に、実際に使う最も長いタイトルで確認してください。</p>
+<h2 id="adapt-the-design">デザインを調整する</h2>
+<p><code>episode_card()</code>内の色、数字やタイトルのサイズ、位置を一度変更すると、すべてのカードに反映されます。レイヤーは追加した順に描画されます。好みの書体を使うには、各<code>.text()</code>に<code>font="/path/to/your-font.ttf"</code>のようなローカルフォントのパスを追加します。フォント自体が十分に太ければ<code>Stroke</code>エフェクトを外してください。</p>
+<p>レイアウトを拡張するときは、<code>canvas.diagnose()</code>でキャンバスからはみ出したレイヤーや低いコントラストなどを確認します。この例では数字を意図的に切り取っているため、<code>off-canvas</code>が1件報告されます。検査項目と制限は<a href="../diagnostics/">診断</a>を参照してください。指摘がなくても、見た目のよいデザインであることを保証するものではありません。</p>
+<h2 id="choose-your-next-step">次のステップを選ぶ</h2>
+<ul>
+<li><a href="../cookbook/">レシピ集</a>：サムネイル、ソーシャルカード、ポッドキャストのレイアウトを応用します。</li>
+<li><a href="../concepts/">基本的な考え方</a>：レイヤー、エフェクト、配置を理解します。</li>
+<li><a href="../api/group/">自動レイアウト</a>：内容が変わる要素を行や列に並べます。</li>
+<li><a href="../json-schema/">JSONとAIワークフロー</a>：JSONのレイアウトを読み込み、検証します。</li>
+<li><a href="../output-guide/">出力形式を選ぶ</a>：画像、プレゼンテーション、アニメーションを作ります。</li>
+<li><a href="../api/">APIリファレンス</a>：クラスやパラメーターを調べます。</li>
+</ul>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  ページトップへ戻る
+</button>
+        
+      </main>
+      
+        
+
+<footer class="md-footer qt-footer">
+  <div class="qt-footer-inner">
+    <div>
+      <a class="qt-brand" href="../" aria-label="quickthumbのホーム">
+        <img src="../../assets/brand/quickthumb-icon.svg" width="28" height="28" alt="">
+        <span>quickthumb</span>
+      </a>
+      <p class="qt-footer-tagline">画像、プレゼンテーション、動画を作るPythonツールキット。</p>
+    </div>
+    <nav class="qt-footer-links" aria-label="フッターナビゲーション">
+      <a href="../cookbook/">レシピ</a>
+      <a href="./">ドキュメント</a>
+      <a href="../installation/">インストール</a>
+      <a href="../changelog/">変更履歴</a>
+    </nav>
+    <div class="qt-footer-meta">
+      <a class="qt-icon-button" href="https://github.com/sjquant/quickthumb" aria-label="GitHubでquickthumbを見る">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg>
+      </a>
+      <p>© 2026 Seonu Jang · MITライセンス<br>使用ツール <a href="https://squidfunk.github.io/mkdocs-material/">Material for MkDocs</a></p>
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f", "clipboard.copy": "\u30af\u30ea\u30c3\u30d7\u30dc\u30fc\u30c9\u3078\u30b3\u30d4\u30fc", "search.result.more.one": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3082\u30461\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.more.other": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3042\u3068#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.none": "\u4f55\u3082\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3067\u3057\u305f", "search.result.one": "1\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.other": "#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.placeholder": "\u691c\u7d22\u30ad\u30fc\u30ef\u30fc\u30c9\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044", "search.result.term.missing": "\u691c\u7d22\u306b\u542b\u307e\u308c\u306a\u3044", "select.version": "\u30d0\u30fc\u30b8\u30e7\u30f3\u5207\u308a\u66ff\u3048"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/site.js"></script>
+      
+    
+  </body>
+</html>

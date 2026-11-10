@@ -1,0 +1,3679 @@
+
+<!doctype html>
+<html lang="ja" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="quickthumb の JSON 仕様形式を解説します。文書構造、公開 JSON Schema、テーマトークン、プラグインレイヤー、各レイヤーとエフェクトを参照できます。">
+      
+      
+        <meta name="author" content="Seonu Jang">
+      
+      
+        <link rel="canonical" href="https://quickthumb.solaqua.dev/ja/json-schema/">
+      
+      
+        <link rel="prev" href="../reference/inspection-details/">
+      
+      
+        <link rel="next" href="../diagnostics/">
+      
+      
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/json-schema/" hreflang="en">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ko/json-schema/" hreflang="ko">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ja/json-schema/" hreflang="ja">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/zh/json-schema/" hreflang="zh-CN">
+        
+      
+      
+      <link rel="icon" href="../../assets/brand/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+  
+  <title>quickthumb - JSON SchemaとAIワークフロー</title>
+  
+
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  
+  
+  
+  
+    
+  
+  
+  
+  
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ja_JP">
+  
+    
+      
+  <link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/json-schema/">
+      
+      
+  <meta property="og:locale:alternate" content="en_US">
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="ko_KR">
+      
+    
+      
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="zh_CN">
+      
+    
+  
+  <meta property="og:site_name" content="quickthumb">
+  <meta property="og:title" content="quickthumb - JSON SchemaとAIワークフロー">
+  <meta property="og:description" content="quickthumb の JSON 仕様形式を解説します。文書構造、公開 JSON Schema、テーマトークン、プラグインレイヤー、各レイヤーとエフェクトを参照できます。">
+  
+  <meta property="og:url" content="https://quickthumb.solaqua.dev/ja/json-schema/">
+  
+  <meta property="og:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta property="og:image:alt" content="quickthumb：コードから広がるサムネイル制作。サムネイルカードの作例2点。">
+  
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  
+  <meta name="twitter:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta name="twitter:image:alt" content="quickthumb：コードから広がるサムネイル制作。サムネイルカードの作例2点。">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="quickthumb - JSON SchemaとAIワークフロー">
+  <meta name="twitter:description" content="quickthumb の JSON 仕様形式を解説します。文書構造、公開 JSON Schema、テーマトークン、プラグインレイヤー、各レイヤーとエフェクトを参照できます。">
+  
+  <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "@id": "https://quickthumb.solaqua.dev/ja/#website", "url": "https://quickthumb.solaqua.dev/ja/", "name": "quickthumb", "description": "PythonまたはJSONで画像、プレゼンテーション、アニメーション動画を作成します。", "inLanguage": "ja", "publisher": {"@id": "https://quickthumb.solaqua.dev/#author"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}}, {"@type": "Person", "@id": "https://quickthumb.solaqua.dev/#author", "name": "Seonu Jang"}, {"@type": "SoftwareApplication", "@id": "https://quickthumb.solaqua.dev/#software", "name": "quickthumb", "url": "https://quickthumb.solaqua.dev/", "description": "PythonまたはJSONで画像、プレゼンテーション、アニメーション動画を作成します。", "applicationCategory": "MultimediaApplication", "softwareVersion": "0.8.0", "softwareRequirements": "Python >=3.11", "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE", "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "sameAs": ["https://github.com/sjquant/quickthumb", "https://pypi.org/project/quickthumb/"]}, {"@type": "SoftwareSourceCode", "@id": "https://quickthumb.solaqua.dev/#source", "name": "quickthumb", "codeRepository": "https://github.com/sjquant/quickthumb", "programmingLanguage": "Python", "runtimePlatform": "Python >=3.11", "targetProduct": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE"}, {"@type": "WebPage", "@id": "https://quickthumb.solaqua.dev/ja/json-schema/#webpage", "url": "https://quickthumb.solaqua.dev/ja/json-schema/", "name": "JSON SchemaとAIワークフロー", "description": "quickthumb の JSON 仕様形式を解説します。文書構造、公開 JSON Schema、テーマトークン、プラグインレイヤー、各レイヤーとエフェクトを参照できます。", "inLanguage": "ja", "isPartOf": {"@id": "https://quickthumb.solaqua.dev/ja/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "primaryImageOfPage": {"@type": "ImageObject", "url": "https://quickthumb.solaqua.dev/assets/brand/social-preview.png", "caption": "quickthumb：コードから広がるサムネイル制作。サムネイルカードの作例2点。", "width": 1200, "height": 630}, "mainEntity": {"@id": "https://quickthumb.solaqua.dev/ja/json-schema/#document"}, "breadcrumb": {"@id": "https://quickthumb.solaqua.dev/ja/json-schema/#breadcrumbs"}}, {"@type": "BreadcrumbList", "@id": "https://quickthumb.solaqua.dev/ja/json-schema/#breadcrumbs", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "quickthumb", "item": "https://quickthumb.solaqua.dev/ja/"}, {"@type": "ListItem", "position": 2, "name": "JSON SchemaとAIワークフロー", "item": "https://quickthumb.solaqua.dev/ja/json-schema/"}]}, {"@type": "TechArticle", "@id": "https://quickthumb.solaqua.dev/ja/json-schema/#document", "url": "https://quickthumb.solaqua.dev/ja/json-schema/", "headline": "JSON SchemaとAIワークフロー", "description": "quickthumb の JSON 仕様形式を解説します。文書構造、公開 JSON Schema、テーマトークン、プラグインレイヤー、各レイヤーとエフェクトを参照できます。", "inLanguage": "ja", "mainEntityOfPage": {"@id": "https://quickthumb.solaqua.dev/ja/json-schema/#webpage"}, "isPartOf": {"@id": "https://quickthumb.solaqua.dev/ja/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}}]}</script>
+  
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#json-schema-ai-workflow" class="md-skip">
+          コンテンツにスキップ
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header qt-header" data-md-component="header">
+  <nav class="qt-header-inner" aria-label="メインナビゲーション">
+    <a class="qt-brand" href="../" aria-label="quickthumbのホーム">
+      <img src="../../assets/brand/quickthumb-icon.svg" width="40" height="40" alt="">
+      <span>quickthumb</span>
+    </a>
+    <div class="qt-desktop-links">
+      <a href="../cookbook/">レシピ</a>
+      <a href="../getting-started/">ドキュメント</a>
+      <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="qt-header-tools">
+      
+
+
+<details class="qt-language-switch">
+  <summary aria-label="言語: 日本語">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    <span data-qt-language-current>日本語</span>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7.41 8.58 12 13.17l4.59-4.59L18 10l-6 6-6-6z"/></svg>
+  </summary>
+  <nav aria-label="言語">
+    
+    <a href="https://quickthumb.solaqua.dev/json-schema/" hreflang="en" lang="en" data-qt-language="en" target="_self">English</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ko/json-schema/" hreflang="ko" lang="ko" data-qt-language="ko" target="_self">한국어</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ja/json-schema/" hreflang="ja" lang="ja" data-qt-language="ja" target="_self" aria-current="page">日本語</a>
+    
+    <a href="https://quickthumb.solaqua.dev/zh/json-schema/" hreflang="zh-CN" lang="zh-CN" data-qt-language="zh-CN" target="_self">简体中文</a>
+    
+  </nav>
+</details>
+      <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="ダークモードに切り替え"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="ダークモードに切り替え" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="ライトモードに切り替え"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="ライトモードに切り替え" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+      <button class="qt-icon-button" type="button" data-qt-search aria-label="ドキュメントを検索">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </button>
+      <button class="qt-icon-button qt-menu-trigger" type="button" data-qt-menu aria-label="メニューを開く" aria-controls="qt-navigation" aria-expanded="false">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+      </button>
+      <a class="qt-button qt-button-white qt-header-cta" href="../getting-started/">はじめる</a>
+    </div>
+  </nav>
+  <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="検索" placeholder="検索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="検索">
+        
+        <button type="reset" class="md-search__icon md-icon" title="クリア" aria-label="クリア" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            検索を初期化
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</header>
+
+<dialog class="qt-drawer" id="qt-navigation" aria-label="サイトナビゲーション">
+  <div class="qt-drawer-header">
+    <a class="qt-brand" href="../" aria-label="quickthumbのホーム">
+      <img src="../../assets/brand/quickthumb-icon.svg" width="36" height="36" alt="">
+      <span>quickthumb</span>
+    </a>
+    <button class="qt-icon-button" type="button" data-qt-close aria-label="メニューを閉じる" autofocus>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
+  <button class="qt-drawer-search" type="button" data-qt-search>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+    <span>ドキュメントを検索</span>
+  </button>
+  <nav class="qt-drawer-links" aria-label="quickthumbを使う">
+    <a class="qt-button qt-button-blue" href="../getting-started/">はじめる <span aria-hidden="true">→</span></a>
+    <a href="../cookbook/">レシピ</a>
+    <a href="../getting-started/">ドキュメント</a>
+    <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+  <nav class="qt-drawer-docs" aria-label="ドキュメントへのリンク">
+    <p class="qt-nav-caption">ドキュメント</p>
+    <a href="../installation/">インストール</a>
+    <a href="../concepts/">基本的な考え方</a>
+    <a href="../api/">APIリファレンス</a>
+  </nav>
+  <details class="qt-drawer-index">
+    <summary>すべてのドキュメント</summary>
+    
+<nav aria-label="All documentation">
+  <ul>
+    
+      <li>
+        
+          <a href="../">ホーム</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>はじめに</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../getting-started/">最初のカードを作る</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../installation/">インストール</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../concepts/">基本的な考え方</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../output-guide/">出力形式を選ぶ</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../timing/">アニメーションのタイミング</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>APIリファレンス</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../api/">概要</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/canvas/">Canvas</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/deck/">Deck（複数スライド）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/inspection/">ドキュメントの検査</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/background/">背景</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/text/">テキスト</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/image/">画像</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/shape/">図形</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/path/">パス</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/svg/">SVG</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/video/">動画</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/audio/">音に反応するアニメーション</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/group/">グループ（自動レイアウト）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/outline/">枠線</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/data-visualizations/">データの可視化</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/effects/">エフェクト</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/enums/">列挙型とグラデーション</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>詳細リファレンス</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <details>
+            <summary>エクスポート</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../exports/">概要</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-methods/">メソッドと出力レポート</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-validation/">形式ごとの再現性と検証</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-documents/">SVG、HTML、PowerPoint、PDF</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-animation/">GIF、動画、ナレーション</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-transparency/">透過動画</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-frames/">画像シーケンスとレンダリング品質</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-assets/">アセットと再現性</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-lottie/">Lottieベクター</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/timing-details/">タイミングの詳細</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/inspection-details/">複雑なレイアウトの検査</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details open>
+            <summary>JSONとAI</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="./" aria-current="page">JSON SchemaとAIワークフロー</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../diagnostics/">診断とCLI</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../errors/">構造化エラー</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>レシピ集</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../cookbook/">ギャラリー</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/decks-and-video/">プレゼンテーションと動画</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/youtube-thumbnail/">YouTubeサムネイル</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/instagram-card/">Instagramカード</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/podcast-promo/">ポッドキャストの告知</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/shorts-cover/">Shorts・縦長カバー</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/launch-announcement/">リリース告知（自動レイアウト）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/ai-workflow/">AIワークフロー</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/webfonts-rembg/">Webフォントと背景除去</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../faq/">よくある質問</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>変更履歴</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../changelog/">概要</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../releases/0.8.0/">0.8.0</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+  </ul>
+</nav>
+  </details>
+  <button class="qt-appearance" type="button" data-qt-theme>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18V6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-2.69L23.31 12 20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20z"/></svg>
+    <span>テーマを切り替え</span>
+  </button>
+</dialog>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="ナビゲーション" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../" title="quickthumb" class="md-nav__button md-logo" aria-label="quickthumb" data-md-component="logo">
+      
+  <img src="../../assets/brand/quickthumb-icon.png" alt="logo">
+
+    </a>
+    quickthumb
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sjquant/quickthumb" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sjquant/quickthumb
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ホーム
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    はじめに
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    はじめに
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最初のカードを作る
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インストール
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    基本的な考え方
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../output-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    出力形式を選ぶ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../timing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    アニメーションのタイミング
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    APIリファレンス
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    APIリファレンス
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概要
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/canvas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canvas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/deck/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deck（複数スライド）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/inspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ドキュメントの検査
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/background/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    背景
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テキスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画像
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/shape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    図形
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    パス
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/svg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    動画
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    音に反応するアニメーション
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    グループ（自動レイアウト）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/outline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    枠線
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/data-visualizations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    データの可視化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/effects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エフェクト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/enums/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    列挙型とグラデーション
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    詳細リファレンス
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    詳細リファレンス
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エクスポート
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    エクスポート
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../exports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概要
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    メソッドと出力レポート
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    形式ごとの再現性と検証
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG、HTML、PowerPoint、PDF
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GIF、動画、ナレーション
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-transparency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    透過動画
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-frames/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画像シーケンスとレンダリング品質
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-assets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    アセットと再現性
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-lottie/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lottieベクター
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/timing-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    タイミングの詳細
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/inspection-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    複雑なレイアウトの検査
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSONとAI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    JSONとAI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON SchemaとAIワークフロー
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON SchemaとAIワークフロー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#round-trip-serialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        シリアライズと復元
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON の構造
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#published-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        公開スキーマ
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plugin-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        プラグインレイヤー
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="プラグインレイヤー">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#optional-native-svg" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        任意のネイティブ SVG
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plugin-params-schema-v1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        プラグインパラメーターの Schema v1
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#theme-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        テーマトークン
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#layer-schemas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        レイヤースキーマ
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="レイヤースキーマ">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#background-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        背景レイヤー
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#text-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        テキストレイヤー
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        画像レイヤー
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shape-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        図形レイヤー
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#svg-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SVG レイヤー
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#group-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        グループレイヤー
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#outline-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        枠線レイヤー
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#effect-schemas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        エフェクトのスキーマ
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#complete-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        完全な例
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generating-specs-with-an-llm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LLM で仕様を生成する
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#serialization-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        シリアライズ時の注意
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    診断とCLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    構造化エラー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    レシピ集
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    レシピ集
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ギャラリー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/decks-and-video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プレゼンテーションと動画
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/youtube-thumbnail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YouTubeサムネイル
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/instagram-card/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instagramカード
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/podcast-promo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ポッドキャストの告知
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/shorts-cover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shorts・縦長カバー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/launch-announcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    リリース告知（自動レイアウト）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/ai-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AIワークフロー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/webfonts-rembg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webフォントと背景除去
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    よくある質問
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    変更履歴
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    変更履歴
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概要
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../releases/0.8.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0.8.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#round-trip-serialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        シリアライズと復元
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON の構造
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#published-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        公開スキーマ
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plugin-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        プラグインレイヤー
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="プラグインレイヤー">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#optional-native-svg" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        任意のネイティブ SVG
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plugin-params-schema-v1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        プラグインパラメーターの Schema v1
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#theme-tokens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        テーマトークン
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#layer-schemas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        レイヤースキーマ
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="レイヤースキーマ">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#background-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        背景レイヤー
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#text-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        テキストレイヤー
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#image-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        画像レイヤー
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shape-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        図形レイヤー
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#svg-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SVG レイヤー
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#group-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        グループレイヤー
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#outline-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        枠線レイヤー
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#effect-schemas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        エフェクトのスキーマ
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#complete-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        完全な例
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generating-specs-with-an-llm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LLM で仕様を生成する
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#serialization-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        シリアライズ時の注意
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="json-schema-ai-workflow">JSON Schema と AI ワークフロー</h1>
+<p>quickthumb のキャンバスは JSON で記述できます。LLM やテンプレートで仕様を生成し、データベースに保存したり、API で送信したり、コンテンツと一緒にバージョン管理したりできます。</p>
+<p>最初の仕様を生成・検証・描画する手順は <a href="../cookbook/ai-workflow/">AI ワークフロー</a>を参照してください。このページでは<a href="#layer-schemas">レイヤーのフィールド</a>、<a href="#effect-schemas">エフェクト</a>、<a href="#published-schema">公開スキーマ</a>を調べられます。<code>quickthumb</code> コマンドには <code>pip install "quickthumb[cli]"</code> が必要ですが、Python のスキーマヘルパーに CLI extra は不要です。</p>
+<h2 id="round-trip-serialization">シリアライズと復元</h2>
+<p>正規 JSON は、出力結果レポートとは別に、作成した文書自体を保存します。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">Canvas</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># Python → JSON</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">canvas</span> <span class="o">=</span> <span class="n">Canvas</span><span class="p">(</span><span class="mi">320</span><span class="p">,</span> <span class="mi">180</span><span class="p">)</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#102030"</span><span class="p">)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">json_str</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">Path</span><span class="p">(</span><span class="s2">"scene.json"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">json_str</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># JSON → Python</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">restored</span> <span class="o">=</span> <span class="n">Canvas</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">"scene.json"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">))</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="k">assert</span> <span class="n">restored</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span> <span class="o">==</span> <span class="n">json_str</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">restored</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"from-json.png"</span><span class="p">)</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">補足</p>
+<p><code>Canvas.from_json()</code> には <strong>JSON 文字列</strong>を渡します。Python の dict がある場合は、先に <code>json.dumps(data)</code> を呼んでください。
+Python 関数は JSON に保存できないため、<code>.custom(fn)</code> レイヤーを含むキャンバスはシリアライズできません。</p>
+</div>
+<p>同じ解決済み文書の正規シリアライズ結果は常に同じです。ただし、フォント、画像、メディア、キャッシュにダウンロードしたファイルまでは梱包しません。参照ファイルを保持し、別の環境で描画するときもそのパスにアクセスできるようにしてください。プラグインの JSON に保存されるのは宣言したパラメーターとアセット参照であり、Python コールバックではありません。読み込み時には対応する<a href="#plugin-layers">明示的なレジストリ</a>を渡します。シーンの JSON が同じでも、フォント、レンダラーのバージョン、プラットフォームが違えば同じピクセルになるとは限りません。</p>
+<h2 id="json-structure">JSON の構造</h2>
+<p>Canvas の JSON 文書には、4 つの必須トップレベルフィールドと、任意の <code>theme</code> ブロックがあります。</p>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"canvas"</span><span class="p">,</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">1280</span><span class="p">,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">"height"</span><span class="p">:</span><span class="w"> </span><span class="mi">720</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">"theme"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">"layers"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">]</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="p">}</span>
+</code></pre></div>
+<p>トップレベルの <code>"kind"</code> 判別子は <code>Canvas.from_json()</code>、<code>Deck.from_json()</code>、CLI のいずれでも必須で、<code>"canvas"</code> または <code>"deck"</code> を指定します。Canvas 文書は <code>layers</code>、Deck 文書は <code>slides</code> を持ちます。Deck では共有の既定サイズ、テーマ、遷移も定義できます。各レイヤーオブジェクトにも <code>"type"</code> 判別子が必要です。レイヤーは配列順に描画し、最初の項目が最背面になります。レイヤーの識別、配置、整列、モーションには、Python、Canvas JSON のルート、Deck の各スライドで同じ<a href="../api/#shared-layer-vocabulary">共通語彙</a>を使います。Deck 専用の別のレイヤースキーマはありません。</p>
+<h2 id="published-schema">公開スキーマ</h2>
+<p><code>Canvas.from_json()</code> と同じ Pydantic モデルから、現在の JSON Schema を出力できます。</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>quickthumb<span class="w"> </span>schema<span class="w"> </span>&gt;<span class="w"> </span>quickthumb.schema.json
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>quickthumb<span class="w"> </span>schema<span class="w"> </span>--output<span class="w"> </span>quickthumb.schema.json
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>quickthumb<span class="w"> </span>schema<span class="w"> </span>--document<span class="w"> </span>--output<span class="w"> </span>quickthumb.document-schema.json
+</code></pre></div>
+<p>Python では <code>canvas_json_schema()</code> と <code>document_json_schema()</code> から同じスキーマを取得できます。このドキュメントでも公開しています。</p>
+<ul>
+<li><a href="https://quickthumb.solaqua.dev/schema.json">https://quickthumb.solaqua.dev/schema.json</a>（Canvas）</li>
+<li><a href="https://quickthumb.solaqua.dev/document-schema.json">https://quickthumb.solaqua.dev/document-schema.json</a>（Canvas または Deck）</li>
+</ul>
+<p>VS Code で仕様を編集するときに補完と検証を使うには、<code>.vscode/settings.json</code> で仕様ファイルを公開スキーマに対応付けます。</p>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">"json.schemas"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">      </span><span class="nt">"fileMatch"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"*.thumb.json"</span><span class="p">],</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">      </span><span class="nt">"url"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://quickthumb.solaqua.dev/schema.json"</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="p">}</span>
+</code></pre></div>
+<p>仕様内に <code>"$schema"</code> キーを追加するのではなく、このようなファイル対応付けを使ってください。<code>Canvas.from_json()</code> は <code>$schema</code> を含め、不明なトップレベルフィールドを拒否します。</p>
+<p>公開ファイルは <code>main</code> ブランチに追従するドキュメントのデプロイごとに再生成します。インストール済みのバージョンに対応するスキーマは <code>quickthumb schema</code> で取得してください。</p>
+<div class="admonition note">
+<p class="admonition-title">スキーマの範囲</p>
+<p><code>quickthumb schema</code> は、外部ツールや制約付き生成に使う具体的な Canvas 仕様を記述します。Canvas/Deck を統合した判別子付きスキーマには <code>quickthumb schema --document</code> を使います。quickthumb が何を読み込めるかの最終的な基準は <code>Canvas.from_json()</code> です。</p>
+<p>CLI、<code>serve</code>、<code>Canvas.from_json()</code>、<code>Deck.from_json()</code> は、いずれも対応するトップレベルの <code>kind</code> 判別子を必要とします。新しくシリアライズした文書には、Deck のスライドも含め、各文書境界に判別子が入ります。</p>
+<p>Deck が既定の寸法を指定している場合、スライドでは <code>width</code> と <code>height</code> を省略できます。文書スキーマもこの形式を受け付け、正規 JSON では継承した寸法を各スライドに出力します。遷移オブジェクトには <code>Deck.from_json()</code> と同じ、判別子付きの厳密な契約が適用されます。</p>
+<p><code>$theme.*</code> などの記述用の便利な機能は、モデル検証の前に quickthumb が解決します。そのため、quickthumb が読み込める未解決の仕様でも、汎用 JSON Schema バリデーターでは拒否される場合があります。</p>
+</div>
+<p>このコマンドは決定的な JSON だけを出力するため、リポジトリに保存したり、エディターにパイプで渡したり、制約付き生成 API に直接渡したりできます。Canvas スキーマには現在のキャンバスフィールド、組み込みレイヤーの判別子、エフェクト、アニメーション、対応するプラットフォームプリセット、任意のトップレベル <code>theme</code> ブロックが含まれます。<code>--document</code> スキーマは Deck のルートを追加し、<code>kind</code> で両方の文書種別を対応付けます。</p>
+<h2 id="plugin-layers">プラグインレイヤー</h2>
+<p>プラグインは 1 つの明示的な <code>PluginRegistry</code> に登録します。登録内容はレイヤー種別とパラメーターを記述します。描画は、別途用意した信頼できる同期 <code>raster</code> コールバックが、基準となる RGBA ピクセルとして行います。コールバックはアプリケーションのコードであり、JSON に保存したり JSON からインポートしたりしません。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">Canvas</span><span class="p">,</span> <span class="n">PluginRegistry</span><span class="p">,</span> <span class="n">canvas_json_schema</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">registry</span> <span class="o">=</span> <span class="n">PluginRegistry</span><span class="p">()</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="s2">"brand_badge"</span><span class="p">,</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="s2">"1.0"</span><span class="p">,</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">params_schema</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>        <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"object"</span><span class="p">,</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>        <span class="s2">"required"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"label"</span><span class="p">],</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>        <span class="s2">"properties"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"label"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">}},</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>        <span class="s2">"additionalProperties"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="p">},</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="p">)</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="n">canvas</span> <span class="o">=</span> <span class="n">Canvas</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">)</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="n">schema</span> <span class="o">=</span> <span class="n">canvas_json_schema</span><span class="p">(</span><span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">)</span>
+</code></pre></div>
+<p>プラグインレイヤーには <code>type: "plugin"</code>、<code>renderer</code>、<code>version</code>、オブジェクト値の <code>params</code>、正の整数の <code>width</code>/<code>height</code> が必要です。<code>position</code> は通常のピクセル・パーセント座標を受け付け、<code>align</code> と <code>opacity</code> はローカルのボックスに適用します。標準の <code>clip</code> と <code>mask</code> 境界は描画後に適用します。Group は子の配置を制御し、静的なプラグインのピクセルを含むグループ全体をアニメーションできます。文書パーサーと Schema ヘルパーには同じ明示的なレジストリを渡してください。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">PIL</span><span class="w"> </span><span class="kn">import</span> <span class="n">Image</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">badge</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="k">with</span> <span class="n">Image</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="s2">"RGBA"</span><span class="p">,</span> <span class="n">context</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">params</span><span class="p">[</span><span class="s2">"color"</span><span class="p">])</span> <span class="k">as</span> <span class="n">image</span><span class="p">:</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>        <span class="k">return</span> <span class="n">image</span><span class="o">.</span><span class="n">tobytes</span><span class="p">()</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">"badge"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">,</span> <span class="n">raster</span><span class="o">=</span><span class="n">badge</span><span class="p">)</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">canvas</span> <span class="o">=</span> <span class="n">Canvas</span><span class="p">(</span><span class="mi">320</span><span class="p">,</span> <span class="mi">180</span><span class="p">,</span> <span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">)</span><span class="o">.</span><span class="n">plugin</span><span class="p">(</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="s2">"badge"</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="s2">"1"</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">"color"</span><span class="p">:</span> <span class="s2">"#42CEB7"</span><span class="p">},</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">30</span><span class="p">),</span> <span class="n">width</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="p">)</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="n">canvas</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"badge.png"</span><span class="p">)</span>
+</code></pre></div>
+<p><code>raster</code> コールバックは params の dict と <code>context.size</code> を受け取り、生の RGBA8 バイト列（<code>width * height * 4</code>）を返します。外部アセットはレイヤーで <code>assets={"texture": "assets/texture.png"}</code> のように宣言し、<code>context.read_asset("texture")</code> で読みます。</p>
+<h3 id="optional-native-svg">任意のネイティブ SVG</h3>
+<p>ベクター出力向けに、SVG 文字列を返す任意の <code>svg=</code> コールバックを登録できます。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">badge_svg</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">width</span><span class="p">,</span> <span class="n">height</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">size</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="k">return</span> <span class="p">(</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>        <span class="sa">f</span><span class="s1">'&lt;svg xmlns="http://www.w3.org/2000/svg" width="</span><span class="si">{</span><span class="n">width</span><span class="si">}</span><span class="s1">" height="</span><span class="si">{</span><span class="n">height</span><span class="si">}</span><span class="s1">"&gt;'</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        <span class="sa">f</span><span class="s1">'&lt;rect width="</span><span class="si">{</span><span class="n">width</span><span class="si">}</span><span class="s1">" height="</span><span class="si">{</span><span class="n">height</span><span class="si">}</span><span class="s1">" fill="</span><span class="si">{</span><span class="n">params</span><span class="p">[</span><span class="s2">"color"</span><span class="p">]</span><span class="si">}</span><span class="s1">"/&gt;&lt;/svg&gt;'</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="p">)</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="n">registry</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="s2">"badge"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">,</span> <span class="n">raster</span><span class="o">=</span><span class="n">badge</span><span class="p">,</span> <span class="n">svg</span><span class="o">=</span><span class="n">badge_svg</span><span class="p">)</span>
+</code></pre></div>
+<p>ネイティブ SVG プラグインに対応しない形式では、自動的に <code>raster</code> コールバックによる描画に切り替わります。</p>
+<h3 id="plugin-params-schema-v1">プラグインパラメーターの Schema v1</h3>
+<p><code>params_schema</code> は、文書化された <code>quickthumb plugin-params v1</code> のサブセットを受け付けます。JSON の型 <code>object</code>、<code>array</code>、<code>string</code>、<code>number</code>、<code>integer</code>、<code>boolean</code>、<code>null</code>、および <code>required</code>、<code>properties</code>、<code>additionalProperties</code>、<code>items</code>、<code>const</code>、<code>enum</code>、<code>oneOf</code>、<code>anyOf</code>、文字列パターンとサイズ制限、数値の最小・最大値に対応します。公開 Schema と実行時の検証を一致させるため、<code>$ref</code>、<code>allOf</code>、<code>not</code> などの未対応キーワードは登録時に拒否します。</p>
+<p>プロセス全体の <code>plugin_registry</code> も、共通の既定値を使いたいアプリケーション向けに引き続き利用できます。テスト、サービス、ライブラリでは明示的な <code>PluginRegistry</code> を使うと、登録を分離し、再現可能にできます。</p>
+<p>制約付き生成では、型が決まったフィールドには解決済みの具体値を使ってください。</p>
+<div class="language-text highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>Use quickthumb.schema.json as the JSON response schema.
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>Generate one valid quickthumb canvas spec for a 1280x720 YouTube thumbnail.
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>Return only the JSON object.
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>Use concrete hex colors and numeric sizes in layer fields.
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>Use only these layer type discriminators: background, text, image, shape, svg, group, outline.
+</code></pre></div>
+<h2 id="theme-tokens">テーマトークン</h2>
+<p>トップレベルの <code>theme</code> ブロックでブランドのトークンを一度定義し、仕様のどこからでも <code>$theme.path</code> で参照できます。</p>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"canvas"</span><span class="p">,</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">1280</span><span class="p">,</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="nt">"height"</span><span class="p">:</span><span class="w"> </span><span class="mi">720</span><span class="p">,</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="nt">"theme"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="nt">"colors"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"primary"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#B8FF00"</span><span class="p">,</span><span class="w"> </span><span class="nt">"ink"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#111111"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="nt">"sizes"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="mi">96</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">  </span><span class="nt">"layers"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"background"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$theme.colors.ink"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text"</span><span class="p">,</span><span class="w"> </span><span class="nt">"content"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Hello"</span><span class="p">,</span><span class="w"> </span><span class="nt">"size"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$theme.sizes.title"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$theme.colors.primary"</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="p">}</span>
+</code></pre></div>
+<p>規則は次のとおりです。</p>
+<ul>
+<li><code>theme</code> ブロックではグループを任意に入れ子にできます。パスは <code>$theme.colors.primary</code> のようにドットで指定します。</li>
+<li>文字列全体が参照なら、元の JSON 型を保ちます。<code>"size": "$theme.sizes.title"</code> は数値 <code>96</code> になり、トークンにはリストも入れられます。</li>
+<li>スカラートークン（文字列、数値）は、より長い文字列の一部にも埋め込めます。</li>
+<li>テーマ値は他のテーマトークンを参照できます（別名）。循環参照は <code>ValidationError</code> になります。</li>
+<li>未定義のトークン参照は <code>ValidationError</code> になります。</li>
+<li>トークンは解析時に解決します。<code>to_json()</code> は <code>theme</code> ブロックを含めず、解決済みの値を出力します。</li>
+<li>テーマトークンと <code>$var</code> テンプレート置換（<code>quickthumb render --var KEY=VALUE</code>）は併用できます。<code>$theme.*</code> は変数として扱いません。</li>
+</ul>
+<h2 id="layer-schemas">レイヤースキーマ</h2>
+<p>よく使うレイヤーを以下に示します。動画、グラフ、QR コード、カウンター、プラグインのレイヤーも同じ形式です。フィールドは<a href="#published-schema">公開スキーマ</a>と各 API リファレンスにあります。</p>
+<h3 id="background-layer">背景レイヤー</h3>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"background"</span><span class="p">,</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#0F172A"</span><span class="p">,</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">"gradient"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="nt">"image"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="nt">"opacity"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="nt">"blend_mode"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">  </span><span class="nt">"fit"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">  </span><span class="nt">"effects"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="p">}</span>
+</code></pre></div>
+<p>必要なフィールドだけを指定します。それ以外には既定値が使われます。</p>
+<p><strong>グラデーションの種類:</strong></p>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"background"</span><span class="p">,</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">"gradient"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"linear"</span><span class="p">,</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="nt">"angle"</span><span class="p">:</span><span class="w"> </span><span class="mi">120</span><span class="p">,</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="nt">"stops"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="s2">"#111827"</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="s2">"#11182700"</span><span class="p">,</span><span class="w"> </span><span class="mf">1.0</span><span class="p">]]</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="p">}</span>
+</code></pre></div>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"background"</span><span class="p">,</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">"gradient"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"radial"</span><span class="p">,</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="nt">"stops"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="s2">"#00000000"</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="s2">"#000000CC"</span><span class="p">,</span><span class="w"> </span><span class="mf">1.0</span><span class="p">]],</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">    </span><span class="nt">"center"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mf">0.5</span><span class="p">,</span><span class="w"> </span><span class="mf">0.5</span><span class="p">]</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>画像の背景:</strong></p>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"background"</span><span class="p">,</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="nt">"image"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://example.com/photo.jpg"</span><span class="p">,</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">  </span><span class="nt">"fit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"cover"</span><span class="p">,</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">  </span><span class="nt">"blend_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"multiply"</span><span class="p">,</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">  </span><span class="nt">"effects"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"filter"</span><span class="p">,</span><span class="w"> </span><span class="nt">"blur"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">"brightness"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.75</span><span class="p">,</span><span class="w"> </span><span class="nt">"contrast"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.1</span><span class="p">,</span><span class="w"> </span><span class="nt">"saturation"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.9</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="p">}</span>
+</code></pre></div>
+<hr />
+<h3 id="text-layer">テキストレイヤー</h3>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p">{</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text"</span><span class="p">,</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">  </span><span class="nt">"content"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Hello World"</span><span class="p">,</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">  </span><span class="nt">"font_source"</span><span class="p">:</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">,</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">  </span><span class="nt">"font_variations"</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">  </span><span class="nt">"emoji_style"</span><span class="p">:</span><span class="w"> </span><span class="s2">"monochrome"</span><span class="p">,</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">  </span><span class="nt">"size"</span><span class="p">:</span><span class="w"> </span><span class="mi">72</span><span class="p">,</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">  </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#FFFFFF"</span><span class="p">,</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">  </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"50%"</span><span class="p">,</span><span class="w"> </span><span class="s2">"50%"</span><span class="p">],</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="w">  </span><span class="nt">"align"</span><span class="p">:</span><span class="w"> </span><span class="s2">"center"</span><span class="p">,</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="w">  </span><span class="nt">"max_height"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="w">  </span><span class="nt">"min_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="w">  </span><span class="nt">"balance_lines"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="w">  </span><span class="nt">"opacity"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span>
+<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="w">  </span><span class="nt">"rotation"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span>
+<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="w">  </span><span class="nt">"effects"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong><code>TextPart</code> リストによるリッチテキスト:</strong></p>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">{</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text"</span><span class="p">,</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span><span class="nt">"content"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">      </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"5 "</span><span class="p">,</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">      </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#FBBF24"</span><span class="p">,</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">      </span><span class="nt">"font_source"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">      </span><span class="nt">"font_variations"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="w">      </span><span class="nt">"emoji_style"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="w">      </span><span class="nt">"weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">900</span><span class="p">,</span>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="w">      </span><span class="nt">"effects"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="w">    </span><span class="p">},</span>
+<a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a><span class="w">      </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"WARNING SIGNS"</span><span class="p">,</span>
+<a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a><span class="w">      </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#FFFFFF"</span><span class="p">,</span>
+<a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a><span class="w">      </span><span class="nt">"font_source"</span><span class="p">:</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">,</span>
+<a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a><span class="w">      </span><span class="nt">"font_variations"</span><span class="p">:</span><span class="w"> </span><span class="p">{},</span>
+<a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a><span class="w">      </span><span class="nt">"emoji_style"</span><span class="p">:</span><span class="w"> </span><span class="s2">"monochrome"</span><span class="p">,</span>
+<a id="__codelineno-14-19" name="__codelineno-14-19" href="#__codelineno-14-19"></a><span class="w">      </span><span class="nt">"weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">900</span><span class="p">,</span>
+<a id="__codelineno-14-20" name="__codelineno-14-20" href="#__codelineno-14-20"></a><span class="w">      </span><span class="nt">"effects"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<a id="__codelineno-14-21" name="__codelineno-14-21" href="#__codelineno-14-21"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-14-22" name="__codelineno-14-22" href="#__codelineno-14-22"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-14-23" name="__codelineno-14-23" href="#__codelineno-14-23"></a><span class="w">  </span><span class="nt">"size"</span><span class="p">:</span><span class="w"> </span><span class="mi">80</span><span class="p">,</span>
+<a id="__codelineno-14-24" name="__codelineno-14-24" href="#__codelineno-14-24"></a><span class="w">  </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"8%"</span><span class="p">,</span><span class="w"> </span><span class="s2">"55%"</span><span class="p">],</span>
+<a id="__codelineno-14-25" name="__codelineno-14-25" href="#__codelineno-14-25"></a><span class="w">  </span><span class="nt">"align"</span><span class="p">:</span><span class="w"> </span><span class="s2">"left"</span><span class="p">,</span>
+<a id="__codelineno-14-26" name="__codelineno-14-26" href="#__codelineno-14-26"></a><span class="w">  </span><span class="nt">"max_width"</span><span class="p">:</span><span class="w"> </span><span class="s2">"65%"</span><span class="p">,</span>
+<a id="__codelineno-14-27" name="__codelineno-14-27" href="#__codelineno-14-27"></a><span class="w">  </span><span class="nt">"auto_scale"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-14-28" name="__codelineno-14-28" href="#__codelineno-14-28"></a><span class="w">  </span><span class="nt">"rotation"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span>
+<a id="__codelineno-14-29" name="__codelineno-14-29" href="#__codelineno-14-29"></a><span class="w">  </span><span class="nt">"opacity"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span>
+<a id="__codelineno-14-30" name="__codelineno-14-30" href="#__codelineno-14-30"></a><span class="w">  </span><span class="nt">"effects"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-14-31" name="__codelineno-14-31" href="#__codelineno-14-31"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"stroke"</span><span class="p">,</span><span class="w"> </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#000000"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-14-32" name="__codelineno-14-32" href="#__codelineno-14-32"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"shadow"</span><span class="p">,</span><span class="w"> </span><span class="nt">"offset_x"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">"offset_y"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#000000"</span><span class="p">,</span><span class="w"> </span><span class="nt">"blur_radius"</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-14-33" name="__codelineno-14-33" href="#__codelineno-14-33"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-14-34" name="__codelineno-14-34" href="#__codelineno-14-34"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>グラデーションで塗る文字:</strong></p>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text"</span><span class="p">,</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="nt">"content"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GRADIENT"</span><span class="p">,</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">  </span><span class="nt">"size"</span><span class="p">:</span><span class="w"> </span><span class="mi">120</span><span class="p">,</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">  </span><span class="nt">"fill"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"linear"</span><span class="p">,</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">    </span><span class="nt">"angle"</span><span class="p">:</span><span class="w"> </span><span class="mi">90</span><span class="p">,</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="w">    </span><span class="nt">"stops"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="s2">"#FF6B6B"</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="s2">"#4ECDC4"</span><span class="p">,</span><span class="w"> </span><span class="mf">1.0</span><span class="p">]]</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="w">  </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"50%"</span><span class="p">,</span><span class="w"> </span><span class="s2">"50%"</span><span class="p">],</span>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="w">  </span><span class="nt">"align"</span><span class="p">:</span><span class="w"> </span><span class="s2">"center"</span><span class="p">,</span>
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="w">  </span><span class="nt">"effects"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>画像で塗る文字:</strong></p>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">{</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text"</span><span class="p">,</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span><span class="nt">"content"</span><span class="p">:</span><span class="w"> </span><span class="s2">"TEXTURE"</span><span class="p">,</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span><span class="nt">"size"</span><span class="p">:</span><span class="w"> </span><span class="mi">140</span><span class="p">,</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">  </span><span class="nt">"fill"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">    </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"image"</span><span class="p">,</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">    </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"fire_texture.jpg"</span><span class="p">,</span>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">    </span><span class="nt">"fit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"cover"</span>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="w">  </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"50%"</span><span class="p">,</span><span class="w"> </span><span class="s2">"50%"</span><span class="p">],</span>
+<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="w">  </span><span class="nt">"align"</span><span class="p">:</span><span class="w"> </span><span class="s2">"center"</span><span class="p">,</span>
+<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="w">  </span><span class="nt">"effects"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="p">}</span>
+</code></pre></div>
+<p><code>fill</code> の判別子は <code>"linear"</code>、<code>"radial"</code>、<code>"image"</code> で、背景グラデーションと同じタグです。同じ判別子付きオブジェクトで、<code>TextPart</code> ごとにも <code>fill</code> を設定できます。</p>
+<p><strong>Align の値:</strong> <code>"center"</code>、<code>"left"</code>、<code>"right"</code>、<code>"top-left"</code>、<code>"top-center"</code>、<code>"top-right"</code>、<code>"bottom-left"</code>、<code>"bottom-center"</code>、<code>"bottom-right"</code></p>
+<hr />
+<h3 id="image-layer">画像レイヤー</h3>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">{</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"image"</span><span class="p">,</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">  </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"portrait.png"</span><span class="p">,</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">  </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"74%"</span><span class="p">,</span><span class="w"> </span><span class="s2">"54%"</span><span class="p">],</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">  </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">420</span><span class="p">,</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">  </span><span class="nt">"height"</span><span class="p">:</span><span class="w"> </span><span class="mi">520</span><span class="p">,</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">  </span><span class="nt">"fit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"cover"</span><span class="p">,</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">  </span><span class="nt">"align"</span><span class="p">:</span><span class="w"> </span><span class="s2">"center"</span><span class="p">,</span>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="w">  </span><span class="nt">"opacity"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="w">  </span><span class="nt">"rotation"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span>
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="w">  </span><span class="nt">"remove_background"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a><span class="w">  </span><span class="nt">"border_radius"</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="p">,</span>
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="w">  </span><span class="nt">"blend_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"normal"</span><span class="p">,</span>
+<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a><span class="w">  </span><span class="nt">"effects"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"filter"</span><span class="p">,</span><span class="w"> </span><span class="nt">"contrast"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.1</span><span class="p">,</span><span class="w"> </span><span class="nt">"saturation"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.05</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"shadow"</span><span class="p">,</span><span class="w"> </span><span class="nt">"offset_x"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"offset_y"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#000000"</span><span class="p">,</span><span class="w"> </span><span class="nt">"blur_radius"</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a><span class="p">}</span>
+</code></pre></div>
+<hr />
+<h3 id="shape-layer">図形レイヤー</h3>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p">{</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"shape"</span><span class="p">,</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">  </span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rectangle"</span><span class="p">,</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">  </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">48</span><span class="p">,</span><span class="w"> </span><span class="mi">48</span><span class="p">],</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">  </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">320</span><span class="p">,</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">  </span><span class="nt">"height"</span><span class="p">:</span><span class="w"> </span><span class="mi">96</span><span class="p">,</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="w">  </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#CC0000"</span><span class="p">,</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="w">  </span><span class="nt">"border_radius"</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span><span class="p">,</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="w">  </span><span class="nt">"opacity"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="w">  </span><span class="nt">"rotation"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="w">  </span><span class="nt">"align"</span><span class="p">:</span><span class="w"> </span><span class="s2">"top-left"</span><span class="p">,</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="w">  </span><span class="nt">"effects"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"stroke"</span><span class="p">,</span><span class="w"> </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#FFFFFF"</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="p">}</span>
+</code></pre></div>
+<p><code>"shape"</code> の値: <code>"rectangle"</code>、<code>"ellipse"</code>、<code>"pill"</code>、<code>"triangle"</code>、<code>"star"</code>、<code>"polygon"</code></p>
+<p><strong>星形と多角形:</strong></p>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="p">{</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"shape"</span><span class="p">,</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">  </span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="s2">"star"</span><span class="p">,</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">  </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"80%"</span><span class="p">,</span><span class="w"> </span><span class="s2">"50%"</span><span class="p">],</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">  </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">280</span><span class="p">,</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">  </span><span class="nt">"height"</span><span class="p">:</span><span class="w"> </span><span class="mi">280</span><span class="p">,</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">  </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#7C5CFF"</span><span class="p">,</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="w">  </span><span class="nt">"align"</span><span class="p">:</span><span class="w"> </span><span class="s2">"center"</span><span class="p">,</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="w">  </span><span class="nt">"rotation"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="w">  </span><span class="nt">"star_points"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="w">  </span><span class="nt">"inner_radius"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.45</span>
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a><span class="p">}</span>
+</code></pre></div>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="p">{</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"shape"</span><span class="p">,</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">  </span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="s2">"polygon"</span><span class="p">,</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">  </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">600</span><span class="p">,</span><span class="w"> </span><span class="mi">60</span><span class="p">],</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">  </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">160</span><span class="p">,</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">  </span><span class="nt">"height"</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="w">  </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#53BF9D"</span><span class="p">,</span>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="w">  </span><span class="nt">"points"</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="mf">0.25</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">0.6</span><span class="p">,</span><span class="w"> </span><span class="mf">0.25</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">0.6</span><span class="p">,</span><span class="w"> </span><span class="mf">0.0</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="mf">0.5</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">0.6</span><span class="p">,</span><span class="w"> </span><span class="mf">1.0</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">0.6</span><span class="p">,</span><span class="w"> </span><span class="mf">0.75</span><span class="p">],</span><span class="w"> </span><span class="p">[</span><span class="mf">0.0</span><span class="p">,</span><span class="w"> </span><span class="mf">0.75</span><span class="p">]]</span>
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="p">}</span>
+</code></pre></div>
+<p><code>"polygon"</code> には <code>points</code> が必須です（他の形では指定できません）。図形のボックス内を <code>0.0</code>〜<code>1.0</code> に正規化した、3 個以上の頂点を指定します。<code>star_points</code>（3 以上）と <code>inner_radius</code>（0 より大きく 1 未満）は <code>"star"</code> だけに適用します。</p>
+<hr />
+<h3 id="svg-layer">SVG レイヤー</h3>
+<p>描画時にラスター化します。<code>quickthumb[svg]</code> extra が必要です。<a href="../api/svg/">SVG リファレンス</a>を参照してください。</p>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="p">{</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"svg"</span><span class="p">,</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">  </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"logo.svg"</span><span class="p">,</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">  </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"92%"</span><span class="p">,</span><span class="w"> </span><span class="s2">"10%"</span><span class="p">],</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="w">  </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">120</span><span class="p">,</span>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="w">  </span><span class="nt">"align"</span><span class="p">:</span><span class="w"> </span><span class="s2">"center"</span><span class="p">,</span>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="w">  </span><span class="nt">"opacity"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span>
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="w">  </span><span class="nt">"rotation"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span>
+<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a><span class="w">  </span><span class="nt">"blend_mode"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a><span class="w">  </span><span class="nt">"effects"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a><span class="p">}</span>
+</code></pre></div>
+<p><code>width</code>/<code>height</code> はラスター寸法を指定します。片方だけなら縦横比を保ちます。SVG レイヤーは画像レイヤーと同じ <code>effects</code> を使えます。</p>
+<hr />
+<h3 id="group-layer">グループレイヤー</h3>
+<p>自動レイアウトのコンテナーです。子を測定し、行または列に並べるため、子に <code>position</code> を指定してはいけません。<a href="../api/group/">Group リファレンス</a>を参照してください。</p>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="p">{</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"group"</span><span class="p">,</span>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="w">  </span><span class="nt">"direction"</span><span class="p">:</span><span class="w"> </span><span class="s2">"column"</span><span class="p">,</span>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="w">  </span><span class="nt">"gap"</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="p">,</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="w">  </span><span class="nt">"padding"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="w">  </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"8%"</span><span class="p">,</span><span class="w"> </span><span class="s2">"50%"</span><span class="p">],</span>
+<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="w">  </span><span class="nt">"align"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"left"</span><span class="p">,</span><span class="w"> </span><span class="s2">"middle"</span><span class="p">],</span>
+<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a><span class="w">  </span><span class="nt">"item_align"</span><span class="p">:</span><span class="w"> </span><span class="s2">"start"</span><span class="p">,</span>
+<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="w">  </span><span class="nt">"children"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"shape"</span><span class="p">,</span><span class="w"> </span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pill"</span><span class="p">,</span><span class="w"> </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">120</span><span class="p">,</span><span class="w"> </span><span class="nt">"height"</span><span class="p">:</span><span class="w"> </span><span class="mi">36</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#E94560"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text"</span><span class="p">,</span><span class="w"> </span><span class="nt">"content"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AUTO LAYOUT"</span><span class="p">,</span><span class="w"> </span><span class="nt">"size"</span><span class="p">:</span><span class="w"> </span><span class="mi">96</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#FFFFFF"</span><span class="p">,</span><span class="w"> </span><span class="nt">"weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">900</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text"</span><span class="p">,</span><span class="w"> </span><span class="nt">"content"</span><span class="p">:</span><span class="w"> </span><span class="s2">"No coordinates were harmed"</span><span class="p">,</span><span class="w"> </span><span class="nt">"size"</span><span class="p">:</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#A2A8D3"</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-22-13" name="__codelineno-22-13" href="#__codelineno-22-13"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-22-14" name="__codelineno-22-14" href="#__codelineno-22-14"></a><span class="p">}</span>
+</code></pre></div>
+<ul>
+<li><code>direction</code>: <code>"column"</code>（既定）または <code>"row"</code></li>
+<li><code>gap</code>: 子の間隔（ピクセル）。<code>padding</code>: 整数、<code>[vertical, horizontal]</code>、<code>[top, right, bottom, left]</code></li>
+<li><code>item_align</code>: 交差軸上の配置。<code>"start"</code>、<code>"center"</code>、<code>"end"</code> のいずれか</li>
+<li><code>children</code> の型: <code>"text"</code>、<code>"image"</code>、<code>"shape"</code>、<code>"svg"</code>、入れ子の <code>"group"</code></li>
+</ul>
+<hr />
+<h3 id="outline-layer">枠線レイヤー</h3>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="p">{</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"outline"</span><span class="p">,</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w">  </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="w">  </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#B8FF00"</span><span class="p">,</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="w">  </span><span class="nt">"offset"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="w">  </span><span class="nt">"opacity"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="p">}</span>
+</code></pre></div>
+<hr />
+<h2 id="effect-schemas">エフェクトのスキーマ</h2>
+<p>エフェクトは各レイヤーの <code>"effects"</code> 配列に入れ、<code>"type"</code> 判別子を使います。</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:9"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><input id="__tabbed_1_4" name="__tabbed_1" type="radio" /><input id="__tabbed_1_5" name="__tabbed_1" type="radio" /><input id="__tabbed_1_6" name="__tabbed_1" type="radio" /><input id="__tabbed_1_7" name="__tabbed_1" type="radio" /><input id="__tabbed_1_8" name="__tabbed_1" type="radio" /><input id="__tabbed_1_9" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Stroke</label><label for="__tabbed_1_2">Shadow</label><label for="__tabbed_1_3">Glow</label><label for="__tabbed_1_4">Filter</label><label for="__tabbed_1_5">Background（文字）</label><label for="__tabbed_1_6">Grain</label><label for="__tabbed_1_7">Duotone</label><label for="__tabbed_1_8">Inner shadow</label><label for="__tabbed_1_9">Backdrop blur</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"stroke"</span><span class="p">,</span><span class="w"> </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#000000"</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"shadow"</span><span class="p">,</span><span class="w"> </span><span class="nt">"offset_x"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">"offset_y"</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#000000"</span><span class="p">,</span><span class="w"> </span><span class="nt">"blur_radius"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"glow"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#B8FF00"</span><span class="p">,</span><span class="w"> </span><span class="nt">"radius"</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span><span class="w"> </span><span class="nt">"opacity"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.35</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"filter"</span><span class="p">,</span><span class="w"> </span><span class="nt">"blur"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">"brightness"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.75</span><span class="p">,</span><span class="w"> </span><span class="nt">"contrast"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.1</span><span class="p">,</span><span class="w"> </span><span class="nt">"saturation"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.9</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"background"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#111827CC"</span><span class="p">,</span><span class="w"> </span><span class="nt">"padding"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">16</span><span class="p">,</span><span class="w"> </span><span class="mi">24</span><span class="p">],</span><span class="w"> </span><span class="nt">"border_radius"</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span><span class="p">,</span><span class="w"> </span><span class="nt">"opacity"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"grain"</span><span class="p">,</span><span class="w"> </span><span class="nt">"intensity"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.12</span><span class="p">,</span><span class="w"> </span><span class="nt">"monochrome"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"blend_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"overlay"</span><span class="p">,</span><span class="w"> </span><span class="nt">"opacity"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p><code>blend_mode</code> の値は <code>"overlay"</code>、<code>"screen"</code>、<code>"multiply"</code>、<code>"normal"</code> です。任意の整数 <code>"seed"</code> で結果を再現可能にできます。</p>
+</div>
+<div class="tabbed-block">
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"duotone"</span><span class="p">,</span><span class="w"> </span><span class="nt">"shadows"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#0A1730"</span><span class="p">,</span><span class="w"> </span><span class="nt">"highlights"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#7FADFF"</span><span class="p">,</span><span class="w"> </span><span class="nt">"opacity"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"inner_shadow"</span><span class="p">,</span><span class="w"> </span><span class="nt">"offset_x"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"offset_y"</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#00000080"</span><span class="p">,</span><span class="w"> </span><span class="nt">"blur_radius"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="nt">"opacity"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"backdrop_blur"</span><span class="p">,</span><span class="w"> </span><span class="nt">"radius"</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="p">,</span><span class="w"> </span><span class="nt">"opacity"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<p>各レイヤーが使えるエフェクトは、<a href="../api/effects/">エフェクトのリファレンス</a>にあります。</p>
+<h2 id="complete-example">完全な例</h2>
+<p>YouTube 風サムネイルの仕様全体です。</p>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="p">{</span>
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a><span class="w">  </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"canvas"</span><span class="p">,</span>
+<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a><span class="w">  </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">1280</span><span class="p">,</span>
+<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a><span class="w">  </span><span class="nt">"height"</span><span class="p">:</span><span class="w"> </span><span class="mi">720</span><span class="p">,</span>
+<a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a><span class="w">  </span><span class="nt">"layers"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-33-7" name="__codelineno-33-7" href="#__codelineno-33-7"></a><span class="w">      </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"background"</span><span class="p">,</span>
+<a id="__codelineno-33-8" name="__codelineno-33-8" href="#__codelineno-33-8"></a><span class="w">      </span><span class="nt">"image"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://images.unsplash.com/photo-1516321318423-f06f85e504b3"</span><span class="p">,</span>
+<a id="__codelineno-33-9" name="__codelineno-33-9" href="#__codelineno-33-9"></a><span class="w">      </span><span class="nt">"fit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"cover"</span><span class="p">,</span>
+<a id="__codelineno-33-10" name="__codelineno-33-10" href="#__codelineno-33-10"></a><span class="w">      </span><span class="nt">"effects"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"filter"</span><span class="p">,</span><span class="w"> </span><span class="nt">"brightness"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.6</span><span class="w"> </span><span class="p">}]</span>
+<a id="__codelineno-33-11" name="__codelineno-33-11" href="#__codelineno-33-11"></a><span class="w">    </span><span class="p">},</span>
+<a id="__codelineno-33-12" name="__codelineno-33-12" href="#__codelineno-33-12"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-33-13" name="__codelineno-33-13" href="#__codelineno-33-13"></a><span class="w">      </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"background"</span><span class="p">,</span>
+<a id="__codelineno-33-14" name="__codelineno-33-14" href="#__codelineno-33-14"></a><span class="w">      </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#000000"</span><span class="p">,</span>
+<a id="__codelineno-33-15" name="__codelineno-33-15" href="#__codelineno-33-15"></a><span class="w">      </span><span class="nt">"opacity"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.35</span>
+<a id="__codelineno-33-16" name="__codelineno-33-16" href="#__codelineno-33-16"></a><span class="w">    </span><span class="p">},</span>
+<a id="__codelineno-33-17" name="__codelineno-33-17" href="#__codelineno-33-17"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-33-18" name="__codelineno-33-18" href="#__codelineno-33-18"></a><span class="w">      </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"shape"</span><span class="p">,</span>
+<a id="__codelineno-33-19" name="__codelineno-33-19" href="#__codelineno-33-19"></a><span class="w">      </span><span class="nt">"shape"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rectangle"</span><span class="p">,</span>
+<a id="__codelineno-33-20" name="__codelineno-33-20" href="#__codelineno-33-20"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">52</span><span class="p">,</span><span class="w"> </span><span class="mi">52</span><span class="p">],</span>
+<a id="__codelineno-33-21" name="__codelineno-33-21" href="#__codelineno-33-21"></a><span class="w">      </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">360</span><span class="p">,</span>
+<a id="__codelineno-33-22" name="__codelineno-33-22" href="#__codelineno-33-22"></a><span class="w">      </span><span class="nt">"height"</span><span class="p">:</span><span class="w"> </span><span class="mi">96</span><span class="p">,</span>
+<a id="__codelineno-33-23" name="__codelineno-33-23" href="#__codelineno-33-23"></a><span class="w">      </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#CC0000"</span><span class="p">,</span>
+<a id="__codelineno-33-24" name="__codelineno-33-24" href="#__codelineno-33-24"></a><span class="w">      </span><span class="nt">"border_radius"</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span><span class="p">,</span>
+<a id="__codelineno-33-25" name="__codelineno-33-25" href="#__codelineno-33-25"></a><span class="w">      </span><span class="nt">"effects"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<a id="__codelineno-33-26" name="__codelineno-33-26" href="#__codelineno-33-26"></a><span class="w">    </span><span class="p">},</span>
+<a id="__codelineno-33-27" name="__codelineno-33-27" href="#__codelineno-33-27"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-33-28" name="__codelineno-33-28" href="#__codelineno-33-28"></a><span class="w">      </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text"</span><span class="p">,</span>
+<a id="__codelineno-33-29" name="__codelineno-33-29" href="#__codelineno-33-29"></a><span class="w">      </span><span class="nt">"content"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-33-30" name="__codelineno-33-30" href="#__codelineno-33-30"></a><span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"AI "</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#B8FF00"</span><span class="p">,</span><span class="w"> </span><span class="nt">"weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">900</span><span class="p">,</span><span class="w"> </span><span class="nt">"effects"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-33-31" name="__codelineno-33-31" href="#__codelineno-33-31"></a><span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"THUMBNAILS"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#FFFFFF"</span><span class="p">,</span><span class="w"> </span><span class="nt">"weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">900</span><span class="p">,</span><span class="w"> </span><span class="nt">"effects"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-33-32" name="__codelineno-33-32" href="#__codelineno-33-32"></a><span class="w">      </span><span class="p">],</span>
+<a id="__codelineno-33-33" name="__codelineno-33-33" href="#__codelineno-33-33"></a><span class="w">      </span><span class="nt">"size"</span><span class="p">:</span><span class="w"> </span><span class="mi">108</span><span class="p">,</span>
+<a id="__codelineno-33-34" name="__codelineno-33-34" href="#__codelineno-33-34"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"8%"</span><span class="p">,</span><span class="w"> </span><span class="s2">"52%"</span><span class="p">],</span>
+<a id="__codelineno-33-35" name="__codelineno-33-35" href="#__codelineno-33-35"></a><span class="w">      </span><span class="nt">"align"</span><span class="p">:</span><span class="w"> </span><span class="s2">"left"</span><span class="p">,</span>
+<a id="__codelineno-33-36" name="__codelineno-33-36" href="#__codelineno-33-36"></a><span class="w">      </span><span class="nt">"max_width"</span><span class="p">:</span><span class="w"> </span><span class="s2">"58%"</span><span class="p">,</span>
+<a id="__codelineno-33-37" name="__codelineno-33-37" href="#__codelineno-33-37"></a><span class="w">      </span><span class="nt">"rotation"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span>
+<a id="__codelineno-33-38" name="__codelineno-33-38" href="#__codelineno-33-38"></a><span class="w">      </span><span class="nt">"opacity"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span>
+<a id="__codelineno-33-39" name="__codelineno-33-39" href="#__codelineno-33-39"></a><span class="w">      </span><span class="nt">"effects"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-33-40" name="__codelineno-33-40" href="#__codelineno-33-40"></a><span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"stroke"</span><span class="p">,</span><span class="w"> </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#000000"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-33-41" name="__codelineno-33-41" href="#__codelineno-33-41"></a><span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"shadow"</span><span class="p">,</span><span class="w"> </span><span class="nt">"offset_x"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">"offset_y"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#000000"</span><span class="p">,</span><span class="w"> </span><span class="nt">"blur_radius"</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-33-42" name="__codelineno-33-42" href="#__codelineno-33-42"></a><span class="w">      </span><span class="p">]</span>
+<a id="__codelineno-33-43" name="__codelineno-33-43" href="#__codelineno-33-43"></a><span class="w">    </span><span class="p">},</span>
+<a id="__codelineno-33-44" name="__codelineno-33-44" href="#__codelineno-33-44"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-33-45" name="__codelineno-33-45" href="#__codelineno-33-45"></a><span class="w">      </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"image"</span><span class="p">,</span>
+<a id="__codelineno-33-46" name="__codelineno-33-46" href="#__codelineno-33-46"></a><span class="w">      </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"portrait.png"</span><span class="p">,</span>
+<a id="__codelineno-33-47" name="__codelineno-33-47" href="#__codelineno-33-47"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"75%"</span><span class="p">,</span><span class="w"> </span><span class="s2">"55%"</span><span class="p">],</span>
+<a id="__codelineno-33-48" name="__codelineno-33-48" href="#__codelineno-33-48"></a><span class="w">      </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">430</span><span class="p">,</span>
+<a id="__codelineno-33-49" name="__codelineno-33-49" href="#__codelineno-33-49"></a><span class="w">      </span><span class="nt">"height"</span><span class="p">:</span><span class="w"> </span><span class="mi">540</span><span class="p">,</span>
+<a id="__codelineno-33-50" name="__codelineno-33-50" href="#__codelineno-33-50"></a><span class="w">      </span><span class="nt">"fit"</span><span class="p">:</span><span class="w"> </span><span class="s2">"cover"</span><span class="p">,</span>
+<a id="__codelineno-33-51" name="__codelineno-33-51" href="#__codelineno-33-51"></a><span class="w">      </span><span class="nt">"align"</span><span class="p">:</span><span class="w"> </span><span class="s2">"center"</span><span class="p">,</span>
+<a id="__codelineno-33-52" name="__codelineno-33-52" href="#__codelineno-33-52"></a><span class="w">      </span><span class="nt">"border_radius"</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="p">,</span>
+<a id="__codelineno-33-53" name="__codelineno-33-53" href="#__codelineno-33-53"></a><span class="w">      </span><span class="nt">"effects"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-33-54" name="__codelineno-33-54" href="#__codelineno-33-54"></a><span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"shadow"</span><span class="p">,</span><span class="w"> </span><span class="nt">"offset_x"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"offset_y"</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#000000"</span><span class="p">,</span><span class="w"> </span><span class="nt">"blur_radius"</span><span class="p">:</span><span class="w"> </span><span class="mi">24</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-33-55" name="__codelineno-33-55" href="#__codelineno-33-55"></a><span class="w">      </span><span class="p">]</span>
+<a id="__codelineno-33-56" name="__codelineno-33-56" href="#__codelineno-33-56"></a><span class="w">    </span><span class="p">},</span>
+<a id="__codelineno-33-57" name="__codelineno-33-57" href="#__codelineno-33-57"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-33-58" name="__codelineno-33-58" href="#__codelineno-33-58"></a><span class="w">      </span><span class="nt">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"outline"</span><span class="p">,</span>
+<a id="__codelineno-33-59" name="__codelineno-33-59" href="#__codelineno-33-59"></a><span class="w">      </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-33-60" name="__codelineno-33-60" href="#__codelineno-33-60"></a><span class="w">      </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#B8FF00"</span><span class="p">,</span>
+<a id="__codelineno-33-61" name="__codelineno-33-61" href="#__codelineno-33-61"></a><span class="w">      </span><span class="nt">"offset"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-33-62" name="__codelineno-33-62" href="#__codelineno-33-62"></a><span class="w">      </span><span class="nt">"opacity"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span>
+<a id="__codelineno-33-63" name="__codelineno-33-63" href="#__codelineno-33-63"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-33-64" name="__codelineno-33-64" href="#__codelineno-33-64"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-33-65" name="__codelineno-33-65" href="#__codelineno-33-65"></a><span class="p">}</span>
+</code></pre></div>
+<h2 id="generating-specs-with-an-llm">LLM で仕様を生成する</h2>
+<p><a href="../cookbook/ai-workflow/">AI ワークフロー</a>では、公開スキーマをモデルに渡し、検証エラーや <code>diagnose()</code> の検出結果を返して、新しいデザインではなく修正を依頼するまでの手順を説明しています。</p>
+<h2 id="serialization-notes">シリアライズ時の注意</h2>
+<table>
+<thead>
+<tr>
+<th>フィールド</th>
+<th>保存形式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>align</code></td>
+<td>文字列: <code>"center"</code>、<code>"top-left"</code> など</td>
+</tr>
+<tr>
+<td><code>blend_mode</code></td>
+<td>文字列: <code>"multiply"</code>、<code>"normal"</code> など</td>
+</tr>
+<tr>
+<td><code>fit</code></td>
+<td>文字列: <code>"cover"</code>、<code>"contain"</code>、<code>"fill"</code></td>
+</tr>
+<tr>
+<td><code>position</code></td>
+<td>JSON 配列: <code>[640, 360]</code> または <code>["50%", "50%"]</code></td>
+</tr>
+<tr>
+<td>グラデーションの停止点</td>
+<td><code>["#color", 0.0]</code> のペアの JSON 配列</td>
+</tr>
+<tr>
+<td><code>null</code> フィールド</td>
+<td>省略したフィールドには <code>null</code> または既定値を使います</td>
+</tr>
+<tr>
+<td><code>theme</code> ブロック</td>
+<td>解析時に解決します。<code>to_json()</code> は <code>theme</code> ブロックなしで解決済みの値を出力します</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  ページトップへ戻る
+</button>
+        
+      </main>
+      
+        
+
+<footer class="md-footer qt-footer">
+  <div class="qt-footer-inner">
+    <div>
+      <a class="qt-brand" href="../" aria-label="quickthumbのホーム">
+        <img src="../../assets/brand/quickthumb-icon.svg" width="28" height="28" alt="">
+        <span>quickthumb</span>
+      </a>
+      <p class="qt-footer-tagline">画像、プレゼンテーション、動画を作るPythonツールキット。</p>
+    </div>
+    <nav class="qt-footer-links" aria-label="フッターナビゲーション">
+      <a href="../cookbook/">レシピ</a>
+      <a href="../getting-started/">ドキュメント</a>
+      <a href="../installation/">インストール</a>
+      <a href="../changelog/">変更履歴</a>
+    </nav>
+    <div class="qt-footer-meta">
+      <a class="qt-icon-button" href="https://github.com/sjquant/quickthumb" aria-label="GitHubでquickthumbを見る">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg>
+      </a>
+      <p>© 2026 Seonu Jang · MITライセンス<br>使用ツール <a href="https://squidfunk.github.io/mkdocs-material/">Material for MkDocs</a></p>
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f", "clipboard.copy": "\u30af\u30ea\u30c3\u30d7\u30dc\u30fc\u30c9\u3078\u30b3\u30d4\u30fc", "search.result.more.one": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3082\u30461\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.more.other": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3042\u3068#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.none": "\u4f55\u3082\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3067\u3057\u305f", "search.result.one": "1\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.other": "#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.placeholder": "\u691c\u7d22\u30ad\u30fc\u30ef\u30fc\u30c9\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044", "search.result.term.missing": "\u691c\u7d22\u306b\u542b\u307e\u308c\u306a\u3044", "select.version": "\u30d0\u30fc\u30b8\u30e7\u30f3\u5207\u308a\u66ff\u3048"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/site.js"></script>
+      
+    
+  </body>
+</html>

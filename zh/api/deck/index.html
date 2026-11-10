@@ -1,0 +1,3382 @@
+
+<!doctype html>
+<html lang="zh-CN" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="quickthumb Deck 参考文档，用于将多个画布整合为多页 PDF、PPTX、HTML 幻灯片放映、视频及带编号的图像序列。">
+      
+      
+        <meta name="author" content="Seonu Jang">
+      
+      
+        <link rel="canonical" href="https://quickthumb.solaqua.dev/zh/api/deck/">
+      
+      
+        <link rel="prev" href="../canvas/">
+      
+      
+        <link rel="next" href="../inspection/">
+      
+      
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/api/deck/" hreflang="en">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ko/api/deck/" hreflang="ko">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ja/api/deck/" hreflang="ja">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/zh/api/deck/" hreflang="zh-CN">
+        
+      
+      
+      <link rel="icon" href="../../../assets/brand/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+  
+  <title>quickthumb - Deck（多页幻灯片）</title>
+  
+
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  
+  
+  
+  
+    
+  
+  
+  
+  
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="zh_CN">
+  
+    
+      
+  <link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/deck/">
+      
+      
+  <meta property="og:locale:alternate" content="en_US">
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="ko_KR">
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="ja_JP">
+      
+    
+      
+      
+    
+  
+  <meta property="og:site_name" content="quickthumb">
+  <meta property="og:title" content="quickthumb - Deck（多页幻灯片）">
+  <meta property="og:description" content="quickthumb Deck 参考文档，用于将多个画布整合为多页 PDF、PPTX、HTML 幻灯片放映、视频及带编号的图像序列。">
+  
+  <meta property="og:url" content="https://quickthumb.solaqua.dev/zh/api/deck/">
+  
+  <meta property="og:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta property="og:image:alt" content="quickthumb：用代码制作缩略图。两张缩略图示例。">
+  
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  
+  <meta name="twitter:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta name="twitter:image:alt" content="quickthumb：用代码制作缩略图。两张缩略图示例。">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="quickthumb - Deck（多页幻灯片）">
+  <meta name="twitter:description" content="quickthumb Deck 参考文档，用于将多个画布整合为多页 PDF、PPTX、HTML 幻灯片放映、视频及带编号的图像序列。">
+  
+  <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "@id": "https://quickthumb.solaqua.dev/zh/#website", "url": "https://quickthumb.solaqua.dev/zh/", "name": "quickthumb", "description": "用 Python 或 JSON 制作图像、演示文稿和动画视频。", "inLanguage": "zh-CN", "publisher": {"@id": "https://quickthumb.solaqua.dev/#author"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}}, {"@type": "Person", "@id": "https://quickthumb.solaqua.dev/#author", "name": "Seonu Jang"}, {"@type": "SoftwareApplication", "@id": "https://quickthumb.solaqua.dev/#software", "name": "quickthumb", "url": "https://quickthumb.solaqua.dev/", "description": "用 Python 或 JSON 制作图像、演示文稿和动画视频。", "applicationCategory": "MultimediaApplication", "softwareVersion": "0.8.0", "softwareRequirements": "Python >=3.11", "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE", "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "sameAs": ["https://github.com/sjquant/quickthumb", "https://pypi.org/project/quickthumb/"]}, {"@type": "SoftwareSourceCode", "@id": "https://quickthumb.solaqua.dev/#source", "name": "quickthumb", "codeRepository": "https://github.com/sjquant/quickthumb", "programmingLanguage": "Python", "runtimePlatform": "Python >=3.11", "targetProduct": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE"}, {"@type": "WebPage", "@id": "https://quickthumb.solaqua.dev/zh/api/deck/#webpage", "url": "https://quickthumb.solaqua.dev/zh/api/deck/", "name": "Deck（多页幻灯片）", "description": "quickthumb Deck 参考文档，用于将多个画布整合为多页 PDF、PPTX、HTML 幻灯片放映、视频及带编号的图像序列。", "inLanguage": "zh-CN", "isPartOf": {"@id": "https://quickthumb.solaqua.dev/zh/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "primaryImageOfPage": {"@type": "ImageObject", "url": "https://quickthumb.solaqua.dev/assets/brand/social-preview.png", "caption": "quickthumb：用代码制作缩略图。两张缩略图示例。", "width": 1200, "height": 630}, "mainEntity": {"@id": "https://quickthumb.solaqua.dev/zh/api/deck/#document"}, "breadcrumb": {"@id": "https://quickthumb.solaqua.dev/zh/api/deck/#breadcrumbs"}}, {"@type": "BreadcrumbList", "@id": "https://quickthumb.solaqua.dev/zh/api/deck/#breadcrumbs", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "quickthumb", "item": "https://quickthumb.solaqua.dev/zh/"}, {"@type": "ListItem", "position": 2, "name": "API 参考", "item": "https://quickthumb.solaqua.dev/zh/api/"}, {"@type": "ListItem", "position": 3, "name": "Deck（多页幻灯片）", "item": "https://quickthumb.solaqua.dev/zh/api/deck/"}]}, {"@type": "TechArticle", "@id": "https://quickthumb.solaqua.dev/zh/api/deck/#document", "url": "https://quickthumb.solaqua.dev/zh/api/deck/", "headline": "Deck（多页幻灯片）", "description": "quickthumb Deck 参考文档，用于将多个画布整合为多页 PDF、PPTX、HTML 幻灯片放映、视频及带编号的图像序列。", "inLanguage": "zh-CN", "mainEntityOfPage": {"@id": "https://quickthumb.solaqua.dev/zh/api/deck/#webpage"}, "isPartOf": {"@id": "https://quickthumb.solaqua.dev/zh/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}}]}</script>
+  
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#deck" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header qt-header" data-md-component="header">
+  <nav class="qt-header-inner" aria-label="主导航">
+    <a class="qt-brand" href="../../" aria-label="quickthumb 首页">
+      <img src="../../../assets/brand/quickthumb-icon.svg" width="40" height="40" alt="">
+      <span>quickthumb</span>
+    </a>
+    <div class="qt-desktop-links">
+      <a href="../../cookbook/">示例</a>
+      <a href="../../getting-started/">文档</a>
+      <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="qt-header-tools">
+      
+
+
+<details class="qt-language-switch">
+  <summary aria-label="语言: 简体中文">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    <span data-qt-language-current>简体中文</span>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7.41 8.58 12 13.17l4.59-4.59L18 10l-6 6-6-6z"/></svg>
+  </summary>
+  <nav aria-label="语言">
+    
+    <a href="https://quickthumb.solaqua.dev/api/deck/" hreflang="en" lang="en" data-qt-language="en" target="_self">English</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ko/api/deck/" hreflang="ko" lang="ko" data-qt-language="ko" target="_self">한국어</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ja/api/deck/" hreflang="ja" lang="ja" data-qt-language="ja" target="_self">日本語</a>
+    
+    <a href="https://quickthumb.solaqua.dev/zh/api/deck/" hreflang="zh-CN" lang="zh-CN" data-qt-language="zh-CN" target="_self" aria-current="page">简体中文</a>
+    
+  </nav>
+</details>
+      <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="切换到深色主题"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="切换到深色主题" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="切换到浅色主题"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="切换到浅色主题" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+      <button class="qt-icon-button" type="button" data-qt-search aria-label="搜索文档">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </button>
+      <button class="qt-icon-button qt-menu-trigger" type="button" data-qt-menu aria-label="打开导航菜单" aria-controls="qt-navigation" aria-expanded="false">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+      </button>
+      <a class="qt-button qt-button-white qt-header-cta" href="../../getting-started/">开始使用</a>
+    </div>
+  </nav>
+  <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</header>
+
+<dialog class="qt-drawer" id="qt-navigation" aria-label="网站导航">
+  <div class="qt-drawer-header">
+    <a class="qt-brand" href="../../" aria-label="quickthumb 首页">
+      <img src="../../../assets/brand/quickthumb-icon.svg" width="36" height="36" alt="">
+      <span>quickthumb</span>
+    </a>
+    <button class="qt-icon-button" type="button" data-qt-close aria-label="关闭导航菜单" autofocus>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
+  <button class="qt-drawer-search" type="button" data-qt-search>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+    <span>搜索文档</span>
+  </button>
+  <nav class="qt-drawer-links" aria-label="探索 quickthumb">
+    <a class="qt-button qt-button-blue" href="../../getting-started/">开始使用 <span aria-hidden="true">→</span></a>
+    <a href="../../cookbook/">示例</a>
+    <a href="../../getting-started/">文档</a>
+    <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+  <nav class="qt-drawer-docs" aria-label="文档快捷链接">
+    <p class="qt-nav-caption">文档</p>
+    <a href="../../installation/">安装</a>
+    <a href="../../concepts/">核心概念</a>
+    <a href="../">API 参考</a>
+  </nav>
+  <details class="qt-drawer-index">
+    <summary>全部文档</summary>
+    
+<nav aria-label="All documentation">
+  <ul>
+    
+      <li>
+        
+          <a href="../../">首页</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>快速开始</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../getting-started/">渲染第一组卡片</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../installation/">安装</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../concepts/">核心概念</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../output-guide/">选择输出格式</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../timing/">动画时序</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details open>
+            <summary>API 参考</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../">概览</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../canvas/">Canvas</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="./" aria-current="page">Deck（多页幻灯片）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../inspection/">文档检查</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../background/">背景</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../text/">文本</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../image/">图像</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../shape/">形状</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../path/">路径</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../svg/">SVG</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../video/">视频</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../audio/">音频响应式创作</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../group/">编组（自动布局）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../outline/">外边框</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../data-visualizations/">数据可视化</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../effects/">效果</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../enums/">枚举与渐变</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>进阶参考</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <details>
+            <summary>导出</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../exports/">概览</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../reference/export-methods/">导出方法与凭据</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../reference/export-validation/">格式保真度与验证</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../reference/export-documents/">SVG、HTML、PowerPoint 和 PDF</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../reference/export-animation/">GIF、视频与旁白</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../reference/export-transparency/">透明视频</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../reference/export-frames/">图像序列与渲染质量</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../reference/export-assets/">资源与可复现性</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../reference/export-lottie/">Lottie 矢量动画</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../reference/timing-details/">动画时序参考</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../reference/inspection-details/">检查复杂布局</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>JSON 与 AI</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../json-schema/">JSON Schema 与 AI 工作流</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../diagnostics/">诊断与 CLI</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../errors/">结构化错误</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>示例集</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../cookbook/">示例画廊</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/decks-and-video/">演示文稿与视频</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/youtube-thumbnail/">YouTube 缩略图</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/instagram-card/">Instagram 卡片</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/podcast-promo/">播客宣传图</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/shorts-cover/">Shorts 与竖版封面</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/launch-announcement/">发布公告（自动布局）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/ai-workflow/">AI 工作流</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/webfonts-rembg/">Web 字体与背景去除</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../faq/">常见问题</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>更新日志</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../changelog/">概览</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../releases/0.8.0/">0.8.0</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+  </ul>
+</nav>
+  </details>
+  <button class="qt-appearance" type="button" data-qt-theme>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18V6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-2.69L23.31 12 20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20z"/></svg>
+    <span>切换主题</span>
+  </button>
+</dialog>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../" title="quickthumb" class="md-nav__button md-logo" aria-label="quickthumb" data-md-component="logo">
+      
+  <img src="../../../assets/brand/quickthumb-icon.png" alt="logo">
+
+    </a>
+    quickthumb
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sjquant/quickthumb" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sjquant/quickthumb
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    首页
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    快速开始
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    渲染第一组卡片
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    安装
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    核心概念
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../output-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    选择输出格式
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../timing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    动画时序
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API 参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../canvas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canvas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deck（多页幻灯片）
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deck（多页幻灯片）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#creation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        实例化创建
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="实例化创建">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#deckwidthnone-heightnone-slidesnone-themenone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deck(width=None, height=None, slides=None, theme=None)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deckfrom_aspect_ratioratio-base_width" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deck.from_aspect_ratio(ratio, base_width)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-slides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        添加幻灯片
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#export-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        导出方法
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="导出方法">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#exportpath-policynone-formatnone-qualitynone-animationnone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .export(path, policy=None, *, format=None, quality=None, animation=None)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#renderpath-formatnone-qualitynone-animationnone-policynone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .render(path, format=None, quality=None, animation=None, policy=None)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#to_html" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .to_html()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#to_pdf-to_pptx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .to_pdf() / .to_pptx()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#to_gif-to_webm-to_mov" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .to_gif(...) / .to_webm(...) / .to_mov(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#export_image_sequenceoutput_directory-formatpng-qualitynone-mattenone-losslessnone-optionsnone-policynone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .export_image_sequence(output_directory, *, format="png", quality=None, matte=None, lossless=None, options=None, policy=None)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#to_mp4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .to_mp4(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagnose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .diagnose()
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prefetch_assets-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .prefetch_assets()（可选）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="JSON">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#to_json-deckfrom_jsonjson_str" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .to_json() / Deck.from_json(json_str)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文档检查
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../background/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    背景
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文本
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    图像
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../shape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    形状
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    路径
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../svg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    视频
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    音频响应式创作
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    编组（自动布局）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../outline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    外边框
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-visualizations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    数据可视化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../effects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    效果
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../enums/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    枚举与渐变
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进阶参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    进阶参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    导出
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    导出
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/export-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    导出方法与凭据
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/export-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    格式保真度与验证
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/export-documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG、HTML、PowerPoint 和 PDF
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/export-animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GIF、视频与旁白
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/export-transparency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    透明视频
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/export-frames/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    图像序列与渲染质量
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/export-assets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    资源与可复现性
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/export-lottie/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lottie 矢量动画
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/timing-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    动画时序参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/inspection-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    检查复杂布局
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON 与 AI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    JSON 与 AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../json-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON Schema 与 AI 工作流
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    诊断与 CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    结构化错误
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    示例集
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    示例集
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    示例画廊
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/decks-and-video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    演示文稿与视频
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/youtube-thumbnail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YouTube 缩略图
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/instagram-card/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instagram 卡片
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/podcast-promo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    播客宣传图
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/shorts-cover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shorts 与竖版封面
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/launch-announcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    发布公告（自动布局）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/ai-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI 工作流
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/webfonts-rembg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web 字体与背景去除
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    更新日志
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    更新日志
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../releases/0.8.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0.8.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#creation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        实例化创建
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="实例化创建">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#deckwidthnone-heightnone-slidesnone-themenone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deck(width=None, height=None, slides=None, theme=None)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deckfrom_aspect_ratioratio-base_width" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deck.from_aspect_ratio(ratio, base_width)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-slides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        添加幻灯片
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#export-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        导出方法
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="导出方法">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#exportpath-policynone-formatnone-qualitynone-animationnone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .export(path, policy=None, *, format=None, quality=None, animation=None)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#renderpath-formatnone-qualitynone-animationnone-policynone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .render(path, format=None, quality=None, animation=None, policy=None)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#to_html" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .to_html()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#to_pdf-to_pptx" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .to_pdf() / .to_pptx()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#to_gif-to_webm-to_mov" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .to_gif(...) / .to_webm(...) / .to_mov(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#export_image_sequenceoutput_directory-formatpng-qualitynone-mattenone-losslessnone-optionsnone-policynone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .export_image_sequence(output_directory, *, format="png", quality=None, matte=None, lossless=None, options=None, policy=None)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#to_mp4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .to_mp4(...)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagnose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .diagnose()
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prefetch_assets-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .prefetch_assets()（可选）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="JSON">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#to_json-deckfrom_jsonjson_str" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        .to_json() / Deck.from_json(json_str)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="deck">Deck</h1>
+<p><code>Deck</code> 是包含多个 <code>Canvas</code> 幻灯片的有序集合。
+每页幻灯片的渲染效果与其独立渲染时完全一致；Deck 在同一底层管线之上增加了多格式批量导出的能力。
+幻灯片完整保留了 Canvas 的<a href="../#shared-layer-vocabulary">图层术语体系与场景局部 ID 规则</a>。</p>
+<h2 id="creation">实例化创建</h2>
+<h3 id="deckwidthnone-heightnone-slidesnone-themenone"><code>Deck(width=None, height=None, slides=None, theme=None)</code></h3>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">Canvas</span><span class="p">,</span> <span class="n">Deck</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">deck</span> <span class="o">=</span> <span class="n">Deck</span><span class="p">()</span>                          <span class="c1"># empty, no default size</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">deck</span> <span class="o">=</span> <span class="n">Deck</span><span class="p">(</span><span class="mi">1280</span><span class="p">,</span> <span class="mi">720</span><span class="p">)</span>                 <span class="c1"># default slide size for unsized slides</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">deck</span> <span class="o">=</span> <span class="n">Deck</span><span class="p">(</span><span class="n">slides</span><span class="o">=</span><span class="p">[</span><span class="n">cover</span><span class="p">,</span> <span class="n">body</span><span class="p">])</span>      <span class="c1"># from pre-built canvases</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>width</code></td>
+<td><code>int \| None</code></td>
+<td>默认幻灯片宽度。与 <code>height</code> 同时提供或两者均省略。</td>
+</tr>
+<tr>
+<td><code>height</code></td>
+<td><code>int \| None</code></td>
+<td>默认幻灯片高度。</td>
+</tr>
+<tr>
+<td><code>slides</code></td>
+<td><code>list[Canvas] \| None</code></td>
+<td>按序排列的初始幻灯片列表。每项必须为 <code>Canvas</code> 实例。</td>
+</tr>
+<tr>
+<td><code>theme</code></td>
+<td><code>dict \| None</code></td>
+<td>与每页幻灯片 <code>$theme.*</code> 引用共享的设计变量字典（幻灯片级别的局部 theme 优先）。在 <code>to_json()</code>/<code>from_json()</code> 中保持保留。</td>
+</tr>
+</tbody>
+</table>
+<h3 id="deckfrom_aspect_ratioratio-base_width"><code>Deck.from_aspect_ratio(ratio, base_width)</code></h3>
+<p>与 <code>Canvas.from_aspect_ratio</code> 类似，根据宽高比字符串创建具有默认幻灯片尺寸的 Deck。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">deck</span> <span class="o">=</span> <span class="n">Deck</span><span class="o">.</span><span class="n">from_aspect_ratio</span><span class="p">(</span><span class="s2">"16:9"</span><span class="p">,</span> <span class="mi">1280</span><span class="p">)</span>   <span class="c1"># default 1280×720</span>
+</code></pre></div>
+<h2 id="adding-slides">添加幻灯片</h2>
+<p>可在构造函数中传入初始幻灯片列表（<code>Deck(slides=[...])</code>），也可使用 <code>.slide(canvas, transition=None, *, audio=None, duration=None, notes=None)</code> 逐页追加；该方法修改 Deck 自身并返回 <code>self</code> 支持链式调用。当 Deck 指定了默认尺寸时，<strong>未定尺寸</strong>的 <code>Canvas()</code> 会自动继承该尺寸；显式指定尺寸创建的画布则保持自身尺寸（若尺寸不同会触发 <code>mixed-slide-size</code> 排版告警）。</p>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.slide(canvas, transition=None, *, audio=None, duration=None, notes=None)</code></td>
+<td>追加单个 <code>Canvas</code>；可选的音频与时长用于配置旁白，演讲备注仅在 HTML 演讲者模式下可见</td>
+</tr>
+</tbody>
+</table>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">deck</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">Deck</span><span class="p">(</span><span class="mi">1280</span><span class="p">,</span> <span class="mi">720</span><span class="p">)</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="o">.</span><span class="n">slide</span><span class="p">(</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>        <span class="n">Canvas</span><span class="p">()</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#101820"</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="s2">"Cover"</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">96</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#FFFFFF"</span><span class="p">),</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="n">audio</span><span class="o">=</span><span class="s2">"voice.wav"</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        <span class="n">duration</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="n">notes</span><span class="o">=</span><span class="s2">"Introduce the central thesis."</span><span class="p">,</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="p">)</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="o">.</span><span class="n">slide</span><span class="p">(</span><span class="n">Canvas</span><span class="p">()</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#1A1A2E"</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="s2">"Body"</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#FFFFFF"</span><span class="p">))</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="p">)</span>
+</code></pre></div>
+<p>向未指定默认尺寸的 Deck 中添加未定尺寸的画布会抛出 <code>ValidationError</code>：请为 Deck 指定默认尺寸或为画布指定明确尺寸。</p>
+<p>Deck 同时也是一个序列集合：支持 <code>len(deck)</code>、<code>deck[i]</code> 以及对幻灯片直接进行 <code>for</code> 循环遍历。<code>deck.slides</code> 与 <code>deck.notes</code> 返回已对齐的幻灯片和讲者备注列表的副本，因此修改返回的列表不会影响 Deck 内部状态。</p>
+<h2 id="export-methods">导出方法</h2>
+<h3 id="exportpath-policynone-formatnone-qualitynone-animationnone"><code>.export(path, policy=None, *, format=None, quality=None, animation=None)</code></h3>
+<p>与 <code>render()</code> 类似写入 Deck，并返回一个其 <code>written_paths</code> 列表中包含带编号幻灯片文件（针对栅格输出）或单个 PDF、PPTX、HTML、动画文件路径的 <code>ExportResult</code>。路径可为字符串或 <code>pathlib.Path</code>；<code>format</code>、<code>quality</code>、<code>animation</code> 与 <code>policy</code> 的含义与 <code>render()</code> 完全一致。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">result</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"slides.png"</span><span class="p">)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">written_paths</span><span class="p">)</span>
+</code></pre></div>
+<p>关于结果字段、功能预检机制以及与下方其他专用方法的关系，请参阅<a href="../../reference/export-methods/#recommended-output-api">推荐输出 API</a>。</p>
+<h3 id="renderpath-formatnone-qualitynone-animationnone-policynone"><code>.render(path, format=None, quality=None, animation=None, policy=None)</code></h3>
+<p>根据输出文件扩展名分发渲染 Deck。返回已写入的文件路径列表。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">GifOptions</span><span class="p">,</span> <span class="n">VideoOptions</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"deck.pdf"</span><span class="p">)</span>      <span class="c1"># one multi-page PDF (a page per slide)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"deck.pptx"</span><span class="p">)</span>     <span class="c1"># one multi-slide PPTX (a slide per slide)</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"deck.gif"</span><span class="p">)</span>      <span class="c1"># one animation playing transitions between slides</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="s2">"preview.gif"</span><span class="p">,</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">animation</span><span class="o">=</span><span class="n">GifOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">max_size</span><span class="o">=</span><span class="p">(</span><span class="mi">540</span><span class="p">,</span> <span class="mi">960</span><span class="p">),</span> <span class="n">colors</span><span class="o">=</span><span class="mi">128</span><span class="p">),</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">)</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"deck.html"</span><span class="p">)</span>     <span class="c1"># one self-contained HTML slideshow</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"slides.png"</span><span class="p">)</span>    <span class="c1"># slides_01.png, slides_02.png, …</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"slides.jpg"</span><span class="p">,</span> <span class="n">quality</span><span class="o">=</span><span class="mi">85</span><span class="p">)</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>后缀名</th>
+<th>输出行为</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.pdf</code></td>
+<td>单个多页 PDF 文件。需要安装 <code>pdf</code> 额外依赖。</td>
+</tr>
+<tr>
+<td><code>.pptx</code></td>
+<td>单个多页 PPTX 文件。需要安装 <code>pptx</code> 额外依赖。</td>
+</tr>
+<tr>
+<td><code>.gif</code> / <code>.webm</code> / <code>.mov</code></td>
+<td>以默认设置播放图层动效与幻灯片转场的单个动画文件。WebM 与 MOV 需要 <code>ffmpeg</code>（MOV 使用 <code>prores_ks</code> 编码器）。</td>
+</tr>
+<tr>
+<td><code>.mp4</code></td>
+<td>包含可选逐页旁白的动画时间轴，采用 H.264/yuv420p 视频与 AAC 音频编码。需要安装 <code>ffmpeg</code>（有旁白时还需要 <code>ffprobe</code>）。如需静态幻灯片，请使用静态画布和 <code>Cut()</code> 转场。</td>
+</tr>
+<tr>
+<td><code>.html</code> / <code>.htm</code></td>
+<td>单个自包含的动画 HTML 幻灯片文档。</td>
+</tr>
+<tr>
+<td><code>.png</code> / <code>.jpg</code> / <code>.jpeg</code> / <code>.webp</code></td>
+<td>带编号的静态图片序列文件（例如 <code>slides_01.png</code>、<code>slides_02.png</code> 等）。<code>render()</code> 返回完整生成路径列表。</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>类型</th>
+<th>默认值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>path</code></td>
+<td><code>str</code></td>
+<td>—</td>
+<td>输出路径；光栅文件名采用 <code>&lt;stem&gt;_NN&lt;ext&gt;</code> 格式。</td>
+</tr>
+<tr>
+<td><code>format</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td>不区分大小写的光栅编码覆盖值（<code>"PNG"</code>、<code>"JPEG"</code>、<code>"WEBP"</code>）；与文档或动画扩展名搭配时会被拒绝。</td>
+</tr>
+<tr>
+<td><code>quality</code></td>
+<td><code>int \| None</code></td>
+<td><code>None</code></td>
+<td>压缩质量：JPEG 为 1–95，WebP 为 1–100；其他目标格式不接受此参数。</td>
+</tr>
+<tr>
+<td><code>animation</code></td>
+<td><code>GifOptions \| VideoOptions \| None</code></td>
+<td><code>None</code></td>
+<td>对应格式的选项：GIF 使用 <code>GifOptions</code>，MP4/WebM/MOV 使用 <code>VideoOptions</code>。</td>
+</tr>
+<tr>
+<td><code>policy</code></td>
+<td><code>ExportPolicy \| None</code></td>
+<td><code>None</code></td>
+<td>渲染策略，例如动画、HTML 和 PPTX 输出的 <code>reduced_motion</code>。<code>render()</code> 和 <code>export()</code> 都会在写入前执行 <code>unsupported_motion</code> 策略。</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">警告</p>
+<p>向 PDF、PPTX 或动画输出传入 <code>quality</code> 会抛出 <code>RenderingError</code>；渲染空 Deck 也会抛出此错误。</p>
+</div>
+<p><code>GifOptions</code> 和 <code>VideoOptions</code> 可从 <code>quickthumb</code> 导入。<code>GifOptions</code> 控制 GIF 帧率、<code>hold</code>、循环次数、底衬、保持宽高比的 <code>max_size</code> 和调色板 <code>colors</code>；<code>VideoOptions</code> 控制 MP4/WebM/MOV 的帧率、<code>hold</code>、底衬、配乐和音频循环。配乐以 <code>AudioTrack(path="music.mp3", loop=True)</code> 传入。
+<code>VideoOptions(transparent=True)</code> 可在 VP9 WebM 或 ProRes 4444 MOV 中保留 Alpha 通道（必须为布尔值，默认 <code>False</code>）；其他输出格式均不接受此选项。
+两组选项的 <code>hold</code> 都必须是有限非负数（默认 3 秒），等于默认值时不会写入序列化结果。两者都接受 <code>workers</code>（1–8 的严格整数，默认 1）以及 <code>render_quality="standard"</code> 或 <code>"high"</code>。进程启动设置和支持的输入见<a href="../../reference/export-frames/#parallel-animated-rendering">并行动画渲染</a>。将一种动画格式的专用选项用于另一种格式会被拒绝。</p>
+<h3 id="to_html"><code>.to_html()</code></h3>
+<p>返回自包含的幻灯片文档。普通观众视图支持鼠标点击、空格键和方向键导航。通过 <code>quickthumb serve</code> 打开文档并加上 <code>?presenter</code> 查询参数，可显示当前页与下一页预览、演讲备注、可暂停/继续/重置的计时器，并同步观众端控制。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">html</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_html</span><span class="p">()</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"slides.html"</span><span class="p">)</span>
+</code></pre></div>
+<p>开发时使用 <code>quickthumb serve slides.py</code>；Python 源文件须在模块级以 <code>deck</code>、<code>slides</code> 或 <code>canvas</code> 变量暴露演示文稿。</p>
+<h3 id="to_pdf-to_pptx"><code>.to_pdf()</code> / <code>.to_pptx()</code></h3>
+<p>返回演示文稿的文档字节数据，每个 Canvas 对应一页或一张幻灯片。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"deck.pdf"</span><span class="p">,</span> <span class="s2">"wb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">deck</span><span class="o">.</span><span class="n">to_pdf</span><span class="p">())</span>   <span class="c1"># requires quickthumb[pdf]</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">pptx_bytes</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_pptx</span><span class="p">()</span>  <span class="c1"># requires quickthumb[pptx]</span>
+</code></pre></div>
+<h3 id="to_gif-to_webm-to_mov"><code>.to_gif(...)</code> / <code>.to_webm(...)</code> / <code>.to_mov(...)</code></h3>
+<p>返回动画形式的 Deck：每页幻灯片播放图层动画、保持完成后的状态，并通过转场动画切入该页。时间模型详见<a href="../../reference/export-animation/#animated-gif-video">动画 GIF 与视频</a>。<code>.to_webm()</code> 和 <code>.to_mov()</code> 需要在 <code>PATH</code> 中提供 <code>ffmpeg</code>，或通过 <code>QUICKTHUMB_FFMPEG</code> 指定其路径。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">gif_bytes</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_gif</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">matte</span><span class="o">=</span><span class="s2">"#000000"</span><span class="p">)</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">webm_bytes</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_webm</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">overlay_bytes</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_webm</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">transparent</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<p>所有动画字节方法都接受仅限关键字的 <code>workers=1</code> 和 <code>render_quality="standard"</code>（<code>"high"</code> 启用超采样）。<code>.to_gif()</code> 还接受保持宽高比缩放的 <code>max_size=None</code>，以及调色板大小 <code>colors=None</code>（指定时为 2–256）。现有位置参数保持不变。</p>
+<p>这些控制也适用于 <code>.to_mp4()</code>。如需带旁白的静态幻灯片，请使用静态画布和 <code>Cut()</code>。文件选项和字节方法都使用 <code>hold</code>。如果某页既没有旁白也没有显式时长，动画视频要求默认停留时长为正值；Deck GIF 和静音图像序列仍接受零值。Deck GIF 忽略逐页旁白和显式时长。</p>
+<p><code>.to_webm()</code> 和 <code>.to_mov()</code> 的仅限关键字参数 <code>transparent</code> 只省略导出底衬；创作时设置的背景仍然可见。编解码器、Alpha 解码和转场细节见<a href="../../reference/export-transparency/#transparent-webm">透明 WebM</a>。</p>
+<p><code>.to_mov()</code> 与 <code>.to_webm()</code> 采用相同的参数和时间控制，固定使用 ProRes 4444 视频与 AAC 音频，并保留奇数及单像素尺寸。RGBA 源数据仍为 8 位；16 位 Alpha 编码解码后可能产生一个 8 位 Alpha 等级的差异，颜色采用有损 4:4:4 YUV。实测转换限制和编码器要求见 <a href="../../reference/export-transparency/#prores-4444-mov">ProRes MOV</a>。<code>render()</code> 和 <code>export()</code> 均接受 <code>.mov</code> 配合 <code>VideoOptions</code> 导出不透明或透明视频。</p>
+<h3 id="export_image_sequenceoutput_directory-formatpng-qualitynone-mattenone-losslessnone-optionsnone-policynone"><code>.export_image_sequence(output_directory, *, format="png", quality=None, matte=None, lossless=None, options=None, policy=None)</code></h3>
+<p>在已有的父级目录下创建一个全新目录，将动画时间轴写入为相互独立的 PNG（默认）、JPEG 或 WebP 图片文件以及 <code>manifest.json</code> 清单。
+<code>ImageSequenceOptions(fps=30, hold=3, workers=1, render_quality="standard")</code> 控制时间轴与渲染合成；方法关键字参数用于选择图像编码细节。
+JPEG 在不透明底衬（默认纯白）上使用 RGB 编码，支持 <code>quality=1..95</code>。
+WebP 保留 Alpha 透明通道并支持 <code>lossless=True</code>；有损 WebP 支持传入质量数值。
+PNG 与无损 WebP 能够严格保留渲染器的确切 RGBA8 像素。
+不透明 WebP 文件可能会被解码为 RGB；清单文件模式描述的是逻辑上的 RGBA 解码规则。
+导出报告中会记录实际总帧数、时间参数、编码格式及目标路径。
+关于校验、按格式元数据及防止覆盖的原子级输出机制，请参阅<a href="../../reference/export-frames/#image-sequences">图像序列</a>。</p>
+<h3 id="to_mp4"><code>.to_mp4(...)</code></h3>
+<p>将与 <code>.to_webm()</code> 相同的动画时间轴打包在 H.264 MP4 容器中返回，包含所排定的逐页旁白音频与可选的背景原声音乐。
+动态 MP4/WebM/MOV 导出支持单个 Deck 最多包含 64 页带旁白的幻灯片；无旁白的静音幻灯片不计入该 FFmpeg 输入数量上限。
+若要直接导出为文件，使用 <code>deck.export("deck.mp4", animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", loop=True)))</code>。
+渲染器会在导出期间将背景原声带与每页幻灯片的 <code>audio</code> 旁白进行混音。
+若未指定显式选项，<code>deck.export("deck.mp4")</code> 会使用默认的 <code>VideoOptions()</code> 渲染相同的动画时间轴。</p>
+<h2 id="diagnose"><code>.diagnose()</code></h2>
+<p>汇总各页幻灯片的 <a href="../canvas/#diagnose"><code>Canvas.diagnose()</code></a> 结果，并增加 Deck 级别的全局排版检查。返回一个其 <code>findings</code> 列表中包含 <code>DeckDiagnostic</code> 项的 <code>DiagnosticReport</code>：</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">for</span> <span class="n">finding</span> <span class="ow">in</span> <span class="n">deck</span><span class="o">.</span><span class="n">diagnose</span><span class="p">()</span><span class="o">.</span><span class="n">findings</span><span class="p">:</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">finding</span><span class="o">.</span><span class="n">slide_index</span><span class="p">,</span> <span class="n">finding</span><span class="o">.</span><span class="n">code</span><span class="p">,</span> <span class="n">finding</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>code</code></td>
+<td><code>str</code></td>
+<td>幻灯片诊断代码（<code>off-canvas</code>、<code>tiny-text</code> 等）或 <code>mixed-slide-size</code></td>
+</tr>
+<tr>
+<td><code>severity</code></td>
+<td><code>str</code></td>
+<td><code>"warning"</code> 或 <code>"error"</code></td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td><code>str</code></td>
+<td>人类可读的描述文案</td>
+</tr>
+<tr>
+<td><code>slide_index</code></td>
+<td><code>int \| None</code></td>
+<td>出问题的幻灯片索引；Deck 级别的全局问题为 <code>None</code></td>
+</tr>
+<tr>
+<td><code>layer_index</code></td>
+<td><code>int \| None</code></td>
+<td>幻灯片内部出问题的图层索引（若适用）</td>
+</tr>
+<tr>
+<td><code>layer_id</code></td>
+<td><code>str \| None</code></td>
+<td>出问题图层的稳定 ID（包含分组子元素 ID）</td>
+</tr>
+<tr>
+<td><code>layer_name</code></td>
+<td><code>str \| None</code></td>
+<td>图层名称（若有）</td>
+</tr>
+<tr>
+<td><code>bbox</code></td>
+<td><code>dict \| None</code></td>
+<td>画布空间中的实测边界框</td>
+</tr>
+<tr>
+<td><code>related_layers</code></td>
+<td><code>list[str]</code></td>
+<td>该诊断涉及的相关图层 ID 列表</td>
+</tr>
+<tr>
+<td><code>measured</code></td>
+<td><code>dict</code></td>
+<td>特定规则的测量数值字典</td>
+</tr>
+<tr>
+<td><code>suggestion</code></td>
+<td><code>str \| None</code></td>
+<td>修复建议提示（若可用）</td>
+</tr>
+</tbody>
+</table>
+<p>当所有幻灯片的尺寸不完全一致时，会产生 <code>mixed-slide-size</code> 告警。PDF 导出路径会按每页幻灯片的各自尺寸设定页面大小；但 PPTX 导出采用第一页幻灯片的尺寸作为整个演示文稿的全局尺寸，因此后续尺寸更大的幻灯片在 PowerPoint 中会被裁切。导出目标为 <code>.pptx</code> 时，请保持所有幻灯片尺寸统一。</p>
+<h2 id="prefetch_assets-optional"><code>.prefetch_assets()</code>（可选）</h2>
+<p>类似于 <a href="../canvas/#prefetch_assets-optional"><code>Canvas.prefetch_assets()</code></a>，提前下载每页幻灯片所需的全部远程资源，并返回统一的 Deck 级 <code>asset_manifest</code>。
+渲染和导出本身会自动拉取所需资源，因此仅在耗时较长的大型导出前预检网络故障或陈旧缓存时才需要显式调用。</p>
+<h2 id="json">JSON</h2>
+<h3 id="to_json-deckfrom_jsonjson_str"><code>.to_json()</code> / <code>Deck.from_json(json_str)</code></h3>
+<p>复用各个 Canvas 画布的序列化逻辑，通过规范 JSON 实现 Deck 的双向往返序列化。
+数据结构形如 <code>{"kind": "deck", "width": ..., "height": ..., "theme": {...}, "slides": [&lt;canvas spec&gt;, ...]}</code>，其中每页幻灯片均带有 <code>"kind": "canvas"</code>；<code>width</code>/<code>height</code>（默认幻灯片尺寸）和 <code>theme</code> 仅在设置时才会输出。
+在 JSON 编写的幻灯片中，当 Deck 提供了默认尺寸时，单页幻灯片可省略尺寸声明；规范序列化会显式固化这些继承而来的尺寸数值。
+每页幻灯片的 <code>transition</code>、<code>audio</code>、<code>duration</code> 与 <code>notes</code> 字段会与画布字段一并完整保留。
+顶层 <code>theme</code> 会与所有幻灯片共享，因此每页幻灯片中均可正常使用 <code>$theme.*</code> 变量，其机制与 <code>Canvas.from_json</code> 完全一致。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">spec</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">restored</span> <span class="o">=</span> <span class="n">Deck</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span>
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">说明</p>
+<p>与 <code>Canvas.to_json()</code> 类似，包含 <code>.custom(fn)</code> 幻灯片的 Deck 无法被直接序列化，除非注册了这些自定义回调。
+<code>from_json()</code> 期望接收 <strong>JSON 字符串</strong>而非字典。</p>
+</div>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        
+
+<footer class="md-footer qt-footer">
+  <div class="qt-footer-inner">
+    <div>
+      <a class="qt-brand" href="../../" aria-label="quickthumb 首页">
+        <img src="../../../assets/brand/quickthumb-icon.svg" width="28" height="28" alt="">
+        <span>quickthumb</span>
+      </a>
+      <p class="qt-footer-tagline">用 Python 制作图像、演示文稿和视频。</p>
+    </div>
+    <nav class="qt-footer-links" aria-label="页脚导航">
+      <a href="../../cookbook/">示例</a>
+      <a href="../../getting-started/">文档</a>
+      <a href="../../installation/">安装</a>
+      <a href="../../changelog/">更新日志</a>
+    </nav>
+    <div class="qt-footer-meta">
+      <a class="qt-icon-button" href="https://github.com/sjquant/quickthumb" aria-label="在 GitHub 上查看 quickthumb">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg>
+      </a>
+      <p>© 2026 Seonu Jang · MIT 许可证<br>使用工具 <a href="https://squidfunk.github.io/mkdocs-material/">Material for MkDocs</a></p>
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../../javascripts/site.js"></script>
+      
+    
+  </body>
+</html>

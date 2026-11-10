@@ -1,0 +1,2919 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Reference for image sequences and render quality in quickthumb.">
+      
+      
+        <meta name="author" content="Seonu Jang">
+      
+      
+        <link rel="canonical" href="https://quickthumb.solaqua.dev/reference/export-frames/">
+      
+      
+        <link rel="prev" href="../export-transparency/">
+      
+      
+        <link rel="next" href="../export-assets/">
+      
+      
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/reference/export-frames/" hreflang="en">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ko/reference/export-frames/" hreflang="ko">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ja/reference/export-frames/" hreflang="ja">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/zh/reference/export-frames/" hreflang="zh-CN">
+        
+      
+      
+      <link rel="icon" href="../../assets/brand/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+  
+  <title>quickthumb - Image sequences and render quality</title>
+  
+
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  
+  
+  
+  
+    
+  
+  
+  
+  
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="en_US">
+  
+    
+      
+  <link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-frames/">
+      
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="ko_KR">
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="ja_JP">
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="zh_CN">
+      
+    
+  
+  <meta property="og:site_name" content="quickthumb">
+  <meta property="og:title" content="quickthumb - Image sequences and render quality">
+  <meta property="og:description" content="Reference for image sequences and render quality in quickthumb.">
+  
+  <meta property="og:url" content="https://quickthumb.solaqua.dev/reference/export-frames/">
+  
+  <meta property="og:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta property="og:image:alt" content="quickthumb: Endless thumbnails, from code. Two example thumbnail cards.">
+  
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  
+  <meta name="twitter:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta name="twitter:image:alt" content="quickthumb: Endless thumbnails, from code. Two example thumbnail cards.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="quickthumb - Image sequences and render quality">
+  <meta name="twitter:description" content="Reference for image sequences and render quality in quickthumb.">
+  
+  <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "@id": "https://quickthumb.solaqua.dev/#website", "url": "https://quickthumb.solaqua.dev/", "name": "quickthumb", "description": "Create images, presentations, and animated video with Python or JSON.", "inLanguage": "en", "publisher": {"@id": "https://quickthumb.solaqua.dev/#author"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}}, {"@type": "Person", "@id": "https://quickthumb.solaqua.dev/#author", "name": "Seonu Jang"}, {"@type": "SoftwareApplication", "@id": "https://quickthumb.solaqua.dev/#software", "name": "quickthumb", "url": "https://quickthumb.solaqua.dev/", "description": "Create images, presentations, and animated video with Python or JSON.", "applicationCategory": "MultimediaApplication", "softwareVersion": "0.8.0", "softwareRequirements": "Python >=3.11", "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE", "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "sameAs": ["https://github.com/sjquant/quickthumb", "https://pypi.org/project/quickthumb/"]}, {"@type": "SoftwareSourceCode", "@id": "https://quickthumb.solaqua.dev/#source", "name": "quickthumb", "codeRepository": "https://github.com/sjquant/quickthumb", "programmingLanguage": "Python", "runtimePlatform": "Python >=3.11", "targetProduct": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE"}, {"@type": "WebPage", "@id": "https://quickthumb.solaqua.dev/reference/export-frames/#webpage", "url": "https://quickthumb.solaqua.dev/reference/export-frames/", "name": "Image sequences and render quality", "description": "Reference for image sequences and render quality in quickthumb.", "inLanguage": "en", "isPartOf": {"@id": "https://quickthumb.solaqua.dev/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "primaryImageOfPage": {"@type": "ImageObject", "url": "https://quickthumb.solaqua.dev/assets/brand/social-preview.png", "caption": "quickthumb: Endless thumbnails, from code. Two example thumbnail cards.", "width": 1200, "height": 630}, "mainEntity": {"@id": "https://quickthumb.solaqua.dev/reference/export-frames/#document"}, "breadcrumb": {"@id": "https://quickthumb.solaqua.dev/reference/export-frames/#breadcrumbs"}}, {"@type": "BreadcrumbList", "@id": "https://quickthumb.solaqua.dev/reference/export-frames/#breadcrumbs", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "quickthumb", "item": "https://quickthumb.solaqua.dev/"}, {"@type": "ListItem", "position": 2, "name": "Image sequences and render quality", "item": "https://quickthumb.solaqua.dev/reference/export-frames/"}]}, {"@type": "TechArticle", "@id": "https://quickthumb.solaqua.dev/reference/export-frames/#document", "url": "https://quickthumb.solaqua.dev/reference/export-frames/", "headline": "Image sequences and render quality", "description": "Reference for image sequences and render quality in quickthumb.", "inLanguage": "en", "mainEntityOfPage": {"@id": "https://quickthumb.solaqua.dev/reference/export-frames/#webpage"}, "isPartOf": {"@id": "https://quickthumb.solaqua.dev/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}}]}</script>
+  
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#image-sequences-and-render-quality" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header qt-header" data-md-component="header">
+  <nav class="qt-header-inner" aria-label="Main navigation">
+    <a class="qt-brand" href="../.." aria-label="quickthumb home">
+      <img src="../../assets/brand/quickthumb-icon.svg" width="40" height="40" alt="">
+      <span>quickthumb</span>
+    </a>
+    <div class="qt-desktop-links">
+      <a href="../../cookbook/">Recipes</a>
+      <a href="../../getting-started/">Docs</a>
+      <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="qt-header-tools">
+      
+
+
+<details class="qt-language-switch">
+  <summary aria-label="Language: English">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    <span data-qt-language-current>English</span>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7.41 8.58 12 13.17l4.59-4.59L18 10l-6 6-6-6z"/></svg>
+  </summary>
+  <nav aria-label="Language">
+    
+    <a href="https://quickthumb.solaqua.dev/reference/export-frames/" hreflang="en" lang="en" data-qt-language="en" target="_self" aria-current="page">English</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ko/reference/export-frames/" hreflang="ko" lang="ko" data-qt-language="ko" target="_self">한국어</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ja/reference/export-frames/" hreflang="ja" lang="ja" data-qt-language="ja" target="_self">日本語</a>
+    
+    <a href="https://quickthumb.solaqua.dev/zh/reference/export-frames/" hreflang="zh-CN" lang="zh-CN" data-qt-language="zh-CN" target="_self">简体中文</a>
+    
+  </nav>
+</details>
+      <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+      <button class="qt-icon-button" type="button" data-qt-search aria-label="Search documentation">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </button>
+      <button class="qt-icon-button qt-menu-trigger" type="button" data-qt-menu aria-label="Open navigation" aria-controls="qt-navigation" aria-expanded="false">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+      </button>
+      <a class="qt-button qt-button-white qt-header-cta" href="../../getting-started/">Get started</a>
+    </div>
+  </nav>
+  <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</header>
+
+<dialog class="qt-drawer" id="qt-navigation" aria-label="Site navigation">
+  <div class="qt-drawer-header">
+    <a class="qt-brand" href="../.." aria-label="quickthumb home">
+      <img src="../../assets/brand/quickthumb-icon.svg" width="36" height="36" alt="">
+      <span>quickthumb</span>
+    </a>
+    <button class="qt-icon-button" type="button" data-qt-close aria-label="Close navigation" autofocus>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
+  <button class="qt-drawer-search" type="button" data-qt-search>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+    <span>Search documentation</span>
+  </button>
+  <nav class="qt-drawer-links" aria-label="Explore quickthumb">
+    <a class="qt-button qt-button-blue" href="../../getting-started/">Get started <span aria-hidden="true">→</span></a>
+    <a href="../../cookbook/">Recipes</a>
+    <a href="../../getting-started/">Docs</a>
+    <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+  <nav class="qt-drawer-docs" aria-label="Documentation shortcuts">
+    <p class="qt-nav-caption">Documentation</p>
+    <a href="../../installation/">Installation</a>
+    <a href="../../concepts/">Core Concepts</a>
+    <a href="../../api/">API Reference</a>
+  </nav>
+  <details class="qt-drawer-index">
+    <summary>All documentation</summary>
+    
+<nav aria-label="All documentation">
+  <ul>
+    
+      <li>
+        
+          <a href="../..">Home</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>Getting Started</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../getting-started/">Render your first cards</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../installation/">Installation</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../concepts/">Core Concepts</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../output-guide/">Choose an output format</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../timing/">Animation Timing</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>API Reference</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../api/">Overview</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/canvas/">Canvas</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/deck/">Deck (Multiple Slides)</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/inspection/">Document Inspection</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/background/">Background</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/text/">Text</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/image/">Image</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/shape/">Shape</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/path/">Path</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/svg/">SVG</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/video/">Video</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/audio/">Audio-reactive Authoring</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/group/">Group (Auto Layout)</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/outline/">Outline</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/data-visualizations/">Data visualizations</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/effects/">Effects</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/enums/">Enums & Gradients</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details open>
+            <summary>Advanced Reference</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <details open>
+            <summary>Export</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../exports/">Overview</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-methods/">Methods and receipts</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-validation/">Format fidelity and validation</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-documents/">SVG, HTML, PowerPoint, and PDF</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-animation/">GIF, video, and narration</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-transparency/">Transparent video</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="./" aria-current="page">Image sequences and render quality</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-assets/">Assets and reproducibility</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-lottie/">Lottie vectors</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../timing-details/">Animation timing details</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../inspection-details/">Inspecting complex layouts</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>JSON & AI</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../json-schema/">JSON Schema & AI Workflow</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../diagnostics/">Diagnostics & CLI</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../errors/">Structured Errors</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>Cookbook</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../cookbook/">Gallery</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/decks-and-video/">Presentations and video</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/youtube-thumbnail/">YouTube Thumbnails</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/instagram-card/">Instagram Card</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/podcast-promo/">Podcast Promo</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/shorts-cover/">Shorts / Vertical Cover</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/launch-announcement/">Launch Announcement (Auto Layout)</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/ai-workflow/">AI Workflow</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/webfonts-rembg/">Webfonts & Background Removal</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../faq/">FAQ</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>Changelog</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../changelog/">Overview</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../releases/0.8.0/">0.8.0</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+  </ul>
+</nav>
+  </details>
+  <button class="qt-appearance" type="button" data-qt-theme>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18V6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-2.69L23.31 12 20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20z"/></svg>
+    <span>Switch theme</span>
+  </button>
+</dialog>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="quickthumb" class="md-nav__button md-logo" aria-label="quickthumb" data-md-component="logo">
+      
+  <img src="../../assets/brand/quickthumb-icon.png" alt="logo">
+
+    </a>
+    quickthumb
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sjquant/quickthumb" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sjquant/quickthumb
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Render your first cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../output-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Choose an output format
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../timing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Animation Timing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/canvas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canvas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/deck/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deck (Multiple Slides)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/inspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Document Inspection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/background/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Background
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Text
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/shape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shape
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Path
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/svg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Video
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Audio-reactive Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Group (Auto Layout)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/outline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Outline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/data-visualizations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data visualizations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/effects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Effects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/enums/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enums & Gradients
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Advanced Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Export
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Export
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methods and receipts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Format fidelity and validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG, HTML, PowerPoint, and PDF
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GIF, video, and narration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-transparency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transparent video
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image sequences and render quality
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image sequences and render quality
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#image-sequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image sequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#high-quality-animated-compositing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-quality animated compositing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parallel-animated-rendering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parallel animated rendering
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-assets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Assets and reproducibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-lottie/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lottie vectors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../timing-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Animation timing details
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inspection-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inspecting complex layouts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON & AI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    JSON & AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../json-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON Schema & AI Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostics & CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Structured Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cookbook
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Cookbook
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gallery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/decks-and-video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Presentations and video
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/youtube-thumbnail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YouTube Thumbnails
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/instagram-card/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instagram Card
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/podcast-promo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Podcast Promo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/shorts-cover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shorts / Vertical Cover
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/launch-announcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Launch Announcement (Auto Layout)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/ai-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/webfonts-rembg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webfonts & Background Removal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Changelog
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../releases/0.8.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0.8.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#image-sequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image sequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#high-quality-animated-compositing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-quality animated compositing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parallel-animated-rendering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parallel animated rendering
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="image-sequences-and-render-quality">Image sequences and render quality</h1>
+<p><a href="../../exports/">Export reference</a> · <a href="../../output-guide/">Choose an output format</a></p>
+<h2 id="image-sequences">Image sequences</h2>
+<p><code>Canvas.export_image_sequence()</code> and the matching Deck method write the actual
+animated timeline as independent PNG, JPEG, or WebP files plus one manifest.
+The destination must be new and its parent must exist. PNG is the default.</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImageSequenceOptions</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">options</span> <span class="o">=</span> <span class="n">ImageSequenceOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">render_quality</span><span class="o">=</span><span class="s2">"high"</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">result</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">export_image_sequence</span><span class="p">(</span><span class="s2">"overlay_frames"</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">canvas</span><span class="o">.</span><span class="n">export_image_sequence</span><span class="p">(</span><span class="s2">"review_frames"</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">"jpeg"</span><span class="p">,</span> <span class="n">quality</span><span class="o">=</span><span class="mi">85</span><span class="p">,</span> <span class="n">matte</span><span class="o">=</span><span class="s2">"white"</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">canvas</span><span class="o">.</span><span class="n">export_image_sequence</span><span class="p">(</span><span class="s2">"web_frames"</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">"webp"</span><span class="p">,</span> <span class="n">lossless</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">frame_count</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">duration</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">manifest_path</span><span class="p">)</span>
+</code></pre></div>
+<p>Encoding controls are keyword arguments to the method, separate from timing
+and compositing in <code>ImageSequenceOptions(fps=30, hold=3, workers=1,
+render_quality="standard")</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>PNG</th>
+<th>JPEG</th>
+<th>WebP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>format</code> (case-insensitive)</td>
+<td><code>"png"</code> (default)</td>
+<td><code>"jpeg"</code></td>
+<td><code>"webp"</code></td>
+</tr>
+<tr>
+<td><code>quality</code></td>
+<td>Rejected</td>
+<td>Integer 1–95; default 90</td>
+<td>Integer 1–95 for lossy output; default 80</td>
+</tr>
+<tr>
+<td><code>matte</code></td>
+<td>Rejected</td>
+<td>Opaque color string; default white</td>
+<td>Rejected</td>
+</tr>
+<tr>
+<td><code>lossless</code></td>
+<td>Rejected</td>
+<td>Rejected</td>
+<td>Boolean; default <code>False</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>lossless=True</code> and <code>quality</code> cannot be combined: quality names lossy
+compression, not lossless WebP encoder effort. Invalid types or incompatible
+options fail before creating output or staging. Options models contain only
+<code>fps</code> (finite, &gt;0 and ≤120), <code>hold</code> (finite, nonnegative seconds), <code>workers</code>
+(strict integer 1–8), and <code>render_quality</code> (<code>"standard"</code> or <code>"high"</code>).</p>
+<p>PNG retains the renderer's exact <strong>8-bit straight-alpha RGBA bytes</strong>, including
+hidden RGB. Lossless WebP also preserves those pixels, including hidden RGB.
+JPEG flattens alpha onto the resolved matte and encodes RGB; JPEG and lossy
+WebP can change colors and do not promise exact canonical pixels. WebP retains
+alpha, but fully opaque files may omit the redundant alpha plane and open as
+RGB in image readers. Convert those files to RGBA when consuming the manifest's
+logical <code>mode: "RGBA"</code>. Authored backgrounds stay visible in every format.
+Odd and one-pixel dimensions retain every row and column. Differently sized
+slides fit the first canvas's full dimensions, with transparent padding before
+encoding (matte-colored padding for JPEG). Imported images are not
+ICC-normalized; output strips inherited profiles/metadata and makes no
+sRGB/color-profile claim.</p>
+<p>The directory contains <code>000000.png</code>, <code>.jpg</code>, or <code>.webp</code>, and so on, plus one
+compact <code>manifest.json</code>. It records <code>version: "1"</code>, <code>format: "image_sequence"</code>,
+document <code>kind</code>, <code>encoding: "png"|"jpeg"|"webp"</code>, relative <code>filename_pattern</code>
+(<code>%06d.png</code>, <code>%06d.jpg</code>, or <code>%06d.webp</code>), and <code>start_index: 0</code>. Actual
+<code>frame_count</code>, <code>fps</code>, <code>duration</code>, <code>width</code>, and <code>height</code> describe the written
+files. Pixel fields describe logical decoding: PNG/WebP use <code>mode: "RGBA"</code>
+and <code>alpha: "straight"</code>; JPEG uses <code>"RGB"</code> and <code>"none"</code>. <code>bit_depth</code> is 8.
+<code>lossless</code> reports the selected encoding; resolved <code>quality</code> and <code>matte</code> are
+recorded where applicable and otherwise <code>null</code>.</p>
+<p><code>ImageSequenceResult</code> adds absolute <code>output_directory</code>, <code>manifest_path</code>, and
+<code>capability_report</code> diagnostics to <code>ImageSequenceManifest</code>. Both models and
+<code>ImageSequenceOptions</code> support JSON round trips and <code>model_json_schema()</code>.
+They add no Canvas/Deck document fields or raster format enum values. There
+is no growing list of frame paths or timestamps. Repeated frames are encoded
+once per canonical shot and written as independent editable files, not hardlinks.
+Frame memory stays bounded; existing scene preparation and worker buffers
+still consume memory.</p>
+<p>Timing follows animated exports, including explicit slide durations,
+<code>advance_after</code>, narration-derived visual timing, transitions, and Morph.
+Cumulative frame allocation avoids drift across fractional holds; short or
+zero-hold still slides receive at least one frame. The reported duration is
+exactly <code>frame_count / fps</code>, measured from the files actually written. This
+can differ from the independent timeline sampler's duration or sample count.
+<code>validate_export("image_sequence")</code> and <code>inspect_motion(target="image_sequence")</code>
+use video motion capabilities. Existing strict/reduced-motion policies and
+parent, Morph, caption, and worker restrictions apply.</p>
+<p>Sequences are silent: no audio encoding, mux, soundtrack, or audio sidecars.
+Narration retains its existing file validation and duration inference, without
+the encoder's 64-audio-input limit. Image-only scenes need no FFmpeg; inferred
+narration lengths still require ffprobe, and video layers retain their normal
+probe/decode requirements.</p>
+<p>All frames and <code>manifest.json</code> are rendered to an atomic staging directory before publication. The target directory must be non-existent; export fails safely if the destination directory already exists, preventing accidental overwrites.</p>
+<p>Run <code>examples/image_sequence_overlay.py</code> for PNG, white-matted JPEG and
+lossless WebP lower-third sequences with no FFmpeg dependency. All three
+output directories must be fresh on every run.</p>
+<h2 id="high-quality-animated-compositing">High-quality animated compositing</h2>
+<p><code>GifOptions(render_quality="high")</code> and <code>VideoOptions(render_quality="high")</code> opt into a 2×
+layer-compositing surface followed by one LANCZOS downsample. The default is
+<code>render_quality="standard"</code>, which preserves existing output. This namespaced option
+is separate from <code>render(..., quality=...)</code> for JPEG/WebP. Animated byte
+methods also accept the keyword-only <code>render_quality="high"</code> argument.</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">canvas</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"smooth.mp4"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">VideoOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">render_quality</span><span class="o">=</span><span class="s2">"high"</span><span class="p">))</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">deck</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"smooth.gif"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">GifOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">colors</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">render_quality</span><span class="o">=</span><span class="s2">"high"</span><span class="p">))</span>
+</code></pre></div>
+<p>High mode filters prepared layers and staggered targets directly into the
+larger surface without retaining enlarged copies of every source image. It
+improves integration of rotated/downscaled edges; dimensions, timing, audio,
+GIF palette/size controls and <code>workers</code> keep their existing meanings. Frames
+and cached background plates contain four times as many pixels, so high mode
+costs more rendering time and memory. Each worker adds its own buffers, so
+aggregate memory can increase with worker count.</p>
+<p>This is supersampled <strong>layer compositing</strong>, not higher-resolution source layout:
+fonts/assets and backdrop-dependent source surfaces are still prepared at their
+native size. Authored static rotation is already baked into those sources.
+Captions retain native rendering after the downsample, while slide transitions
+and keyed Morph keep their existing native-resolution paths. High mode cannot
+restore details absent from a prepared source and may soften very small text.
+See the <a href="https://github.com/sjquant/quickthumb/tree/main/benchmarks">benchmark guide</a>
+for matched cost measurements and before/after text crops.</p>
+<h2 id="parallel-animated-rendering">Parallel animated rendering</h2>
+<p><code>GifOptions(workers=2)</code> and <code>VideoOptions(workers=2)</code> opt into process-based
+frame rendering. The same keyword-only <code>workers</code> argument is available on
+animated byte methods. <code>workers</code> is a strict integer from 1 to 8; the default remains
+1, with no automatic CPU scaling. Small/static exports may be faster with one
+worker because starting processes, preparing slides, and copying frames cost
+time. Encoding and audio mixing still run in the parent export path.</p>
+<p>Use an importable script and Python's main guard: workers always use <code>spawn</code>,
+including on Linux, without changing the application's global start method.
+Interactive environments that cannot import the main module should use
+<code>workers=1</code>.</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">Canvas</span><span class="p">,</span> <span class="n">Fade</span><span class="p">,</span> <span class="n">VideoOptions</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">canvas</span> <span class="o">=</span> <span class="n">Canvas</span><span class="p">(</span><span class="mi">640</span><span class="p">,</span> <span class="mi">360</span><span class="p">)</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#123456"</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">canvas</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="s2">"rectangle"</span><span class="p">,</span> <span class="p">(</span><span class="mi">40</span><span class="p">,</span> <span class="mi">40</span><span class="p">),</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">160</span><span class="p">,</span> <span class="s2">"#FF3355"</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>                 <span class="n">animation</span><span class="o">=</span><span class="n">Fade</span><span class="p">(</span><span class="n">duration</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">canvas</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"parallel.mp4"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">VideoOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">workers</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">main</span><span class="p">()</span>
+</code></pre></div>
+<p>Workers rebuild built-in canvases with separate fonts and video decoders.
+Only a bounded, ordered window of frame jobs is outstanding, preserving the
+existing shot durations, collapsed holds, caption boundaries, and transition
+order. Local video layers, captions, seeded grain and built-in motion work in
+parallel. Custom/plugin layers, Canvas subclasses, remote video sources and
+unseeded nonzero grain require <code>workers=1</code>. Remote images/fonts resolved by
+slide preparation are pinned for workers; keep local assets and font-cache
+files unchanged during export. A source or worker failure fails the export
+and preserves a pre-existing destination.</p>
+<p>More workers require more memory: each has a Python runtime, fonts, prepared
+slide images and decoder caches, in addition to its in-flight RGB frame.
+Normal completion and errors wait for running jobs to finish and close their
+decoders. Pending jobs are canceled on failure; abruptly terminated workers
+are reported as rendering errors. An OS-level kill cannot run normal cleanup.</p>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        
+
+<footer class="md-footer qt-footer">
+  <div class="qt-footer-inner">
+    <div>
+      <a class="qt-brand" href="../.." aria-label="quickthumb home">
+        <img src="../../assets/brand/quickthumb-icon.svg" width="28" height="28" alt="">
+        <span>quickthumb</span>
+      </a>
+      <p class="qt-footer-tagline">A Python creative toolkit for images, presentations, and video.</p>
+    </div>
+    <nav class="qt-footer-links" aria-label="Footer">
+      <a href="../../cookbook/">Recipes</a>
+      <a href="../../getting-started/">Docs</a>
+      <a href="../../installation/">Installation</a>
+      <a href="../../changelog/">Changelog</a>
+    </nav>
+    <div class="qt-footer-meta">
+      <a class="qt-icon-button" href="https://github.com/sjquant/quickthumb" aria-label="quickthumb on GitHub">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg>
+      </a>
+      <p>© 2026 Seonu Jang · MIT License<br>Made with <a href="https://squidfunk.github.io/mkdocs-material/">Material for MkDocs</a></p>
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/site.js"></script>
+      
+    
+  </body>
+</html>

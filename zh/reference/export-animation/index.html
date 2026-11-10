@@ -1,0 +1,2847 @@
+
+<!doctype html>
+<html lang="zh-CN" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="quickthumb 的 GIF、视频与幻灯片旁白导出功能参考。">
+      
+      
+        <meta name="author" content="Seonu Jang">
+      
+      
+        <link rel="canonical" href="https://quickthumb.solaqua.dev/zh/reference/export-animation/">
+      
+      
+        <link rel="prev" href="../export-documents/">
+      
+      
+        <link rel="next" href="../export-transparency/">
+      
+      
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/reference/export-animation/" hreflang="en">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ko/reference/export-animation/" hreflang="ko">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ja/reference/export-animation/" hreflang="ja">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/zh/reference/export-animation/" hreflang="zh-CN">
+        
+      
+      
+      <link rel="icon" href="../../../assets/brand/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+  
+  <title>quickthumb - GIF、视频与旁白</title>
+  
+
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  
+  
+  
+  
+    
+  
+  
+  
+  
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="zh_CN">
+  
+    
+      
+  <link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-animation/">
+      
+      
+  <meta property="og:locale:alternate" content="en_US">
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="ko_KR">
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="ja_JP">
+      
+    
+      
+      
+    
+  
+  <meta property="og:site_name" content="quickthumb">
+  <meta property="og:title" content="quickthumb - GIF、视频与旁白">
+  <meta property="og:description" content="quickthumb 的 GIF、视频与幻灯片旁白导出功能参考。">
+  
+  <meta property="og:url" content="https://quickthumb.solaqua.dev/zh/reference/export-animation/">
+  
+  <meta property="og:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta property="og:image:alt" content="quickthumb：用代码制作缩略图。两张缩略图示例。">
+  
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  
+  <meta name="twitter:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta name="twitter:image:alt" content="quickthumb：用代码制作缩略图。两张缩略图示例。">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="quickthumb - GIF、视频与旁白">
+  <meta name="twitter:description" content="quickthumb 的 GIF、视频与幻灯片旁白导出功能参考。">
+  
+  <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "@id": "https://quickthumb.solaqua.dev/zh/#website", "url": "https://quickthumb.solaqua.dev/zh/", "name": "quickthumb", "description": "用 Python 或 JSON 制作图像、演示文稿和动画视频。", "inLanguage": "zh-CN", "publisher": {"@id": "https://quickthumb.solaqua.dev/#author"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}}, {"@type": "Person", "@id": "https://quickthumb.solaqua.dev/#author", "name": "Seonu Jang"}, {"@type": "SoftwareApplication", "@id": "https://quickthumb.solaqua.dev/#software", "name": "quickthumb", "url": "https://quickthumb.solaqua.dev/", "description": "用 Python 或 JSON 制作图像、演示文稿和动画视频。", "applicationCategory": "MultimediaApplication", "softwareVersion": "0.8.0", "softwareRequirements": "Python >=3.11", "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE", "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "sameAs": ["https://github.com/sjquant/quickthumb", "https://pypi.org/project/quickthumb/"]}, {"@type": "SoftwareSourceCode", "@id": "https://quickthumb.solaqua.dev/#source", "name": "quickthumb", "codeRepository": "https://github.com/sjquant/quickthumb", "programmingLanguage": "Python", "runtimePlatform": "Python >=3.11", "targetProduct": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE"}, {"@type": "WebPage", "@id": "https://quickthumb.solaqua.dev/zh/reference/export-animation/#webpage", "url": "https://quickthumb.solaqua.dev/zh/reference/export-animation/", "name": "GIF、视频与旁白", "description": "quickthumb 的 GIF、视频与幻灯片旁白导出功能参考。", "inLanguage": "zh-CN", "isPartOf": {"@id": "https://quickthumb.solaqua.dev/zh/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "primaryImageOfPage": {"@type": "ImageObject", "url": "https://quickthumb.solaqua.dev/assets/brand/social-preview.png", "caption": "quickthumb：用代码制作缩略图。两张缩略图示例。", "width": 1200, "height": 630}, "mainEntity": {"@id": "https://quickthumb.solaqua.dev/zh/reference/export-animation/#document"}, "breadcrumb": {"@id": "https://quickthumb.solaqua.dev/zh/reference/export-animation/#breadcrumbs"}}, {"@type": "BreadcrumbList", "@id": "https://quickthumb.solaqua.dev/zh/reference/export-animation/#breadcrumbs", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "quickthumb", "item": "https://quickthumb.solaqua.dev/zh/"}, {"@type": "ListItem", "position": 2, "name": "GIF、视频与旁白", "item": "https://quickthumb.solaqua.dev/zh/reference/export-animation/"}]}, {"@type": "TechArticle", "@id": "https://quickthumb.solaqua.dev/zh/reference/export-animation/#document", "url": "https://quickthumb.solaqua.dev/zh/reference/export-animation/", "headline": "GIF、视频与旁白", "description": "quickthumb 的 GIF、视频与幻灯片旁白导出功能参考。", "inLanguage": "zh-CN", "mainEntityOfPage": {"@id": "https://quickthumb.solaqua.dev/zh/reference/export-animation/#webpage"}, "isPartOf": {"@id": "https://quickthumb.solaqua.dev/zh/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}}]}</script>
+  
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#gif-video-and-narration" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header qt-header" data-md-component="header">
+  <nav class="qt-header-inner" aria-label="主导航">
+    <a class="qt-brand" href="../../" aria-label="quickthumb 首页">
+      <img src="../../../assets/brand/quickthumb-icon.svg" width="40" height="40" alt="">
+      <span>quickthumb</span>
+    </a>
+    <div class="qt-desktop-links">
+      <a href="../../cookbook/">示例</a>
+      <a href="../../getting-started/">文档</a>
+      <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="qt-header-tools">
+      
+
+
+<details class="qt-language-switch">
+  <summary aria-label="语言: 简体中文">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    <span data-qt-language-current>简体中文</span>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7.41 8.58 12 13.17l4.59-4.59L18 10l-6 6-6-6z"/></svg>
+  </summary>
+  <nav aria-label="语言">
+    
+    <a href="https://quickthumb.solaqua.dev/reference/export-animation/" hreflang="en" lang="en" data-qt-language="en" target="_self">English</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ko/reference/export-animation/" hreflang="ko" lang="ko" data-qt-language="ko" target="_self">한국어</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ja/reference/export-animation/" hreflang="ja" lang="ja" data-qt-language="ja" target="_self">日本語</a>
+    
+    <a href="https://quickthumb.solaqua.dev/zh/reference/export-animation/" hreflang="zh-CN" lang="zh-CN" data-qt-language="zh-CN" target="_self" aria-current="page">简体中文</a>
+    
+  </nav>
+</details>
+      <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="切换到深色主题"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="切换到深色主题" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="切换到浅色主题"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="切换到浅色主题" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+      <button class="qt-icon-button" type="button" data-qt-search aria-label="搜索文档">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </button>
+      <button class="qt-icon-button qt-menu-trigger" type="button" data-qt-menu aria-label="打开导航菜单" aria-controls="qt-navigation" aria-expanded="false">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+      </button>
+      <a class="qt-button qt-button-white qt-header-cta" href="../../getting-started/">开始使用</a>
+    </div>
+  </nav>
+  <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</header>
+
+<dialog class="qt-drawer" id="qt-navigation" aria-label="网站导航">
+  <div class="qt-drawer-header">
+    <a class="qt-brand" href="../../" aria-label="quickthumb 首页">
+      <img src="../../../assets/brand/quickthumb-icon.svg" width="36" height="36" alt="">
+      <span>quickthumb</span>
+    </a>
+    <button class="qt-icon-button" type="button" data-qt-close aria-label="关闭导航菜单" autofocus>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
+  <button class="qt-drawer-search" type="button" data-qt-search>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+    <span>搜索文档</span>
+  </button>
+  <nav class="qt-drawer-links" aria-label="探索 quickthumb">
+    <a class="qt-button qt-button-blue" href="../../getting-started/">开始使用 <span aria-hidden="true">→</span></a>
+    <a href="../../cookbook/">示例</a>
+    <a href="../../getting-started/">文档</a>
+    <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+  <nav class="qt-drawer-docs" aria-label="文档快捷链接">
+    <p class="qt-nav-caption">文档</p>
+    <a href="../../installation/">安装</a>
+    <a href="../../concepts/">核心概念</a>
+    <a href="../../api/">API 参考</a>
+  </nav>
+  <details class="qt-drawer-index">
+    <summary>全部文档</summary>
+    
+<nav aria-label="All documentation">
+  <ul>
+    
+      <li>
+        
+          <a href="../../">首页</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>快速开始</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../getting-started/">渲染第一组卡片</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../installation/">安装</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../concepts/">核心概念</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../output-guide/">选择输出格式</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../timing/">动画时序</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>API 参考</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../api/">概览</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/canvas/">Canvas</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/deck/">Deck（多页幻灯片）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/inspection/">文档检查</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/background/">背景</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/text/">文本</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/image/">图像</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/shape/">形状</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/path/">路径</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/svg/">SVG</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/video/">视频</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/audio/">音频响应式创作</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/group/">编组（自动布局）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/outline/">外边框</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/data-visualizations/">数据可视化</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/effects/">效果</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/enums/">枚举与渐变</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details open>
+            <summary>进阶参考</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <details open>
+            <summary>导出</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../exports/">概览</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-methods/">导出方法与凭据</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-validation/">格式保真度与验证</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-documents/">SVG、HTML、PowerPoint 和 PDF</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="./" aria-current="page">GIF、视频与旁白</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-transparency/">透明视频</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-frames/">图像序列与渲染质量</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-assets/">资源与可复现性</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-lottie/">Lottie 矢量动画</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../timing-details/">动画时序参考</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../inspection-details/">检查复杂布局</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>JSON 与 AI</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../json-schema/">JSON Schema 与 AI 工作流</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../diagnostics/">诊断与 CLI</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../errors/">结构化错误</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>示例集</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../cookbook/">示例画廊</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/decks-and-video/">演示文稿与视频</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/youtube-thumbnail/">YouTube 缩略图</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/instagram-card/">Instagram 卡片</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/podcast-promo/">播客宣传图</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/shorts-cover/">Shorts 与竖版封面</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/launch-announcement/">发布公告（自动布局）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/ai-workflow/">AI 工作流</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/webfonts-rembg/">Web 字体与背景去除</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../faq/">常见问题</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>更新日志</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../changelog/">概览</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../releases/0.8.0/">0.8.0</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+  </ul>
+</nav>
+  </details>
+  <button class="qt-appearance" type="button" data-qt-theme>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18V6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-2.69L23.31 12 20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20z"/></svg>
+    <span>切换主题</span>
+  </button>
+</dialog>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../" title="quickthumb" class="md-nav__button md-logo" aria-label="quickthumb" data-md-component="logo">
+      
+  <img src="../../../assets/brand/quickthumb-icon.png" alt="logo">
+
+    </a>
+    quickthumb
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sjquant/quickthumb" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sjquant/quickthumb
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    首页
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    快速开始
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    渲染第一组卡片
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    安装
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    核心概念
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../output-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    选择输出格式
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../timing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    动画时序
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API 参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/canvas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canvas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/deck/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deck（多页幻灯片）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/inspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文档检查
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/background/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    背景
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文本
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    图像
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/shape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    形状
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    路径
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/svg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    视频
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    音频响应式创作
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    编组（自动布局）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/outline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    外边框
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/data-visualizations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    数据可视化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/effects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    效果
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/enums/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    枚举与渐变
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进阶参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    进阶参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    导出
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    导出
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    导出方法与凭据
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    格式保真度与验证
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG、HTML、PowerPoint 和 PDF
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GIF、视频与旁白
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GIF、视频与旁白
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#animated-gif-video" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        动画 GIF 与视频
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#narrated-deck-video" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        带旁白的 Deck 视频
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        动画时序
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-transparency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    透明视频
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-frames/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    图像序列与渲染质量
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-assets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    资源与可复现性
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-lottie/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lottie 矢量动画
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../timing-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    动画时序参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inspection-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    检查复杂布局
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON 与 AI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    JSON 与 AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../json-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON Schema 与 AI 工作流
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    诊断与 CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    结构化错误
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    示例集
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    示例集
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    示例画廊
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/decks-and-video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    演示文稿与视频
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/youtube-thumbnail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YouTube 缩略图
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/instagram-card/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instagram 卡片
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/podcast-promo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    播客宣传图
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/shorts-cover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shorts 与竖版封面
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/launch-announcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    发布公告（自动布局）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/ai-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI 工作流
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/webfonts-rembg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web 字体与背景去除
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    更新日志
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    更新日志
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../releases/0.8.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0.8.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#animated-gif-video" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        动画 GIF 与视频
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#narrated-deck-video" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        带旁白的 Deck 视频
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        动画时序
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="gif-video-and-narration">GIF、视频与旁白</h1>
+<p><a href="../../exports/">导出参考</a> · <a href="../../output-guide/">输出格式选择指南</a></p>
+<h2 id="animated-gif-video">动画 GIF 与视频</h2>
+<p>有关规范采样与编码帧数差异、幻灯片/旁白时钟、字幕及交互式 HTML 行为的说明，请参见<a href="../../timing/">动画时序</a>。</p>
+<p>动画导出使用与 PNG 输出相同的像素流水线，将每图层的 <code>animation</code> 动效和 Deck 幻灯片 <code>transition</code> 转场渲染为真实的光栅帧序列。Canvas 与 Deck 的 GIF/MP4/WebM/MOV 导出均会播放该动画时间轴，即便未显式传递选项的文件导出也是如此。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">AudioTrack</span><span class="p">,</span> <span class="n">Canvas</span><span class="p">,</span> <span class="n">Deck</span><span class="p">,</span> <span class="n">Fade</span><span class="p">,</span> <span class="n">GifOptions</span><span class="p">,</span> <span class="n">VideoOptions</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb.transitions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Push</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">canvas</span> <span class="o">=</span> <span class="n">Canvas</span><span class="p">(</span><span class="mi">1280</span><span class="p">,</span> <span class="mi">720</span><span class="p">)</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#101820"</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">content</span><span class="o">=</span><span class="s2">"Hello"</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="s2">"50%"</span><span class="p">,</span> <span class="s2">"50%"</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="mi">96</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#FFFFFF"</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">animation</span><span class="o">=</span><span class="n">Fade</span><span class="p">(</span><span class="n">duration</span><span class="o">=</span><span class="mf">0.6</span><span class="p">),</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">canvas</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"hello.gif"</span><span class="p">)</span>                     <span class="c1"># defaults: 20 fps, 3s hold</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">canvas</span><span class="o">.</span><span class="n">render</span><span class="p">(</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="s2">"preview.gif"</span><span class="p">,</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">animation</span><span class="o">=</span><span class="n">GifOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">max_size</span><span class="o">=</span><span class="p">(</span><span class="mi">540</span><span class="p">,</span> <span class="mi">960</span><span class="p">),</span> <span class="n">colors</span><span class="o">=</span><span class="mi">128</span><span class="p">),</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="p">)</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">mp4</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_mp4</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>          <span class="c1"># tunable variants return bytes</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">other</span> <span class="o">=</span> <span class="n">Canvas</span><span class="p">(</span><span class="mi">1280</span><span class="p">,</span> <span class="mi">720</span><span class="p">)</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#204060"</span><span class="p">)</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">deck</span> <span class="o">=</span> <span class="n">Deck</span><span class="p">(</span><span class="mi">1280</span><span class="p">,</span> <span class="mi">720</span><span class="p">)</span><span class="o">.</span><span class="n">slide</span><span class="p">(</span><span class="n">canvas</span><span class="p">)</span><span class="o">.</span><span class="n">slide</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">transition</span><span class="o">=</span><span class="n">Push</span><span class="p">(</span><span class="n">direction</span><span class="o">=</span><span class="s2">"left"</span><span class="p">))</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">gif</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_gif</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">loop</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">webm</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_webm</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>
+</code></pre></div>
+<p>每个动效均接收 <code>duration</code>、<code>delay</code> 和 <code>trigger</code>，以及两项时序控制参数：</p>
+<ul>
+<li><code>easing</code>：从通用缓动函数词汇表（<code>"linear"</code>、<code>"ease"</code>、<code>"ease_out_cubic"</code>、<code>"ease_out_back"</code> 等）中选择入场曲线。传统动效默认为 <code>"ease"</code>；规范预设会自动解析其缓动曲线与观感，其余情况默认为 <code>"linear"</code>。用于展示已逝时间的进度条需要使用 <code>"linear"</code> 以精确体现其进度。HTML 导出将命名缓动曲线与自定义三次贝塞尔曲线函数传递给 CSS。命名多项式曲线采用现有的 CSS 三次贝塞尔曲线近似实现：曲线形态高度相近，但中间像素状态无需与规范采样完全绝对一致。</li>
+<li><code>start</code>：将动效锚定在幻灯片的绝对时间点，而非顺延挂载在前序动效之后。锚定动效不会挪动相对挂载动效所依赖的时间游标，因此两种风格可以自由混用。</li>
+</ul>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">Wipe</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">canvas</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">shape</span><span class="o">=</span><span class="s2">"rectangle"</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">700</span><span class="p">),</span> <span class="n">width</span><span class="o">=</span><span class="mi">1280</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#E8A552"</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">animation</span><span class="o">=</span><span class="n">Wipe</span><span class="p">(</span><span class="n">direction</span><span class="o">=</span><span class="s2">"right"</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="mf">6.0</span><span class="p">,</span> <span class="n">easing</span><span class="o">=</span><span class="s2">"linear"</span><span class="p">),</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">)</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">canvas</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">shape</span><span class="o">=</span><span class="s2">"rectangle"</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="mi">80</span><span class="p">,</span> <span class="mi">180</span><span class="p">),</span> <span class="n">width</span><span class="o">=</span><span class="mi">180</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#E8A552"</span><span class="p">,</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">animation</span><span class="o">=</span><span class="n">Wipe</span><span class="p">(</span><span class="n">direction</span><span class="o">=</span><span class="s2">"right"</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="mf">2.4</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">easing</span><span class="o">=</span><span class="s2">"linear"</span><span class="p">),</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">)</span>
+</code></pre></div>
+<p>带有 <code>stagger</code> 交错延迟的规范 <code>AnimationSpec</code> 可使每个目标按照独立节奏依次运动。行目标（lines）直接从图层绘制完成的渲染结果中切片提取，因此每一行都保持最初绘制时的排版，并在屏幕外静候出场：</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnimationSpec</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">canvas</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">content</span><span class="o">=</span><span class="s2">"가로로 한 번.</span><span class="se">\n</span><span class="s2">세로로 한 번.</span><span class="se">\n</span><span class="s2">미리보기로 또 한 번."</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="mi">80</span><span class="p">,</span> <span class="mi">150</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="mi">38</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#F2EFE9"</span><span class="p">,</span> <span class="n">line_height</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">animation</span><span class="o">=</span><span class="n">AnimationSpec</span><span class="o">.</span><span class="n">rise</span><span class="p">(</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="n">from_</span><span class="o">=</span><span class="s2">"bottom"</span><span class="p">,</span> <span class="n">distance</span><span class="o">=</span><span class="mi">26</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="mf">0.45</span><span class="p">,</span> <span class="n">stagger</span><span class="o">=</span><span class="mf">0.32</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="s2">"lines"</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="p">),</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">)</span>
+</code></pre></div>
+<p>若行间距过于紧凑以至于彼此触碰，则无法在渲染切片中有效区分；单词（words）与字符（characters）目标同样没有可分离的独立色带，此时会自动降级为将整个图层作为一个整体进行运动。</p>
+<p>静态文本与顶层编组也可以作为显式父级链条中的叶子节点参与 stagger 交错动画。分离后的切片条带继承祖先节点的完整仿射变换，并保留各自的锚点与外观动画轨道。该机制复用了前述部分条带适配器与整体块级降级回退；交错图层本身不能作为其他图层的父级。计数器加交错动画以及动态数据源仍受到严格保护。详情请参见<a href="../../api/video/#current-adapters-and-boundaries">父级变换支持边界</a>及可运行的 <code>examples/parent_stagger.py</code> 示例。</p>
+<p><code>Canvas.render()</code> 与 <code>Deck.render()</code> 针对动画文件输出接收专门的格式选项对象。GIF 使用 <code>GifOptions</code>（<code>fps</code>、<code>hold</code>、<code>matte</code>、<code>loop</code>、<code>max_size=(width, height)</code> 和 <code>colors</code>）；MP4/WebM/MOV 使用 <code>VideoOptions</code>（<code>fps</code>、<code>hold</code>、<code>matte</code>、<code>soundtrack=AudioTrack(...)</code>、<code>loop_audio</code> 以及 WebM/MOV 的 <code>transparent=True</code>）。二者均支持 <code>workers=1</code> 与 <code>render_quality="standard"</code>。视频导出拒绝 GIF 尺寸与调色板控制参数；GIF 导出拒绝视频专用选项。通用的 <code>render(..., quality=...)</code> 选项严格保留给 JPEG 和 WebP 光栅输出使用。</p>
+<p>两个选项模型均使用 <code>hold=3.0</code> 作为静止状态保持时间，与 Canvas 和 Deck 字节方法中的 <code>hold</code> 保持一致。其值必须为有限非负数；布尔值与字符串会被拒绝。序列化选项中会省略默认的 hold 值并在加载时恢复；显式指定的零值将予以保留。旁白时长与显式指定的 Deck 幻灯片持续时间仍用于决定视频排期，而 Deck GIF 依然忽略这些按页设定的时长。Deck 动画视频保留原有限制：当任意幻灯片既无旁白又未显式指定正数时长时，<code>hold=0</code> 将报错失败，因为其音频调度需要正数时长的静音底轨。对于此类幻灯片，请指定正数的 hold 值。Canvas、Deck GIF 以及无声图像序列继续允许将 hold 设为 0。</p>
+<p>字节导出方法接收相同的标量命名关键字参数：Canvas GIF/MP4/WebM/MOV 和 Deck GIF/动画 MP4/WebM/MOV 支持 <code>workers=1</code> 与 <code>render_quality="standard"</code>，GIF 还支持 <code>max_size=None</code> 与 <code>colors=None</code>。这些方法直接使用 <code>hold</code> 参数，不接收选项对象。旁白视频复用与其他视频输出相同的 Deck MP4 时间轴。</p>
+<p>文件执行在检查导出策略之前确定目标格式。Canvas 与 Deck MP4 始终播放动画时间轴，未提供选项时使用默认的 <code>VideoOptions()</code>。未实际执行的创作时 Morph 变形转场在导出静态文件或开启减弱动态效果时不会产生降级错误或凭据诊断。减弱动效仍会保留编码器的 hold 保持时间以及幻灯片之间的默认转场。有关采样率、编码视觉帧数与持续时长的详细信息，请参见<a href="../../timing/">动画时序</a>。</p>
+<p><code>ExportResult.pixel_metrics.width</code> 与 <code>height</code> 依然表示规范第一张画布的光栅像素尺寸。它们不反映 GIF 缩放或 MP4/WebM 的画面裁剪。图像序列导出结果会在独立字段中报告其完整输出尺寸。</p>
+<p><code>validate_export(target)</code> 是针对声明的动效能力进行的查询，独立于具体的文件执行选项。例如，即使启用了减弱动态效果策略，<code>validate_export("mp4")</code> 仍会查询动画视频能力。具体的 <code>svg</code> 与 <code>pdf</code> 查询使用现有的 <code>raster</code> 系列标签描述其静态文档降级方案。目标参数大小写不敏感；<code>jpg</code>、<code>jpeg</code>、<code>webp</code>、<code>png</code>、<code>gif</code>、<code>mp4</code>、<code>webm</code>、<code>mov</code>、<code>htm</code> 和 <code>image_sequence</code> 均被视作对应系列的格式别名。GIF 查询归属于 <code>raster</code>，而出于兼容性考虑，GIF 的 <code>ExportResult.target</code> 仍报告为 <code>video</code>。</p>
+<h2 id="narrated-deck-video">带旁白的 Deck 视频</h2>
+<p>可将 Deck 导出为每页均带有配音解说的视频：</p>
+<ul>
+<li>向 <code>Deck.slide()</code> 传递 <code>audio=</code>。若未提供 <code>duration=</code>，系统将通过 <code>ffprobe</code> 自动测量旁白音频的时长。显式传递 <code>duration=</code> 会裁剪音频或用静音补齐。未提供音频的幻灯片将静音保持 <code>hold</code> 时长（默认 3 秒）。</li>
+<li><code>deck.export("deck.mp4")</code> 与 <code>deck.render("deck.mp4")</code> 默认会在播放图层动画与转场的同时播放旁白语音。<code>deck.to_mp4()</code>、<code>deck.to_webm()</code> 和 <code>deck.to_mov()</code> 返回编码后的动画视频二进制字节。</li>
+<li>如需制作带有旁白的静止画面幻灯片，请构建静态 Canvas 并显式设置 <code>Cut()</code> 硬切转场。输出格式为 H.264/yuv420p，有音频时音轨采用 AAC 编码。省略转场将使用默认淡入淡出，而非硬切。<code>reduced_motion=True</code> 同样会选择默认转场，并非静止幻灯片专用导出模式。在常规 MP4 路径中，已存在的图层动画依然会正常播放。</li>
+<li>在 <code>deck.export()</code> 或 <code>deck.render()</code> 中通过 <code>animation=VideoOptions(soundtrack=AudioTrack(path="music.mp3", volume=0.16, loop=True))</code> 添加背景音乐。Quickthumb 会自动将其与各页旁白语音进行混音；调用方无需自行提前预混音频。</li>
+</ul>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">Canvas</span><span class="p">,</span> <span class="n">Deck</span><span class="p">,</span> <span class="n">VideoOptions</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb.transitions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Cut</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">deck</span> <span class="o">=</span> <span class="n">Deck</span><span class="p">(</span><span class="mi">640</span><span class="p">,</span> <span class="mi">360</span><span class="p">)</span><span class="o">.</span><span class="n">transition</span><span class="p">(</span><span class="n">Cut</span><span class="p">())</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">deck</span><span class="o">.</span><span class="n">slide</span><span class="p">(</span><span class="n">Canvas</span><span class="p">(</span><span class="mi">640</span><span class="p">,</span> <span class="mi">360</span><span class="p">)</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#123456"</span><span class="p">),</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>           <span class="n">audio</span><span class="o">=</span><span class="s2">"voice.wav"</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="mf">2.5</span><span class="p">)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">deck</span><span class="o">.</span><span class="n">slide</span><span class="p">(</span><span class="n">Canvas</span><span class="p">(</span><span class="mi">640</span><span class="p">,</span> <span class="mi">360</span><span class="p">)</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#456789"</span><span class="p">),</span> <span class="n">duration</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">result</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"narrated.mp4"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">VideoOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">))</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">mp4_bytes</span> <span class="o">=</span> <span class="n">deck</span><span class="o">.</span><span class="n">to_mp4</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="timing">动画时序</h2>
+<p>除无法手动点击推进外，视频与 GIF 遵循与 HTML 幻灯片放映完全一致的时序逻辑：<code>on_click</code> 动效会自动像 <code>after_previous</code> 一样依次顺畅播放（PowerPoint 自带的视频导出功能也是同样逻辑）。每张幻灯片在前一张幻灯片的最后一帧之上播放转场，运行其自身包含的动画（与 HTML 一致，转场开始时同步触发动画），随后在其定型静止状态保持一段时间（若转场设置了 <code>advance_after</code> 则以此为准，否则保持 <code>hold</code> 时长）。在带有旁白的 MP4/WebM/MOV 输出中，推断或显式指定的旁白时长（或无声幻灯片的默认时长）长于 <code>advance_after</code> 时会相应延长画面的视觉停留时间。没有设置转场的幻灯片会以 0.5 秒淡入过渡（没有转场的第 0 页幻灯片立即开播）；为第 0 页设置转场可以使其从底色渐入，这也有助于让循环播放的 GIF 在首尾循环处自然平滑过渡。</p>
+<p>GIF 由 Pillow 直接按每帧独立时长进行编码，无需任何额外依赖。MP4（H.264）、WebM（VP9）与 MOV（ProRes 4444）则要求系统 <code>PATH</code> 中包含 <code>ffmpeg</code> 可执行文件（或通过 <code>QUICKTHUMB_FFMPEG</code> 环境变量显式指定路径）。</p>
+<p>Canvas 的 MP4、WebM 和 MOV 输出均支持配乐音轨：支持 ffmpeg 能够解码的任意音频文件（MP3、WAV、AAC、OGG 等），在 MP4/MOV 中编码为 AAC，在 WebM 中编码为 Opus：</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">mp4</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_mp4</span><span class="p">(</span><span class="n">soundtrack</span><span class="o">=</span><span class="s2">"music.mp3"</span><span class="p">)</span>                    <span class="c1"># loops to fill the video</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">mp4</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_mp4</span><span class="p">(</span><span class="n">soundtrack</span><span class="o">=</span><span class="s2">"jingle.wav"</span><span class="p">,</span> <span class="n">loop_audio</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="c1"># plays once, then silence</span>
+</code></pre></div>
+<p>音频始终被精确裁剪至视频总长度。对于 <code>AudioTrack</code>，<code>loop=True</code> 会循环播放较短的音轨，<code>loop=False</code> 播放一遍后保持静音；<code>loop_audio</code> 为显式覆盖参数。传统的字符串路径保留旧版的循环播放默认行为。GIF 导出不支持添加配乐音轨。</p>
+<div class="admonition tip">
+<p class="admonition-title">格式技巧</p>
+<ul>
+<li><strong>背景底衬</strong>：视频各帧合成在不透明底衬上（默认为黑色）。制作 Alpha 透明叠加图层时，请选用 WebM 或 MOV 并开启 <code>transparent=True</code>。</li>
+<li><strong>分辨率要求</strong>：H.264/VP9 4:2:0 视频编码要求像素尺寸必须为偶数（如 1280×720）。</li>
+<li><strong>GIF 体积优化</strong>：在 <code>GifOptions</code> 中设置 <code>max_size=(w, h)</code> 并将 <code>colors</code> 限制为 128（或 64）可显著压缩 GIF 文件体积。</li>
+</ul>
+</div>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        
+
+<footer class="md-footer qt-footer">
+  <div class="qt-footer-inner">
+    <div>
+      <a class="qt-brand" href="../../" aria-label="quickthumb 首页">
+        <img src="../../../assets/brand/quickthumb-icon.svg" width="28" height="28" alt="">
+        <span>quickthumb</span>
+      </a>
+      <p class="qt-footer-tagline">用 Python 制作图像、演示文稿和视频。</p>
+    </div>
+    <nav class="qt-footer-links" aria-label="页脚导航">
+      <a href="../../cookbook/">示例</a>
+      <a href="../../getting-started/">文档</a>
+      <a href="../../installation/">安装</a>
+      <a href="../../changelog/">更新日志</a>
+    </nav>
+    <div class="qt-footer-meta">
+      <a class="qt-icon-button" href="https://github.com/sjquant/quickthumb" aria-label="在 GitHub 上查看 quickthumb">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg>
+      </a>
+      <p>© 2026 Seonu Jang · MIT 许可证<br>使用工具 <a href="https://squidfunk.github.io/mkdocs-material/">Material for MkDocs</a></p>
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../../javascripts/site.js"></script>
+      
+    
+  </body>
+</html>

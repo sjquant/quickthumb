@@ -1,0 +1,3440 @@
+
+<!doctype html>
+<html lang="ja" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="quickthumbのインストール、テキスト、フォント、画像、出力形式、JSON仕様、エラーについて、よくある質問に答えます。">
+      
+      
+        <meta name="author" content="Seonu Jang">
+      
+      
+        <link rel="canonical" href="https://quickthumb.solaqua.dev/ja/faq/">
+      
+      
+        <link rel="prev" href="../cookbook/webfonts-rembg/">
+      
+      
+        <link rel="next" href="../changelog/">
+      
+      
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/faq/" hreflang="en">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ko/faq/" hreflang="ko">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ja/faq/" hreflang="ja">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/zh/faq/" hreflang="zh-CN">
+        
+      
+      
+      <link rel="icon" href="../../assets/brand/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+  
+  <title>quickthumb - よくある質問</title>
+  
+
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  
+  
+  
+  
+    
+  
+  
+  
+  
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ja_JP">
+  
+    
+      
+  <link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/faq/">
+      
+      
+  <meta property="og:locale:alternate" content="en_US">
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="ko_KR">
+      
+    
+      
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="zh_CN">
+      
+    
+  
+  <meta property="og:site_name" content="quickthumb">
+  <meta property="og:title" content="quickthumb - よくある質問">
+  <meta property="og:description" content="quickthumbのインストール、テキスト、フォント、画像、出力形式、JSON仕様、エラーについて、よくある質問に答えます。">
+  
+  <meta property="og:url" content="https://quickthumb.solaqua.dev/ja/faq/">
+  
+  <meta property="og:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta property="og:image:alt" content="quickthumb：コードから広がるサムネイル制作。サムネイルカードの作例2点。">
+  
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  
+  <meta name="twitter:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta name="twitter:image:alt" content="quickthumb：コードから広がるサムネイル制作。サムネイルカードの作例2点。">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="quickthumb - よくある質問">
+  <meta name="twitter:description" content="quickthumbのインストール、テキスト、フォント、画像、出力形式、JSON仕様、エラーについて、よくある質問に答えます。">
+  
+  <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "@id": "https://quickthumb.solaqua.dev/ja/#website", "url": "https://quickthumb.solaqua.dev/ja/", "name": "quickthumb", "description": "PythonまたはJSONで画像、プレゼンテーション、アニメーション動画を作成します。", "inLanguage": "ja", "publisher": {"@id": "https://quickthumb.solaqua.dev/#author"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}}, {"@type": "Person", "@id": "https://quickthumb.solaqua.dev/#author", "name": "Seonu Jang"}, {"@type": "SoftwareApplication", "@id": "https://quickthumb.solaqua.dev/#software", "name": "quickthumb", "url": "https://quickthumb.solaqua.dev/", "description": "PythonまたはJSONで画像、プレゼンテーション、アニメーション動画を作成します。", "applicationCategory": "MultimediaApplication", "softwareVersion": "0.8.0", "softwareRequirements": "Python >=3.11", "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE", "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "sameAs": ["https://github.com/sjquant/quickthumb", "https://pypi.org/project/quickthumb/"]}, {"@type": "SoftwareSourceCode", "@id": "https://quickthumb.solaqua.dev/#source", "name": "quickthumb", "codeRepository": "https://github.com/sjquant/quickthumb", "programmingLanguage": "Python", "runtimePlatform": "Python >=3.11", "targetProduct": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE"}, {"@type": "FAQPage", "@id": "https://quickthumb.solaqua.dev/ja/faq/#webpage", "url": "https://quickthumb.solaqua.dev/ja/faq/", "name": "よくある質問", "description": "quickthumbのインストール、テキスト、フォント、画像、出力形式、JSON仕様、エラーについて、よくある質問に答えます。", "inLanguage": "ja", "isPartOf": {"@id": "https://quickthumb.solaqua.dev/ja/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "primaryImageOfPage": {"@type": "ImageObject", "url": "https://quickthumb.solaqua.dev/assets/brand/social-preview.png", "caption": "quickthumb：コードから広がるサムネイル制作。サムネイルカードの作例2点。", "width": 1200, "height": 630}, "mainEntity": [{"@id": "https://quickthumb.solaqua.dev/ja/faq/#which-python-versions-are-supported"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#the-quickthumb-command-isnt-found"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#why-does-my-svg-layer-raise-renderingerror"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#what-happens-if-i-render-a-canvas-with-no-layers"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#why-does-a-group-child-raise-group-children-must-not-set-position"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#how-do-i-check-a-design-for-problems-before-rendering"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#my-text-runs-off-the-canvas"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#i-set-boldtrue-and-weight900-and-got-an-error"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#how-do-i-use-a-google-font"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#can-i-use-images-from-a-url"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#how-do-i-remove-the-background-behind-a-person"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#whats-the-difference-between-cover-contain-and-fill"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#which-formats-can-i-export"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#can-i-set-quality-for-a-png"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#how-do-i-get-the-image-without-writing-a-file"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#can-i-pass-a-dict-to-canvasfrom_json"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#why-does-to_json-raise-validationerror"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#my-theme-block-disappeared-after-to_json"}, {"@id": "https://quickthumb.solaqua.dev/ja/faq/#what-do-the-different-errors-mean"}], "breadcrumb": {"@id": "https://quickthumb.solaqua.dev/ja/faq/#breadcrumbs"}}, {"@type": "BreadcrumbList", "@id": "https://quickthumb.solaqua.dev/ja/faq/#breadcrumbs", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "quickthumb", "item": "https://quickthumb.solaqua.dev/ja/"}, {"@type": "ListItem", "position": 2, "name": "よくある質問", "item": "https://quickthumb.solaqua.dev/ja/faq/"}]}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#which-python-versions-are-supported", "url": "https://quickthumb.solaqua.dev/ja/faq/#which-python-versions-are-supported", "name": "対応するPythonのバージョンは？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#which-python-versions-are-supported-answer", "text": "\u003cp>Python 3.11以降です。パッケージの分類は3.11と3.12で、CIは3.11で実行します。背景除去の\u003ccode>rembg\u003c/code>追加機能も同じです。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#the-quickthumb-command-isnt-found", "url": "https://quickthumb.solaqua.dev/ja/faq/#the-quickthumb-command-isnt-found", "name": "quickthumbコマンドが見つかりません", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#the-quickthumb-command-isnt-found-answer", "text": "\u003cp>コマンドラインツールは追加機能です。\u003ccode>pip install \"quickthumb[cli]\"\u003c/code>でインストールしてください。利用できる追加機能は\u003ca href=\"https://quickthumb.solaqua.dev/ja/installation/\">インストール\u003c/a>にまとめています。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#why-does-my-svg-layer-raise-renderingerror", "url": "https://quickthumb.solaqua.dev/ja/faq/#why-does-my-svg-layer-raise-renderingerror", "name": "SVGレイヤーでRenderingErrorが出るのはなぜですか？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#why-does-my-svg-layer-raise-renderingerror-answer", "text": "\u003cp>SVGファイルの描画には\u003ccode>svg\u003c/code>追加機能が必要です。\u003ccode>pip install \"quickthumb[svg]\"\u003c/code>でインストールします。キャンバスをSVGへ\u003cem>出力する\u003c/em>場合は不要です。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#what-happens-if-i-render-a-canvas-with-no-layers", "url": "https://quickthumb.solaqua.dev/ja/faq/#what-happens-if-i-render-a-canvas-with-no-layers", "name": "レイヤーのないキャンバスをレンダリングするとどうなりますか？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#what-happens-if-i-render-a-canvas-with-no-layers-answer", "text": "\u003cp>キャンバスと同じサイズの、完全に透明な画像になります。エラーではありません。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#why-does-a-group-child-raise-group-children-must-not-set-position", "url": "https://quickthumb.solaqua.dev/ja/faq/#why-does-a-group-child-raise-group-children-must-not-set-position", "name": "グループの子で「group children must not set position」が出るのはなぜですか？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#why-does-a-group-child-raise-group-children-must-not-set-position-answer", "text": "\u003cp>グループ自身が子の位置を決めるためです。子の\u003ccode>position\u003c/code>を外し、代わりにグループを配置してください。\u003c/p>\n\u003cdiv class=\"language-python highlight\">\u003cpre>\u003cspan>\u003c/span>\u003ccode>\u003ca id=\"__codelineno-0-1\" name=\"__codelineno-0-1\" href=\"https://quickthumb.solaqua.dev/ja/faq/#__codelineno-0-1\">\u003c/a>\u003cspan class=\"n\">canvas\u003c/span>\u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">group\u003c/span>\u003cspan class=\"p\">(\u003c/span>\n\u003ca id=\"__codelineno-0-2\" name=\"__codelineno-0-2\" href=\"https://quickthumb.solaqua.dev/ja/faq/#__codelineno-0-2\">\u003c/a>    \u003cspan class=\"n\">children\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">[{\u003c/span>\u003cspan class=\"s2\">\"type\"\u003c/span>\u003cspan class=\"p\">:\u003c/span> \u003cspan class=\"s2\">\"text\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"content\"\u003c/span>\u003cspan class=\"p\">:\u003c/span> \u003cspan class=\"s2\">\"TITLE\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"size\"\u003c/span>\u003cspan class=\"p\">:\u003c/span> \u003cspan class=\"mi\">96\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"color\"\u003c/span>\u003cspan class=\"p\">:\u003c/span> \u003cspan class=\"s2\">\"#FFFFFF\"\u003c/span>\u003cspan class=\"p\">}],\u003c/span>\n\u003ca id=\"__codelineno-0-3\" name=\"__codelineno-0-3\" href=\"https://quickthumb.solaqua.dev/ja/faq/#__codelineno-0-3\">\u003c/a>    \u003cspan class=\"n\">position\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"s2\">\"8%\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"50%\"\u003c/span>\u003cspan class=\"p\">),\u003c/span>\n\u003ca id=\"__codelineno-0-4\" name=\"__codelineno-0-4\" href=\"https://quickthumb.solaqua.dev/ja/faq/#__codelineno-0-4\">\u003c/a>    \u003cspan class=\"n\">align\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"s2\">\"left\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"middle\"\u003c/span>\u003cspan class=\"p\">),\u003c/span>\n\u003ca id=\"__codelineno-0-5\" name=\"__codelineno-0-5\" href=\"https://quickthumb.solaqua.dev/ja/faq/#__codelineno-0-5\">\u003c/a>\u003cspan class=\"p\">)\u003c/span>\n\u003c/code>\u003c/pre>\u003c/div>\n\u003cp>子の\u003ccode>align\u003c/code>も無視されます。グループの交差軸方向に子を揃えるには、グループの\u003ccode>item_align\u003c/code>を使います。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#how-do-i-check-a-design-for-problems-before-rendering", "url": "https://quickthumb.solaqua.dev/ja/faq/#how-do-i-check-a-design-for-problems-before-rendering", "name": "レンダリング前にデザインの問題を確認できますか？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#how-do-i-check-a-design-for-problems-before-rendering-answer", "text": "\u003cp>\u003ccode>canvas.diagnose()\u003c/code>を呼ぶか、JSON仕様に\u003ccode>quickthumb lint spec.json\u003c/code>を実行してください。小さすぎる文字、キャンバスからのはみ出し、低いコントラスト、隠れたレイヤーなどを報告します。\u003ca href=\"https://quickthumb.solaqua.dev/ja/diagnostics/\">診断とCLI\u003c/a>を参照してください。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#my-text-runs-off-the-canvas", "url": "https://quickthumb.solaqua.dev/ja/faq/#my-text-runs-off-the-canvas", "name": "テキストがキャンバスからはみ出します", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#my-text-runs-off-the-canvas-answer", "text": "\u003cp>\u003ccode>max_width\u003c/code>を設定すると折り返せます。\u003c/p>\n\u003cdiv class=\"language-python highlight\">\u003cpre>\u003cspan>\u003c/span>\u003ccode>\u003ca id=\"__codelineno-1-1\" name=\"__codelineno-1-1\" href=\"https://quickthumb.solaqua.dev/ja/faq/#__codelineno-1-1\">\u003c/a>\u003cspan class=\"n\">canvas\u003c/span>\u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">text\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"n\">content\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"A longer title that needs two lines\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">size\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">72\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">color\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"#FFFFFF\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">max_width\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"60%\"\u003c/span>\u003cspan class=\"p\">)\u003c/span>\n\u003c/code>\u003c/pre>\u003c/div>\n\u003cp>文字を小さくして収める場合は、\u003ccode>max_width\u003c/code>、\u003ccode>max_height\u003c/code>、または両方とともに\u003ccode>auto_scale=True\u003c/code>を追加します。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#i-set-boldtrue-and-weight900-and-got-an-error", "url": "https://quickthumb.solaqua.dev/ja/faq/#i-set-boldtrue-and-weight900-and-got-an-error", "name": "bold=Trueとweight=900を設定したらエラーになりました", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#i-set-boldtrue-and-weight900-and-got-an-error-answer", "text": "\u003cp>同じ属性を指定するため、どちらか一方を使います。\u003ccode>weight\u003c/code>ならより細かく指定できます。例：\u003ccode>TextPart(text=\"STRONG\", weight=900)\u003c/code>。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#how-do-i-use-a-google-font", "url": "https://quickthumb.solaqua.dev/ja/faq/#how-do-i-use-a-google-font", "name": "Google Fontを使うには？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#how-do-i-use-a-google-font-answer", "text": "\u003cp>フォント名と\u003ccode>font_source=\"google\"\u003c/code>を指定します。一度ダウンロードしてキャッシュし、\u003ccode>weight\u003c/code>に合うファイルを選びます。\u003c/p>\n\u003cdiv class=\"language-python highlight\">\u003cpre>\u003cspan>\u003c/span>\u003ccode>\u003ca id=\"__codelineno-2-1\" name=\"__codelineno-2-1\" href=\"https://quickthumb.solaqua.dev/ja/faq/#__codelineno-2-1\">\u003c/a>\u003cspan class=\"n\">canvas\u003c/span>\u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">text\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"n\">content\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"Hello\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">font\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"Inter\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">font_source\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"google\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">weight\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">800\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">size\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">72\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">color\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"#FFFFFF\"\u003c/span>\u003cspan class=\"p\">)\u003c/span>\n\u003c/code>\u003c/pre>\u003c/div>\n\u003cp>フォントファイルのURLを渡したり、\u003ccode>QUICKTHUMB_FONT_DIR\u003c/code>にフォントのフォルダーを指定したりする方法もあります。\u003ca href=\"https://quickthumb.solaqua.dev/ja/cookbook/webfonts-rembg/\">Webフォントと背景除去\u003c/a>を参照してください。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#can-i-use-images-from-a-url", "url": "https://quickthumb.solaqua.dev/ja/faq/#can-i-use-images-from-a-url", "name": "URLの画像は使えますか？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#can-i-use-images-from-a-url-answer", "text": "\u003cp>はい。\u003ccode>background(image=...)\u003c/code>と\u003ccode>image(path=...)\u003c/code>は\u003ccode>http(s)\u003c/code> URLを受け付け、レンダリング中にダウンロードしてキャッシュします。設定は\u003ca href=\"https://quickthumb.solaqua.dev/ja/reference/export-assets/#remote-assets-and-caching\">リモートアセットとキャッシュ\u003c/a>を参照してください。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#how-do-i-remove-the-background-behind-a-person", "url": "https://quickthumb.solaqua.dev/ja/faq/#how-do-i-remove-the-background-behind-a-person", "name": "人物の背景を除去するには？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#how-do-i-remove-the-background-behind-a-person-answer", "text": "\u003cp>画像レイヤーに\u003ccode>remove_background=True\u003c/code>を設定します。\u003ccode>rembg\u003c/code>追加機能が必要です。\u003c/p>\n\u003cdiv class=\"language-python highlight\">\u003cpre>\u003cspan>\u003c/span>\u003ccode>\u003ca id=\"__codelineno-3-1\" name=\"__codelineno-3-1\" href=\"https://quickthumb.solaqua.dev/ja/faq/#__codelineno-3-1\">\u003c/a>\u003cspan class=\"n\">canvas\u003c/span>\u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">image\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"n\">path\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"portrait.jpg\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">position\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"s2\">\"75%\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"s2\">\"55%\"\u003c/span>\u003cspan class=\"p\">),\u003c/span> \u003cspan class=\"n\">width\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">420\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">height\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">520\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">remove_background\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"kc\">True\u003c/span>\u003cspan class=\"p\">)\u003c/span>\n\u003c/code>\u003c/pre>\u003c/div>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#whats-the-difference-between-cover-contain-and-fill", "url": "https://quickthumb.solaqua.dev/ja/faq/#whats-the-difference-between-cover-contain-and-fill", "name": "cover、contain、fillはどう違いますか？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#whats-the-difference-between-cover-contain-and-fill-answer", "text": "\u003cp>\u003ccode>cover\u003c/code>は枠を埋め、収まらない部分を切り取ります。\u003ccode>contain\u003c/code>は画像全体を枠内に収め、余白を残します。\u003ccode>fill\u003c/code>は縦横比を無視し、枠いっぱいに引き伸ばします。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#which-formats-can-i-export", "url": "https://quickthumb.solaqua.dev/ja/faq/#which-formats-can-i-export", "name": "どの形式に出力できますか？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#which-formats-can-i-export-answer", "text": "\u003cp>\u003ccode>render()\u003c/code>へ渡すファイルの拡張子で決まります。\u003c/p>\n\u003ctable>\n\u003cthead>\n\u003ctr>\n\u003cth>種類\u003c/th>\n\u003cth>形式\u003c/th>\n\u003cth>必要なもの\u003c/th>\n\u003c/tr>\n\u003c/thead>\n\u003ctbody>\n\u003ctr>\n\u003ctd>画像\u003c/td>\n\u003ctd>PNG、JPEG、WebP\u003c/td>\n\u003ctd>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>ベクター・ドキュメント\u003c/td>\n\u003ctd>SVG、PDF、PPTX\u003c/td>\n\u003ctd>PDFとPPTXにはそれぞれ\u003ccode>pdf\u003c/code>、\u003ccode>pptx\u003c/code>追加機能\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>Web\u003c/td>\n\u003ctd>HTML\u003c/td>\n\u003ctd>\u003c/td>\n\u003c/tr>\n\u003ctr>\n\u003ctd>アニメーション\u003c/td>\n\u003ctd>GIF、MP4、WebM\u003c/td>\n\u003ctd>MP4とWebMには\u003ccode>ffmpeg\u003c/code>\u003c/td>\n\u003c/tr>\n\u003c/tbody>\n\u003c/table>\n\u003cp>最初の出力は\u003ca href=\"https://quickthumb.solaqua.dev/ja/output-guide/\">出力形式を選ぶ\u003c/a>から始めてください。各形式で維持されるものと失われるものは\u003ca href=\"https://quickthumb.solaqua.dev/ja/exports/\">エクスポートリファレンス\u003c/a>で説明しています。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#can-i-set-quality-for-a-png", "url": "https://quickthumb.solaqua.dev/ja/faq/#can-i-set-quality-for-a-png", "name": "PNGにqualityは指定できますか？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#can-i-set-quality-for-a-png-answer", "text": "\u003cp>いいえ。\u003ccode>quality\u003c/code>はJPEGとWebP専用です。PNGに渡すと\u003ccode>RenderingError\u003c/code>になります。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#how-do-i-get-the-image-without-writing-a-file", "url": "https://quickthumb.solaqua.dev/ja/faq/#how-do-i-get-the-image-without-writing-a-file", "name": "ファイルに書かずに画像を受け取るには？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#how-do-i-get-the-image-without-writing-a-file-answer", "text": "\u003cdiv class=\"language-python highlight\">\u003cpre>\u003cspan>\u003c/span>\u003ccode>\u003ca id=\"__codelineno-4-1\" name=\"__codelineno-4-1\" href=\"https://quickthumb.solaqua.dev/ja/faq/#__codelineno-4-1\">\u003c/a>\u003cspan class=\"n\">png_base64\u003c/span> \u003cspan class=\"o\">=\u003c/span> \u003cspan class=\"n\">canvas\u003c/span>\u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">to_base64\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"nb\">format\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"PNG\"\u003c/span>\u003cspan class=\"p\">)\u003c/span>\n\u003ca id=\"__codelineno-4-2\" name=\"__codelineno-4-2\" href=\"https://quickthumb.solaqua.dev/ja/faq/#__codelineno-4-2\">\u003c/a>\u003cspan class=\"n\">jpeg_data_url\u003c/span> \u003cspan class=\"o\">=\u003c/span> \u003cspan class=\"n\">canvas\u003c/span>\u003cspan class=\"o\">.\u003c/span>\u003cspan class=\"n\">to_data_url\u003c/span>\u003cspan class=\"p\">(\u003c/span>\u003cspan class=\"nb\">format\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"s2\">\"JPEG\"\u003c/span>\u003cspan class=\"p\">,\u003c/span> \u003cspan class=\"n\">quality\u003c/span>\u003cspan class=\"o\">=\u003c/span>\u003cspan class=\"mi\">90\u003c/span>\u003cspan class=\"p\">)\u003c/span>\n\u003c/code>\u003c/pre>\u003c/div>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#can-i-pass-a-dict-to-canvasfrom_json", "url": "https://quickthumb.solaqua.dev/ja/faq/#can-i-pass-a-dict-to-canvasfrom_json", "name": "Canvas.from_json()にdictを渡せますか？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#can-i-pass-a-dict-to-canvasfrom_json-answer", "text": "\u003cp>いいえ。JSON文字列を受け付けます。先に\u003ccode>json.dumps(data)\u003c/code>で変換してください。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#why-does-to_json-raise-validationerror", "url": "https://quickthumb.solaqua.dev/ja/faq/#why-does-to_json-raise-validationerror", "name": "to_json()でValidationErrorが出るのはなぜですか？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#why-does-to_json-raise-validationerror-answer", "text": "\u003cp>キャンバスに\u003ccode>.custom(fn)\u003c/code>レイヤーがあるためです。Python関数はJSONに保存できないので、先にそのレイヤーを取り除いてください。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#my-theme-block-disappeared-after-to_json", "url": "https://quickthumb.solaqua.dev/ja/faq/#my-theme-block-disappeared-after-to_json", "name": "to_json()の後にthemeブロックがなくなりました", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#my-theme-block-disappeared-after-to_json-answer", "text": "\u003cp>仕様を読み込むときにテーマトークンを実際の値へ置き換えるため、\u003ccode>to_json()\u003c/code>は値だけを書き、\u003ccode>theme\u003c/code>ブロックは残しません。トークンを編集し続けたい場合は、元の仕様ファイルを保管してください。\u003c/p>"}}, {"@type": "Question", "@id": "https://quickthumb.solaqua.dev/ja/faq/#what-do-the-different-errors-mean", "url": "https://quickthumb.solaqua.dev/ja/faq/#what-do-the-different-errors-mean", "name": "エラーの種類は何を意味しますか？", "acceptedAnswer": {"@type": "Answer", "@id": "https://quickthumb.solaqua.dev/ja/faq/#what-do-the-different-errors-mean-answer", "text": "\u003cul>\n\u003cli>\u003ccode>ValidationError\u003c/code>：引数や仕様のフィールドが無効です。レイヤーの追加時、または仕様の読み込み時に発生します。\u003c/li>\n\u003cli>\u003ccode>RenderingError\u003c/code>：ダウンロードなど、描画中の処理に失敗しました。\u003c/li>\n\u003cli>\u003ccode>MissingAssetError\u003c/code>：仕様が参照するローカルファイルが存在しません。\u003c/li>\n\u003c/ul>\n\u003cp>どのエラーも\u003ccode>details\u003c/code>に安定したコード、該当フィールドのJSON Pointer、レイヤーIDを持ちます。\u003ca href=\"https://quickthumb.solaqua.dev/ja/errors/\">構造化エラー\u003c/a>を参照してください。\u003c/p>"}}]}</script>
+  
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#faq" class="md-skip">
+          コンテンツにスキップ
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header qt-header" data-md-component="header">
+  <nav class="qt-header-inner" aria-label="メインナビゲーション">
+    <a class="qt-brand" href="../" aria-label="quickthumbのホーム">
+      <img src="../../assets/brand/quickthumb-icon.svg" width="40" height="40" alt="">
+      <span>quickthumb</span>
+    </a>
+    <div class="qt-desktop-links">
+      <a href="../cookbook/">レシピ</a>
+      <a href="../getting-started/">ドキュメント</a>
+      <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="qt-header-tools">
+      
+
+
+<details class="qt-language-switch">
+  <summary aria-label="言語: 日本語">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    <span data-qt-language-current>日本語</span>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7.41 8.58 12 13.17l4.59-4.59L18 10l-6 6-6-6z"/></svg>
+  </summary>
+  <nav aria-label="言語">
+    
+    <a href="https://quickthumb.solaqua.dev/faq/" hreflang="en" lang="en" data-qt-language="en" target="_self">English</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ko/faq/" hreflang="ko" lang="ko" data-qt-language="ko" target="_self">한국어</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ja/faq/" hreflang="ja" lang="ja" data-qt-language="ja" target="_self" aria-current="page">日本語</a>
+    
+    <a href="https://quickthumb.solaqua.dev/zh/faq/" hreflang="zh-CN" lang="zh-CN" data-qt-language="zh-CN" target="_self">简体中文</a>
+    
+  </nav>
+</details>
+      <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="ダークモードに切り替え"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="ダークモードに切り替え" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="ライトモードに切り替え"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="ライトモードに切り替え" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+      <button class="qt-icon-button" type="button" data-qt-search aria-label="ドキュメントを検索">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </button>
+      <button class="qt-icon-button qt-menu-trigger" type="button" data-qt-menu aria-label="メニューを開く" aria-controls="qt-navigation" aria-expanded="false">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+      </button>
+      <a class="qt-button qt-button-white qt-header-cta" href="../getting-started/">はじめる</a>
+    </div>
+  </nav>
+  <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="検索" placeholder="検索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="検索">
+        
+        <button type="reset" class="md-search__icon md-icon" title="クリア" aria-label="クリア" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            検索を初期化
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</header>
+
+<dialog class="qt-drawer" id="qt-navigation" aria-label="サイトナビゲーション">
+  <div class="qt-drawer-header">
+    <a class="qt-brand" href="../" aria-label="quickthumbのホーム">
+      <img src="../../assets/brand/quickthumb-icon.svg" width="36" height="36" alt="">
+      <span>quickthumb</span>
+    </a>
+    <button class="qt-icon-button" type="button" data-qt-close aria-label="メニューを閉じる" autofocus>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
+  <button class="qt-drawer-search" type="button" data-qt-search>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+    <span>ドキュメントを検索</span>
+  </button>
+  <nav class="qt-drawer-links" aria-label="quickthumbを使う">
+    <a class="qt-button qt-button-blue" href="../getting-started/">はじめる <span aria-hidden="true">→</span></a>
+    <a href="../cookbook/">レシピ</a>
+    <a href="../getting-started/">ドキュメント</a>
+    <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+  <nav class="qt-drawer-docs" aria-label="ドキュメントへのリンク">
+    <p class="qt-nav-caption">ドキュメント</p>
+    <a href="../installation/">インストール</a>
+    <a href="../concepts/">基本的な考え方</a>
+    <a href="../api/">APIリファレンス</a>
+  </nav>
+  <details class="qt-drawer-index">
+    <summary>すべてのドキュメント</summary>
+    
+<nav aria-label="All documentation">
+  <ul>
+    
+      <li>
+        
+          <a href="../">ホーム</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>はじめに</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../getting-started/">最初のカードを作る</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../installation/">インストール</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../concepts/">基本的な考え方</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../output-guide/">出力形式を選ぶ</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../timing/">アニメーションのタイミング</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>APIリファレンス</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../api/">概要</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/canvas/">Canvas</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/deck/">Deck（複数スライド）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/inspection/">ドキュメントの検査</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/background/">背景</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/text/">テキスト</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/image/">画像</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/shape/">図形</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/path/">パス</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/svg/">SVG</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/video/">動画</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/audio/">音に反応するアニメーション</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/group/">グループ（自動レイアウト）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/outline/">枠線</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/data-visualizations/">データの可視化</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/effects/">エフェクト</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/enums/">列挙型とグラデーション</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>詳細リファレンス</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <details>
+            <summary>エクスポート</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../exports/">概要</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-methods/">メソッドと出力レポート</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-validation/">形式ごとの再現性と検証</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-documents/">SVG、HTML、PowerPoint、PDF</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-animation/">GIF、動画、ナレーション</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-transparency/">透過動画</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-frames/">画像シーケンスとレンダリング品質</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-assets/">アセットと再現性</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-lottie/">Lottieベクター</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/timing-details/">タイミングの詳細</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/inspection-details/">複雑なレイアウトの検査</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>JSONとAI</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../json-schema/">JSON SchemaとAIワークフロー</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../diagnostics/">診断とCLI</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../errors/">構造化エラー</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>レシピ集</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../cookbook/">ギャラリー</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/decks-and-video/">プレゼンテーションと動画</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/youtube-thumbnail/">YouTubeサムネイル</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/instagram-card/">Instagramカード</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/podcast-promo/">ポッドキャストの告知</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/shorts-cover/">Shorts・縦長カバー</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/launch-announcement/">リリース告知（自動レイアウト）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/ai-workflow/">AIワークフロー</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/webfonts-rembg/">Webフォントと背景除去</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="./" aria-current="page">よくある質問</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>変更履歴</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../changelog/">概要</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../releases/0.8.0/">0.8.0</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+  </ul>
+</nav>
+  </details>
+  <button class="qt-appearance" type="button" data-qt-theme>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18V6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-2.69L23.31 12 20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20z"/></svg>
+    <span>テーマを切り替え</span>
+  </button>
+</dialog>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="ナビゲーション" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../" title="quickthumb" class="md-nav__button md-logo" aria-label="quickthumb" data-md-component="logo">
+      
+  <img src="../../assets/brand/quickthumb-icon.png" alt="logo">
+
+    </a>
+    quickthumb
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sjquant/quickthumb" title="リポジトリへ" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sjquant/quickthumb
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ホーム
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    はじめに
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    はじめに
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最初のカードを作る
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    インストール
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    基本的な考え方
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../output-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    出力形式を選ぶ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../timing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    アニメーションのタイミング
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    APIリファレンス
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    APIリファレンス
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概要
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/canvas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canvas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/deck/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deck（複数スライド）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/inspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ドキュメントの検査
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/background/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    背景
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    テキスト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画像
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/shape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    図形
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    パス
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/svg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    動画
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    音に反応するアニメーション
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    グループ（自動レイアウト）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/outline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    枠線
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/data-visualizations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    データの可視化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/effects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エフェクト
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/enums/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    列挙型とグラデーション
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    詳細リファレンス
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    詳細リファレンス
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    エクスポート
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    エクスポート
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../exports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概要
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    メソッドと出力レポート
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    形式ごとの再現性と検証
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG、HTML、PowerPoint、PDF
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GIF、動画、ナレーション
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-transparency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    透過動画
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-frames/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    画像シーケンスとレンダリング品質
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-assets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    アセットと再現性
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-lottie/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lottieベクター
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/timing-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    タイミングの詳細
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/inspection-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    複雑なレイアウトの検査
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSONとAI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    JSONとAI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../json-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON SchemaとAIワークフロー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    診断とCLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    構造化エラー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    レシピ集
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    レシピ集
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ギャラリー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/decks-and-video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    プレゼンテーションと動画
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/youtube-thumbnail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YouTubeサムネイル
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/instagram-card/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instagramカード
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/podcast-promo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ポッドキャストの告知
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/shorts-cover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shorts・縦長カバー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/launch-announcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    リリース告知（自動レイアウト）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/ai-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AIワークフロー
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/webfonts-rembg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webフォントと背景除去
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    よくある質問
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    よくある質問
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        インストール
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="インストール">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-python-versions-are-supported" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        対応するPythonのバージョンは？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-quickthumb-command-isnt-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumbコマンドが見つかりません
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-does-my-svg-layer-raise-renderingerror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SVGレイヤーでRenderingErrorが出るのはなぜですか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#canvas-and-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        キャンバスとレイヤー
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="キャンバスとレイヤー">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-happens-if-i-render-a-canvas-with-no-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        レイヤーのないキャンバスをレンダリングするとどうなりますか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-does-a-group-child-raise-group-children-must-not-set-position" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        グループの子で「group children must not set position」が出るのはなぜですか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-check-a-design-for-problems-before-rendering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        レンダリング前にデザインの問題を確認できますか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#text-and-fonts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        テキストとフォント
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="テキストとフォント">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#my-text-runs-off-the-canvas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        テキストがキャンバスからはみ出します
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i-set-boldtrue-and-weight900-and-got-an-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        bold=Trueとweight=900を設定したらエラーになりました
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-use-a-google-font" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google Fontを使うには？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        画像
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="画像">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#can-i-use-images-from-a-url" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        URLの画像は使えますか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-remove-the-background-behind-a-person" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        人物の背景を除去するには？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whats-the-difference-between-cover-contain-and-fill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cover、contain、fillはどう違いますか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        出力
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="出力">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-formats-can-i-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        どの形式に出力できますか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#can-i-set-quality-for-a-png" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PNGにqualityは指定できますか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-get-the-image-without-writing-a-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ファイルに書かずに画像を受け取るには？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="JSON">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#can-i-pass-a-dict-to-canvasfrom_json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Canvas.from_json()にdictを渡せますか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-does-to_json-raise-validationerror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_json()でValidationErrorが出るのはなぜですか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#my-theme-block-disappeared-after-to_json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_json()の後にthemeブロックがなくなりました
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        エラー
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="エラー">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-do-the-different-errors-mean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        エラーの種類は何を意味しますか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    変更履歴
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    変更履歴
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概要
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../releases/0.8.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0.8.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目次">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目次
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        インストール
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="インストール">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-python-versions-are-supported" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        対応するPythonのバージョンは？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-quickthumb-command-isnt-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumbコマンドが見つかりません
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-does-my-svg-layer-raise-renderingerror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SVGレイヤーでRenderingErrorが出るのはなぜですか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#canvas-and-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        キャンバスとレイヤー
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="キャンバスとレイヤー">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-happens-if-i-render-a-canvas-with-no-layers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        レイヤーのないキャンバスをレンダリングするとどうなりますか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-does-a-group-child-raise-group-children-must-not-set-position" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        グループの子で「group children must not set position」が出るのはなぜですか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-check-a-design-for-problems-before-rendering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        レンダリング前にデザインの問題を確認できますか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#text-and-fonts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        テキストとフォント
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="テキストとフォント">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#my-text-runs-off-the-canvas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        テキストがキャンバスからはみ出します
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#i-set-boldtrue-and-weight900-and-got-an-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        bold=Trueとweight=900を設定したらエラーになりました
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-use-a-google-font" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Google Fontを使うには？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        画像
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="画像">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#can-i-use-images-from-a-url" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        URLの画像は使えますか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-remove-the-background-behind-a-person" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        人物の背景を除去するには？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#whats-the-difference-between-cover-contain-and-fill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cover、contain、fillはどう違いますか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        出力
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="出力">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-formats-can-i-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        どの形式に出力できますか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#can-i-set-quality-for-a-png" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PNGにqualityは指定できますか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-get-the-image-without-writing-a-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ファイルに書かずに画像を受け取るには？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="JSON">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#can-i-pass-a-dict-to-canvasfrom_json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Canvas.from_json()にdictを渡せますか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-does-to_json-raise-validationerror" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_json()でValidationErrorが出るのはなぜですか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#my-theme-block-disappeared-after-to_json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        to_json()の後にthemeブロックがなくなりました
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        エラー
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="エラー">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-do-the-different-errors-mean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        エラーの種類は何を意味しますか？
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="faq">よくある質問</h1>
+<h2 id="installation">インストール</h2>
+<h3 id="which-python-versions-are-supported">対応するPythonのバージョンは？</h3>
+<p>Python 3.11以降です。パッケージの分類は3.11と3.12で、CIは3.11で実行します。背景除去の<code>rembg</code>追加機能も同じです。</p>
+<h3 id="the-quickthumb-command-isnt-found"><code>quickthumb</code>コマンドが見つかりません</h3>
+<p>コマンドラインツールは追加機能です。<code>pip install "quickthumb[cli]"</code>でインストールしてください。利用できる追加機能は<a href="../installation/">インストール</a>にまとめています。</p>
+<h3 id="why-does-my-svg-layer-raise-renderingerror">SVGレイヤーで<code>RenderingError</code>が出るのはなぜですか？</h3>
+<p>SVGファイルの描画には<code>svg</code>追加機能が必要です。<code>pip install "quickthumb[svg]"</code>でインストールします。キャンバスをSVGへ<em>出力する</em>場合は不要です。</p>
+<h2 id="canvas-and-layers">キャンバスとレイヤー</h2>
+<h3 id="what-happens-if-i-render-a-canvas-with-no-layers">レイヤーのないキャンバスをレンダリングするとどうなりますか？</h3>
+<p>キャンバスと同じサイズの、完全に透明な画像になります。エラーではありません。</p>
+<h3 id="why-does-a-group-child-raise-group-children-must-not-set-position">グループの子で「group children must not set position」が出るのはなぜですか？</h3>
+<p>グループ自身が子の位置を決めるためです。子の<code>position</code>を外し、代わりにグループを配置してください。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">canvas</span><span class="o">.</span><span class="n">group</span><span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">children</span><span class="o">=</span><span class="p">[{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"text"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"TITLE"</span><span class="p">,</span> <span class="s2">"size"</span><span class="p">:</span> <span class="mi">96</span><span class="p">,</span> <span class="s2">"color"</span><span class="p">:</span> <span class="s2">"#FFFFFF"</span><span class="p">}],</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="s2">"8%"</span><span class="p">,</span> <span class="s2">"50%"</span><span class="p">),</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">align</span><span class="o">=</span><span class="p">(</span><span class="s2">"left"</span><span class="p">,</span> <span class="s2">"middle"</span><span class="p">),</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
+</code></pre></div>
+<p>子の<code>align</code>も無視されます。グループの交差軸方向に子を揃えるには、グループの<code>item_align</code>を使います。</p>
+<h3 id="how-do-i-check-a-design-for-problems-before-rendering">レンダリング前にデザインの問題を確認できますか？</h3>
+<p><code>canvas.diagnose()</code>を呼ぶか、JSON仕様に<code>quickthumb lint spec.json</code>を実行してください。小さすぎる文字、キャンバスからのはみ出し、低いコントラスト、隠れたレイヤーなどを報告します。<a href="../diagnostics/">診断とCLI</a>を参照してください。</p>
+<h2 id="text-and-fonts">テキストとフォント</h2>
+<h3 id="my-text-runs-off-the-canvas">テキストがキャンバスからはみ出します</h3>
+<p><code>max_width</code>を設定すると折り返せます。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">canvas</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="s2">"A longer title that needs two lines"</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">72</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#FFFFFF"</span><span class="p">,</span> <span class="n">max_width</span><span class="o">=</span><span class="s2">"60%"</span><span class="p">)</span>
+</code></pre></div>
+<p>文字を小さくして収める場合は、<code>max_width</code>、<code>max_height</code>、または両方とともに<code>auto_scale=True</code>を追加します。</p>
+<h3 id="i-set-boldtrue-and-weight900-and-got-an-error"><code>bold=True</code>と<code>weight=900</code>を設定したらエラーになりました</h3>
+<p>同じ属性を指定するため、どちらか一方を使います。<code>weight</code>ならより細かく指定できます。例：<code>TextPart(text="STRONG", weight=900)</code>。</p>
+<h3 id="how-do-i-use-a-google-font">Google Fontを使うには？</h3>
+<p>フォント名と<code>font_source="google"</code>を指定します。一度ダウンロードしてキャッシュし、<code>weight</code>に合うファイルを選びます。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">canvas</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="s2">"Hello"</span><span class="p">,</span> <span class="n">font</span><span class="o">=</span><span class="s2">"Inter"</span><span class="p">,</span> <span class="n">font_source</span><span class="o">=</span><span class="s2">"google"</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="mi">800</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">72</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"#FFFFFF"</span><span class="p">)</span>
+</code></pre></div>
+<p>フォントファイルのURLを渡したり、<code>QUICKTHUMB_FONT_DIR</code>にフォントのフォルダーを指定したりする方法もあります。<a href="../cookbook/webfonts-rembg/">Webフォントと背景除去</a>を参照してください。</p>
+<h2 id="images">画像</h2>
+<h3 id="can-i-use-images-from-a-url">URLの画像は使えますか？</h3>
+<p>はい。<code>background(image=...)</code>と<code>image(path=...)</code>は<code>http(s)</code> URLを受け付け、レンダリング中にダウンロードしてキャッシュします。設定は<a href="../reference/export-assets/#remote-assets-and-caching">リモートアセットとキャッシュ</a>を参照してください。</p>
+<h3 id="how-do-i-remove-the-background-behind-a-person">人物の背景を除去するには？</h3>
+<p>画像レイヤーに<code>remove_background=True</code>を設定します。<code>rembg</code>追加機能が必要です。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">canvas</span><span class="o">.</span><span class="n">image</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="s2">"portrait.jpg"</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="p">(</span><span class="s2">"75%"</span><span class="p">,</span> <span class="s2">"55%"</span><span class="p">),</span> <span class="n">width</span><span class="o">=</span><span class="mi">420</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">520</span><span class="p">,</span> <span class="n">remove_background</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="whats-the-difference-between-cover-contain-and-fill"><code>cover</code>、<code>contain</code>、<code>fill</code>はどう違いますか？</h3>
+<p><code>cover</code>は枠を埋め、収まらない部分を切り取ります。<code>contain</code>は画像全体を枠内に収め、余白を残します。<code>fill</code>は縦横比を無視し、枠いっぱいに引き伸ばします。</p>
+<h2 id="output">出力</h2>
+<h3 id="which-formats-can-i-export">どの形式に出力できますか？</h3>
+<p><code>render()</code>へ渡すファイルの拡張子で決まります。</p>
+<table>
+<thead>
+<tr>
+<th>種類</th>
+<th>形式</th>
+<th>必要なもの</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>画像</td>
+<td>PNG、JPEG、WebP</td>
+<td></td>
+</tr>
+<tr>
+<td>ベクター・ドキュメント</td>
+<td>SVG、PDF、PPTX</td>
+<td>PDFとPPTXにはそれぞれ<code>pdf</code>、<code>pptx</code>追加機能</td>
+</tr>
+<tr>
+<td>Web</td>
+<td>HTML</td>
+<td></td>
+</tr>
+<tr>
+<td>アニメーション</td>
+<td>GIF、MP4、WebM</td>
+<td>MP4とWebMには<code>ffmpeg</code></td>
+</tr>
+</tbody>
+</table>
+<p>最初の出力は<a href="../output-guide/">出力形式を選ぶ</a>から始めてください。各形式で維持されるものと失われるものは<a href="../exports/">エクスポートリファレンス</a>で説明しています。</p>
+<h3 id="can-i-set-quality-for-a-png">PNGに<code>quality</code>は指定できますか？</h3>
+<p>いいえ。<code>quality</code>はJPEGとWebP専用です。PNGに渡すと<code>RenderingError</code>になります。</p>
+<h3 id="how-do-i-get-the-image-without-writing-a-file">ファイルに書かずに画像を受け取るには？</h3>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">png_base64</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_base64</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="s2">"PNG"</span><span class="p">)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">jpeg_data_url</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">to_data_url</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="s2">"JPEG"</span><span class="p">,</span> <span class="n">quality</span><span class="o">=</span><span class="mi">90</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="json">JSON</h2>
+<h3 id="can-i-pass-a-dict-to-canvasfrom_json"><code>Canvas.from_json()</code>にdictを渡せますか？</h3>
+<p>いいえ。JSON文字列を受け付けます。先に<code>json.dumps(data)</code>で変換してください。</p>
+<h3 id="why-does-to_json-raise-validationerror"><code>to_json()</code>で<code>ValidationError</code>が出るのはなぜですか？</h3>
+<p>キャンバスに<code>.custom(fn)</code>レイヤーがあるためです。Python関数はJSONに保存できないので、先にそのレイヤーを取り除いてください。</p>
+<h3 id="my-theme-block-disappeared-after-to_json"><code>to_json()</code>の後に<code>theme</code>ブロックがなくなりました</h3>
+<p>仕様を読み込むときにテーマトークンを実際の値へ置き換えるため、<code>to_json()</code>は値だけを書き、<code>theme</code>ブロックは残しません。トークンを編集し続けたい場合は、元の仕様ファイルを保管してください。</p>
+<h2 id="errors">エラー</h2>
+<h3 id="what-do-the-different-errors-mean">エラーの種類は何を意味しますか？</h3>
+<ul>
+<li><code>ValidationError</code>：引数や仕様のフィールドが無効です。レイヤーの追加時、または仕様の読み込み時に発生します。</li>
+<li><code>RenderingError</code>：ダウンロードなど、描画中の処理に失敗しました。</li>
+<li><code>MissingAssetError</code>：仕様が参照するローカルファイルが存在しません。</li>
+</ul>
+<p>どのエラーも<code>details</code>に安定したコード、該当フィールドのJSON Pointer、レイヤーIDを持ちます。<a href="../errors/">構造化エラー</a>を参照してください。</p>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  ページトップへ戻る
+</button>
+        
+      </main>
+      
+        
+
+<footer class="md-footer qt-footer">
+  <div class="qt-footer-inner">
+    <div>
+      <a class="qt-brand" href="../" aria-label="quickthumbのホーム">
+        <img src="../../assets/brand/quickthumb-icon.svg" width="28" height="28" alt="">
+        <span>quickthumb</span>
+      </a>
+      <p class="qt-footer-tagline">画像、プレゼンテーション、動画を作るPythonツールキット。</p>
+    </div>
+    <nav class="qt-footer-links" aria-label="フッターナビゲーション">
+      <a href="../cookbook/">レシピ</a>
+      <a href="../getting-started/">ドキュメント</a>
+      <a href="../installation/">インストール</a>
+      <a href="../changelog/">変更履歴</a>
+    </nav>
+    <div class="qt-footer-meta">
+      <a class="qt-icon-button" href="https://github.com/sjquant/quickthumb" aria-label="GitHubでquickthumbを見る">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg>
+      </a>
+      <p>© 2026 Seonu Jang · MITライセンス<br>使用ツール <a href="https://squidfunk.github.io/mkdocs-material/">Material for MkDocs</a></p>
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f", "clipboard.copy": "\u30af\u30ea\u30c3\u30d7\u30dc\u30fc\u30c9\u3078\u30b3\u30d4\u30fc", "search.result.more.one": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3082\u30461\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.more.other": "\u3053\u306e\u30da\u30fc\u30b8\u5185\u306b\u3042\u3068#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.none": "\u4f55\u3082\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3067\u3057\u305f", "search.result.one": "1\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.other": "#\u4ef6\u898b\u3064\u304b\u308a\u307e\u3057\u305f", "search.result.placeholder": "\u691c\u7d22\u30ad\u30fc\u30ef\u30fc\u30c9\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044", "search.result.term.missing": "\u691c\u7d22\u306b\u542b\u307e\u308c\u306a\u3044", "select.version": "\u30d0\u30fc\u30b8\u30e7\u30f3\u5207\u308a\u66ff\u3048"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/site.js"></script>
+      
+    
+  </body>
+</html>

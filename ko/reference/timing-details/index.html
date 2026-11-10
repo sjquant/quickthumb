@@ -1,0 +1,2966 @@
+
+<!doctype html>
+<html lang="ko" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="기준 샘플링, GIF/비디오 재생, Deck 내레이션, 대화형 HTML에서 시간을 사용하는 방식을 설명합니다.">
+      
+      
+        <meta name="author" content="Seonu Jang">
+      
+      
+        <link rel="canonical" href="https://quickthumb.solaqua.dev/ko/reference/timing-details/">
+      
+      
+        <link rel="prev" href="../export-lottie/">
+      
+      
+        <link rel="next" href="../inspection-details/">
+      
+      
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/reference/timing-details/" hreflang="en">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ko/reference/timing-details/" hreflang="ko">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ja/reference/timing-details/" hreflang="ja">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/zh/reference/timing-details/" hreflang="zh-CN">
+        
+      
+      
+      <link rel="icon" href="../../../assets/brand/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+  
+  <title>quickthumb - 애니메이션 타이밍 상세</title>
+  
+
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  
+  
+  
+  
+    
+  
+  
+  
+  
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ko_KR">
+  
+    
+      
+  <link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/timing-details/">
+      
+      
+  <meta property="og:locale:alternate" content="en_US">
+      
+    
+      
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="ja_JP">
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="zh_CN">
+      
+    
+  
+  <meta property="og:site_name" content="quickthumb">
+  <meta property="og:title" content="quickthumb - 애니메이션 타이밍 상세">
+  <meta property="og:description" content="기준 샘플링, GIF/비디오 재생, Deck 내레이션, 대화형 HTML에서 시간을 사용하는 방식을 설명합니다.">
+  
+  <meta property="og:url" content="https://quickthumb.solaqua.dev/ko/reference/timing-details/">
+  
+  <meta property="og:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta property="og:image:alt" content="quickthumb: 코드로 만드는 무한한 썸네일. 예제 썸네일 카드 두 장.">
+  
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  
+  <meta name="twitter:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta name="twitter:image:alt" content="quickthumb: 코드로 만드는 무한한 썸네일. 예제 썸네일 카드 두 장.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="quickthumb - 애니메이션 타이밍 상세">
+  <meta name="twitter:description" content="기준 샘플링, GIF/비디오 재생, Deck 내레이션, 대화형 HTML에서 시간을 사용하는 방식을 설명합니다.">
+  
+  <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "@id": "https://quickthumb.solaqua.dev/ko/#website", "url": "https://quickthumb.solaqua.dev/ko/", "name": "quickthumb", "description": "Python 또는 JSON으로 이미지, 프레젠테이션, 애니메이션 동영상을 만듭니다.", "inLanguage": "ko", "publisher": {"@id": "https://quickthumb.solaqua.dev/#author"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}}, {"@type": "Person", "@id": "https://quickthumb.solaqua.dev/#author", "name": "Seonu Jang"}, {"@type": "SoftwareApplication", "@id": "https://quickthumb.solaqua.dev/#software", "name": "quickthumb", "url": "https://quickthumb.solaqua.dev/", "description": "Python 또는 JSON으로 이미지, 프레젠테이션, 애니메이션 동영상을 만듭니다.", "applicationCategory": "MultimediaApplication", "softwareVersion": "0.8.0", "softwareRequirements": "Python >=3.11", "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE", "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "sameAs": ["https://github.com/sjquant/quickthumb", "https://pypi.org/project/quickthumb/"]}, {"@type": "SoftwareSourceCode", "@id": "https://quickthumb.solaqua.dev/#source", "name": "quickthumb", "codeRepository": "https://github.com/sjquant/quickthumb", "programmingLanguage": "Python", "runtimePlatform": "Python >=3.11", "targetProduct": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE"}, {"@type": "WebPage", "@id": "https://quickthumb.solaqua.dev/ko/reference/timing-details/#webpage", "url": "https://quickthumb.solaqua.dev/ko/reference/timing-details/", "name": "애니메이션 타이밍 상세", "description": "기준 샘플링, GIF/비디오 재생, Deck 내레이션, 대화형 HTML에서 시간을 사용하는 방식을 설명합니다.", "inLanguage": "ko", "isPartOf": {"@id": "https://quickthumb.solaqua.dev/ko/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "primaryImageOfPage": {"@type": "ImageObject", "url": "https://quickthumb.solaqua.dev/assets/brand/social-preview.png", "caption": "quickthumb: 코드로 만드는 무한한 썸네일. 예제 썸네일 카드 두 장.", "width": 1200, "height": 630}, "mainEntity": {"@id": "https://quickthumb.solaqua.dev/ko/reference/timing-details/#document"}, "breadcrumb": {"@id": "https://quickthumb.solaqua.dev/ko/reference/timing-details/#breadcrumbs"}}, {"@type": "BreadcrumbList", "@id": "https://quickthumb.solaqua.dev/ko/reference/timing-details/#breadcrumbs", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "quickthumb", "item": "https://quickthumb.solaqua.dev/ko/"}, {"@type": "ListItem", "position": 2, "name": "애니메이션 타이밍 상세", "item": "https://quickthumb.solaqua.dev/ko/reference/timing-details/"}]}, {"@type": "TechArticle", "@id": "https://quickthumb.solaqua.dev/ko/reference/timing-details/#document", "url": "https://quickthumb.solaqua.dev/ko/reference/timing-details/", "headline": "애니메이션 타이밍 상세", "description": "기준 샘플링, GIF/비디오 재생, Deck 내레이션, 대화형 HTML에서 시간을 사용하는 방식을 설명합니다.", "inLanguage": "ko", "mainEntityOfPage": {"@id": "https://quickthumb.solaqua.dev/ko/reference/timing-details/#webpage"}, "isPartOf": {"@id": "https://quickthumb.solaqua.dev/ko/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}}]}</script>
+  
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#animation-timing-reference" class="md-skip">
+          콘텐츠로 이동
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header qt-header" data-md-component="header">
+  <nav class="qt-header-inner" aria-label="주 탐색">
+    <a class="qt-brand" href="../../" aria-label="quickthumb 홈">
+      <img src="../../../assets/brand/quickthumb-icon.svg" width="40" height="40" alt="">
+      <span>quickthumb</span>
+    </a>
+    <div class="qt-desktop-links">
+      <a href="../../cookbook/">레시피</a>
+      <a href="../../getting-started/">문서</a>
+      <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="qt-header-tools">
+      
+
+
+<details class="qt-language-switch">
+  <summary aria-label="언어: 한국어">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    <span data-qt-language-current>한국어</span>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7.41 8.58 12 13.17l4.59-4.59L18 10l-6 6-6-6z"/></svg>
+  </summary>
+  <nav aria-label="언어">
+    
+    <a href="https://quickthumb.solaqua.dev/reference/timing-details/" hreflang="en" lang="en" data-qt-language="en" target="_self">English</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ko/reference/timing-details/" hreflang="ko" lang="ko" data-qt-language="ko" target="_self" aria-current="page">한국어</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ja/reference/timing-details/" hreflang="ja" lang="ja" data-qt-language="ja" target="_self">日本語</a>
+    
+    <a href="https://quickthumb.solaqua.dev/zh/reference/timing-details/" hreflang="zh-CN" lang="zh-CN" data-qt-language="zh-CN" target="_self">简体中文</a>
+    
+  </nav>
+</details>
+      <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="어두운 테마로 전환"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="어두운 테마로 전환" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="밝은 테마로 전환"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="밝은 테마로 전환" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+      <button class="qt-icon-button" type="button" data-qt-search aria-label="문서 검색">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </button>
+      <button class="qt-icon-button qt-menu-trigger" type="button" data-qt-menu aria-label="탐색 메뉴 열기" aria-controls="qt-navigation" aria-expanded="false">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+      </button>
+      <a class="qt-button qt-button-white qt-header-cta" href="../../getting-started/">시작하기</a>
+    </div>
+  </nav>
+  <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="검색" placeholder="검색" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="검색">
+        
+        <button type="reset" class="md-search__icon md-icon" title="지우기" aria-label="지우기" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            검색 초기화
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</header>
+
+<dialog class="qt-drawer" id="qt-navigation" aria-label="사이트 탐색">
+  <div class="qt-drawer-header">
+    <a class="qt-brand" href="../../" aria-label="quickthumb 홈">
+      <img src="../../../assets/brand/quickthumb-icon.svg" width="36" height="36" alt="">
+      <span>quickthumb</span>
+    </a>
+    <button class="qt-icon-button" type="button" data-qt-close aria-label="탐색 메뉴 닫기" autofocus>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
+  <button class="qt-drawer-search" type="button" data-qt-search>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+    <span>문서 검색</span>
+  </button>
+  <nav class="qt-drawer-links" aria-label="quickthumb 둘러보기">
+    <a class="qt-button qt-button-blue" href="../../getting-started/">시작하기 <span aria-hidden="true">→</span></a>
+    <a href="../../cookbook/">레시피</a>
+    <a href="../../getting-started/">문서</a>
+    <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+  <nav class="qt-drawer-docs" aria-label="문서 바로가기">
+    <p class="qt-nav-caption">문서</p>
+    <a href="../../installation/">설치</a>
+    <a href="../../concepts/">핵심 개념</a>
+    <a href="../../api/">API 레퍼런스</a>
+  </nav>
+  <details class="qt-drawer-index">
+    <summary>전체 문서</summary>
+    
+<nav aria-label="All documentation">
+  <ul>
+    
+      <li>
+        
+          <a href="../../">홈</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>시작하기</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../getting-started/">첫 카드 렌더링</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../installation/">설치</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../concepts/">핵심 개념</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../output-guide/">출력 형식 선택</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../timing/">애니메이션 타이밍</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>API 레퍼런스</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../api/">개요</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/canvas/">Canvas</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/deck/">Deck(여러 슬라이드)</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/inspection/">문서 검사</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/background/">배경</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/text/">텍스트</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/image/">이미지</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/shape/">도형</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/path/">경로</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/svg/">SVG</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/video/">동영상</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/audio/">오디오 반응형 제작</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/group/">그룹(자동 레이아웃)</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/outline/">테두리</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/data-visualizations/">데이터 시각화</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/effects/">효과</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/enums/">열거형과 그라디언트</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details open>
+            <summary>고급 레퍼런스</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <details>
+            <summary>내보내기</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../exports/">개요</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-methods/">메서드와 내보내기 결과</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-validation/">형식 충실도와 검증</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-documents/">SVG, HTML, PowerPoint, PDF</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-animation/">GIF, 동영상, 내레이션</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-transparency/">투명 동영상</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-frames/">이미지 시퀀스와 렌더링 품질</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-assets/">에셋과 재현성</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-lottie/">Lottie 벡터</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="./" aria-current="page">애니메이션 타이밍 상세</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../inspection-details/">복잡한 레이아웃 검사</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>JSON과 AI</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../json-schema/">JSON Schema와 AI 작업 흐름</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../diagnostics/">진단과 CLI</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../errors/">구조화된 오류</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>레시피 모음</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../cookbook/">갤러리</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/decks-and-video/">프레젠테이션과 동영상</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/youtube-thumbnail/">YouTube 썸네일</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/instagram-card/">Instagram 카드</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/podcast-promo/">팟캐스트 홍보</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/shorts-cover/">Shorts / 세로형 커버</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/launch-announcement/">출시 알림(자동 레이아웃)</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/ai-workflow/">AI 작업 흐름</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/webfonts-rembg/">웹 글꼴과 배경 제거</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../faq/">자주 묻는 질문</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>변경 기록</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../changelog/">개요</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../releases/0.8.0/">0.8.0</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+  </ul>
+</nav>
+  </details>
+  <button class="qt-appearance" type="button" data-qt-theme>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18V6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-2.69L23.31 12 20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20z"/></svg>
+    <span>테마 전환</span>
+  </button>
+</dialog>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="네비게이션" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../" title="quickthumb" class="md-nav__button md-logo" aria-label="quickthumb" data-md-component="logo">
+      
+  <img src="../../../assets/brand/quickthumb-icon.png" alt="logo">
+
+    </a>
+    quickthumb
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sjquant/quickthumb" title="저장소로 이동" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sjquant/quickthumb
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    홈
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    시작하기
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    시작하기
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    첫 카드 렌더링
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    설치
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    핵심 개념
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../output-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    출력 형식 선택
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../timing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    애니메이션 타이밍
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 레퍼런스
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API 레퍼런스
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    개요
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/canvas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canvas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/deck/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deck(여러 슬라이드)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/inspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    문서 검사
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/background/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    배경
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    텍스트
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    이미지
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/shape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    도형
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    경로
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/svg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    동영상
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    오디오 반응형 제작
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    그룹(자동 레이아웃)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/outline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    테두리
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/data-visualizations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    데이터 시각화
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/effects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    효과
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/enums/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    열거형과 그라디언트
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    고급 레퍼런스
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    고급 레퍼런스
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    내보내기
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    내보내기
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    개요
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    메서드와 내보내기 결과
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    형식 충실도와 검증
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG, HTML, PowerPoint, PDF
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GIF, 동영상, 내레이션
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-transparency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    투명 동영상
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-frames/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    이미지 시퀀스와 렌더링 품질
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-assets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    에셋과 재현성
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-lottie/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lottie 벡터
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    애니메이션 타이밍 상세
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    애니메이션 타이밍 상세
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="목차">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      목차
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#choose-the-clock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        시간 기준 선택
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#temporal-exposure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        시간적 노출
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="시간적 노출">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#support-and-receipts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        지원과 확인서
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#slide-duration-and-transitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        슬라이드 길이와 전환
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#audio-captions-and-reduced-motion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        오디오, 자막, 동작 줄이기
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-playback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        재생 검증
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inspection-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    복잡한 레이아웃 검사
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON과 AI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    JSON과 AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../json-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON Schema와 AI 작업 흐름
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    진단과 CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    구조화된 오류
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    레시피 모음
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    레시피 모음
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    갤러리
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/decks-and-video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    프레젠테이션과 동영상
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/youtube-thumbnail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YouTube 썸네일
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/instagram-card/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instagram 카드
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/podcast-promo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    팟캐스트 홍보
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/shorts-cover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shorts / 세로형 커버
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/launch-announcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    출시 알림(자동 레이아웃)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/ai-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI 작업 흐름
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/webfonts-rembg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    웹 글꼴과 배경 제거
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    자주 묻는 질문
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    변경 기록
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    변경 기록
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    개요
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../releases/0.8.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0.8.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="목차">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      목차
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#choose-the-clock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        시간 기준 선택
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#temporal-exposure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        시간적 노출
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="시간적 노출">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#support-and-receipts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        지원과 확인서
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#slide-duration-and-transitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        슬라이드 길이와 전환
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#audio-captions-and-reduced-motion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        오디오, 자막, 동작 줄이기
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify-playback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        재생 검증
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="animation-timing-reference">애니메이션 타이밍 레퍼런스</h1>
+<p>간단한 안내는 <a href="../../timing/">애니메이션 타이밍</a>을 참고하세요.</p>
+<p>모션과 슬라이드의 길이, 화면 유지 시간, 비디오 배치 시점, 자막 큐는 모두 초 단위로 지정합니다. <code>sample()</code>은 작성한 기준 타임라인을 관찰하고, <code>export()</code>는 실제 영상에 인코딩된 타임라인을 보고합니다. 목적이 다른 측정값이므로 구분해서 사용하세요.</p>
+<h2 id="choose-the-clock">시간 기준 선택</h2>
+<table>
+<thead>
+<tr>
+<th>출력 또는 관찰</th>
+<th>타이밍 계약</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>시간이나 fps 없는 <code>sample()</code></td>
+<td>Canvas/페이지마다 작성된 정적 프레임 하나입니다. 애니메이션 끝점으로 이동하지 않고 래스터 출력과 일치합니다. <code>duration=0</code>, 프레임 <code>time=None</code>입니다.</td>
+</tr>
+<tr>
+<td><code>sample(time=...)</code></td>
+<td>명시적인 문서 시점을 관찰합니다. 슬라이드 구간은 <code>[start, end)</code>이며 정확한 경계는 새로 들어오는 슬라이드에 속합니다. 끝을 넘은 시점은 안정된 마지막 장면을 보여 줍니다.</td>
+</tr>
+<tr>
+<td><code>sample(fps=...)</code></td>
+<td>타임라인 끝 이전의 균일 격자 <code>0, 1/fps, 2/fps, …</code>를 관찰합니다. 길이가 0인 타임라인도 0에서 한 번 관찰합니다.</td>
+</tr>
+<tr>
+<td>GIF</td>
+<td>무음이며 프레임 길이는 10ms 단위로 가변적입니다. 같은 프레임은 합쳐질 수 있습니다. 기본 샘플링 속도는 20fps이며, 지원 범위는 0 초과 100fps 이하입니다.</td>
+</tr>
+<tr>
+<td>MP4 / WebM / MOV</td>
+<td>유지 구간에 반복되는 프레임을 포함해 고정 속도로 인코딩합니다. 기본값은 30fps이며, 지원 범위는 0 초과 120fps 이하입니다.</td>
+</tr>
+<tr>
+<td>HTML</td>
+<td>브라우저가 제어하는 대화형 큐와 슬라이드 이동입니다. 인코딩된 fps나 고정된 전체 재생 길이가 없고 Deck 내레이션을 재생하지 않습니다.</td>
+</tr>
+</tbody>
+</table>
+<p><code>GifOptions.fps</code>와 <code>VideoOptions.fps</code>는 샘플링 밀도를 요청합니다. 움직이는 구간은 각자의 시간 경계 안에서 샘플링하고, 정적 구간은 화면을 유지합니다. 비디오는 누적 프레임 시계에 반복 프레임을 배정하고, GIF는 누적 길이를 1/100초 단위로 양자화합니다. 따라서 기준 균일 샘플 격자는 인코딩 파일의 인덱스가 아닙니다. 임의의 소수 구간, 팔레트/손실 인코딩, 중복 프레임 병합 때문에 프레임 위치나 개수가 달라질 수 있습니다.</p>
+<p>애니메이션을 내보낸 뒤 <code>ExportResult.timing_metrics</code>를 확인하세요.</p>
+<table>
+<thead>
+<tr>
+<th>필드</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fps</code></td>
+<td>선택한 샘플링 속도입니다. GIF에서는 저장된 프레임 수를 재생 길이로 나눈 값이 아닙니다.</td>
+</tr>
+<tr>
+<td><code>frame_count</code></td>
+<td>GIF 병합이나 비디오 유지 프레임 반복을 거쳐 실제로 인코딩한 프레임 수입니다.</td>
+</tr>
+<tr>
+<td><code>duration</code></td>
+<td>인코딩된 시각적 재생 시간(초)입니다. GIF 지연의 합 또는 비디오 프레임 수를 fps로 나눈 값입니다. 오디오 컨테이너 패딩은 다를 수 있습니다.</td>
+</tr>
+</tbody>
+</table>
+<p>반면 <code>FrameSequence.duration</code>은 양자화 전의 기준 타임라인을 나타냅니다. HTML의 <code>timing_metrics</code>에는 고정 재생 타이밍이 없습니다. 길이가 0이라고 해서 대화형 애니메이션에 시간이 걸리지 않는다는 뜻은 아닙니다.</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnimationSpec</span><span class="p">,</span> <span class="n">Canvas</span><span class="p">,</span> <span class="n">GifOptions</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">canvas</span> <span class="o">=</span> <span class="n">Canvas</span><span class="p">(</span><span class="mi">160</span><span class="p">,</span> <span class="mi">90</span><span class="p">)</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#000000"</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="s2">"rectangle"</span><span class="p">,</span> <span class="p">(</span><span class="mi">40</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span> <span class="mi">80</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="s2">"#FF0000"</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">animation</span><span class="o">=</span><span class="n">AnimationSpec</span><span class="o">.</span><span class="n">fade</span><span class="p">(</span><span class="n">duration</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">samples</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="mf">0.37</span><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">result</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"timed.gif"</span><span class="p">,</span> <span class="n">animation</span><span class="o">=</span><span class="n">GifOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">hold</span><span class="o">=</span><span class="mf">0.37</span><span class="p">))</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="nb">print</span><span class="p">(</span><span class="n">samples</span><span class="o">.</span><span class="n">duration</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">samples</span><span class="o">.</span><span class="n">frames</span><span class="p">))</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">timing_metrics</span><span class="o">.</span><span class="n">model_dump</span><span class="p">())</span>
+</code></pre></div>
+<h2 id="temporal-exposure">시간적 노출</h2>
+<p>Canvas나 Deck 내보내기에서 프레임 시점을 중심으로 한 모션 블러를 선택할 수 있습니다.</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">MotionBlur</span><span class="p">,</span> <span class="n">VideoOptions</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">canvas</span><span class="o">.</span><span class="n">export</span><span class="p">(</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="s2">"exposure.mp4"</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">animation</span><span class="o">=</span><span class="n">VideoOptions</span><span class="p">(</span><span class="n">fps</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">motion_blur</span><span class="o">=</span><span class="n">MotionBlur</span><span class="p">(</span><span class="n">samples</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">shutter_angle</span><span class="o">=</span><span class="mi">180</span><span class="p">)),</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">)</span>
+</code></pre></div>
+<p><code>GifOptions</code>와 <code>ImageSequenceOptions</code>도 같은 설정을 받습니다. 끄는 값은 <code>None</code>뿐입니다. <code>MotionBlur</code>는 샘플 2–64개와 0 초과 360도 이하의 셔터 각도를 받습니다. 셔터는 렌더링하는 각 프레임 주변의 <code>(angle / 360) / fps</code>초에 걸칩니다. 문서 타임라인 밖의 시점은 경계 상태를 사용합니다. 하드 컷에서는 중심 시점이 속한 슬라이드로 노출을 제한하며, 정확한 컷 시점은 새로 들어오는 슬라이드에 속합니다. 부드러운 전환은 시작 시점 양쪽의 샘플을 포함해 노출에 참여합니다. 비디오와 이미지 시퀀스의 노출 중심은 출력 격자 <code>index / fps</code>를 따르고, GIF 중심은 가변 길이의 샷 시계를 따릅니다. 인코딩된 sRGB의 미리 곱한 채널을 평균한 뒤 비연관 RGBA로 되돌려, 투명한 잔상에서 채도가 높은 색상을 보존합니다.</p>
+<p>노출은 시간 지정 자막과 등장 효과도 적분합니다. 큐 경계에서 셔터 구간의 절반 이내에 있는 내용이 영향을 줄 수 있습니다. 작성한 큐 시점과 재생 길이는 바뀌지 않으며, GIF 지연과 비디오 프레임 수는 여전히 각 코덱의 시계를 따릅니다. 유지 시간이 0이면 마지막 프레임에도 움직이는 동안의 노출이 섞입니다. 동작이 완전히 끝난 화면을 보여 주려면 유지 시간을 추가하세요.</p>
+<p>이 설정은 <code>workers</code>를 포함한 Canvas 및 Deck GIF/비디오 내보내기와 이미지 시퀀스를 지원합니다. 각 워커는 직렬 렌더링과 같은 샘플 시점 및 알파 누적으로 전체 노출을 계산합니다. 직접 바이트를 반환하는 헬퍼는 이 설정을 지원하지 않습니다. <code>sample()</code>과 <code>render_frame()</code>은 순간적인 기준 관찰로 유지됩니다. 내보내기 확인서는 지원 기능 보고서에 요청한 시간적 노출을 명시합니다. 소스 검사만으로는 내보내기 전용 설정을 추론할 수 없습니다.</p>
+<h3 id="support-and-receipts">지원과 확인서</h3>
+<p><code>capabilities_for(target)["motion_blur"]</code>는 시간적 노출 지원 여부를 선언합니다.</p>
+<table>
+<thead>
+<tr>
+<th>대상 계열</th>
+<th>지원</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>video</code></td>
+<td>full</td>
+<td>Canvas/Deck MP4, WebM, MOV와 이미지 시퀀스에서 노출을 적분합니다.</td>
+</tr>
+<tr>
+<td><code>raster</code></td>
+<td>partial, static fallback</td>
+<td>애니메이션 GIF는 노출을 적분하지만 정적 래스터 파일에는 노출 구간이 없습니다.</td>
+</tr>
+<tr>
+<td><code>html</code>, <code>pptx</code></td>
+<td>unsupported, static fallback</td>
+<td>노출을 무시하고 작성된 브라우저/PowerPoint 모션을 그대로 유지합니다.</td>
+</tr>
+</tbody>
+</table>
+<p><code>VideoOptions</code>/<code>GifOptions</code>는 각각 애니메이션 출력 계열에 속합니다. HTML/PPTX에 전달하면 옵션 계열 오류가 발생합니다. 지원 기능 표가 이런 옵션을 조용히 허용한다는 뜻은 아닙니다. <code>inspect_motion()</code>은 소스에 작성된 기능을 보고하며 내보내기 전용 블러가 켜졌다고 주장하지 않습니다. 실제 내보내기 뒤 <code>result.capability_report</code>의 <code>motion_blur</code> 행에서 적용된 샘플 수와 각도를 확인하세요. <code>timing_metrics</code>는 인코딩된 재생 정보를 유지합니다. 이미지 시퀀스 결과에도 같은 적용 행과 프레임/길이 정보가 포함됩니다.</p>
+<p><a href="https://github.com/sjquant/quickthumb/blob/main/examples/motion_blur.py">움직이는 마커 예제</a>를 실행하면 서로 대응하는 OFF/8샘플 GIF를 만듭니다. 이 장면은 제어된 <a href="https://github.com/sjquant/quickthumb/blob/main/benchmarks/README.md#temporal-exposure-cost">샘플 비용 벤치마크</a>에도 사용됩니다.</p>
+<h2 id="slide-duration-and-transitions">슬라이드 길이와 전환</h2>
+<p>레이어 모션과 들어오는 전환은 같은 슬라이드 시계에서 시작합니다. 비대화형 미디어에서 <code>on_click</code> 큐는 <code>after_previous</code>처럼 순서대로 실행하고 <code>with_previous</code> 큐는 겹쳐 실행합니다. 지연도 해당 시계에 포함됩니다. 전환은 이전 슬라이드의 안정된 장면 위에서 재생합니다. 명시적인 전환이 없는 슬라이드는 첫 슬라이드에서 즉시 시작하고 이후에는 0.5초 크로스페이드를 사용합니다. 즉시 바뀌는 경계에는 <code>Cut()</code>을 사용하세요.</p>
+<p>슬라이드의 종료는 적용 가능한 경계 중 가장 늦은 시점으로 정합니다.</p>
+<ul>
+<li>길이 재정의도 <code>advance_after</code>도 없으면 전환과 레이어 모션이 끝난 뒤 안정된 장면을 <code>hold</code>초(기본 3초) 유지합니다.</li>
+<li>Deck 비디오에서 <code>slide(duration=...)</code>는 전환과 모션을 포함한 전체 슬라이드 구간을 설정합니다. 명시적 길이가 없으면 내레이션이 구간을 제공합니다. 어느 쪽도 더 긴 시각적 애니메이션을 자르지 않으며, 둘 다 끝날 만큼 슬라이드를 유지합니다. 내레이션 자체는 예약된 구간에 맞춰 자르거나 패딩합니다.</li>
+<li>전환의 <code>advance_after</code>는 <code>hold</code>를 대신하며, 들어오는 전환 뒤부터 경계를 셉니다. 그 경계, 완료된 모션, 내레이션/명시적 길이 중 가장 늦은 시점에 종료합니다. 예를 들어 1초 애니메이션에 <code>Cut(advance_after=0.1)</code>을 사용하면 <code>hold=3</code>이어도 1초에 끝나며, 끝에 3초를 덧붙이지 않습니다.</li>
+</ul>
+<p>GIF는 Deck 내레이션과 <code>slide(duration=...)</code>를 무시하고 모션, 전환, <code>advance_after</code>, <code>hold</code>를 사용합니다. <code>Deck.sample()</code>은 내레이션을 고려한 비디오 일정을 사용하므로 내레이션이 있는 Deck의 GIF 길이가 샘플링 길이와 같을 필요는 없습니다.</p>
+<p>인코더는 <code>hold=0</code>이어도 안정된 상태를 보여 줍니다. 항상 유지 프레임을 통째로 덧붙이는 대신 필요하면 마지막 모션 샷을 교체합니다. 정적 슬라이드나 한 프레임보다 짧은 슬라이드도 표현 가능한 프레임 하나는 필요합니다. 따라서 GIF와 비디오 길이는 수학적 타임라인과 조금 다를 수 있습니다. 현재 Deck 비디오는 내레이션도 명시적인 양수 길이도 없는 슬라이드에 양수 <code>hold</code>가 필요합니다. Canvas와 Deck GIF에는 0인 유지 시간도 유효합니다.</p>
+<h2 id="audio-captions-and-reduced-motion">오디오, 자막, 동작 줄이기</h2>
+<p>MP4/WebM/MOV는 지원되는 클립 오디오, Deck 내레이션, 선택적 사운드트랙을 믹싱합니다. 내레이션은 해당 슬라이드의 절대 오프셋에서 시작합니다. 사운드트랙은 시각적 타임라인에 맞춰 자르며 반복할 수 있습니다. 코덱의 오디오 패딩은 보고하는 시각적 길이를 늘리지 않습니다. GIF와 이미지 시퀀스에는 오디오가 없습니다. 모션에 사운드트랙이나 내레이션이 함께 재생되어야 하면 비디오를 사용하세요. MP4 내보내기는 슬라이드별 내레이션을 유지하면서 레이어 애니메이션과 전환을 재생합니다. 정지 슬라이드 내레이션에는 정적 캔버스를 작성하고 <code>deck.transition(Cut())</code>를 설정하세요.</p>
+<p>비디오 레이어의 <code>start</code>는 슬라이드 내 시점입니다. <code>trim_start</code>, <code>trim_end</code>, <code>speed</code>는 소스 미디어 시간을 선택합니다. 자막 <code>start</code>/<code>end</code>는 원본 파일이 아니라 배치된 클립을 기준으로 합니다. 자막은 <code>[start, end)</code> 동안 활성화되며 지원되는 래스터/비디오 출력의 전경에 구워 넣습니다. 동작 줄이기로 클립 그림이 멈춰도 자막 타이밍은 유지됩니다.</p>
+<p><code>ExportPolicy(reduced_motion=True)</code>는 작성된 레이어 모션과 슬라이드 전환을 억제합니다. 유지 시간, 내레이션, 자막 타이밍은 보존하며 슬라이드 사이에 기본 Deck 크로스페이드가 남을 수 있습니다. 결과 길이는 원래 모션 길이가 아니라 실제 내보내기 확인서에서 확인하세요.</p>
+<p>HTML은 <code>on_click</code> 큐를 대화형으로, <code>after_previous</code> 큐를 자동으로 유지합니다. <code>advance_after</code>는 들어오는 전환 뒤 조건부 자동 이동을 켭니다. 프레젠테이션을 고정 길이 비디오로 바꾸지는 않습니다. HTML의 비디오 레이어는 정적 대체 출력을 사용하므로 재생/자막 타이밍을 재현하지 않습니다. 대상의 <code>validate_export()</code>와 반환된 대체 출력 진단을 확인하세요. GIF/비디오 옵션 계열, 지원하지 않는 투명도, 코덱 속도 한계는 다른 형식을 조용히 선택하는 대신 해결 방법이 있는 오류로 실패합니다.</p>
+<h2 id="verify-playback">재생 검증</h2>
+<p><code>tests/test_video_layers.py</code>의 3슬라이드 통합 장면은 실제 GIF, MP4, WebM 출력을 검사합니다. 선택한 픽셀과 기준 샘플 비교, 들어오는 전환, 자막 시작/종료 구간, 인코딩 타이밍, 디코딩한 사운드트랙 및 내레이션 주파수를 확인합니다. 동작 줄이기 사례는 정지한 클립 영상과 시간 지정 자막을 확인합니다. FFmpeg와 ffprobe를 설치한 뒤 실행하세요.</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>--locked<span class="w"> </span>pytest<span class="w"> </span>tests/test_video_layers.py<span class="w"> </span>-k<span class="w"> </span>motion_package<span class="w"> </span>--no-cov
+</code></pre></div>
+<p>기존 HTML 타임라인 테스트는 Node 스테이지 픽스처에서 JavaScript를 실행합니다. 대상별 브라우저 충실도는 별도의 검사입니다.</p>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  맨위로
+</button>
+        
+      </main>
+      
+        
+
+<footer class="md-footer qt-footer">
+  <div class="qt-footer-inner">
+    <div>
+      <a class="qt-brand" href="../../" aria-label="quickthumb 홈">
+        <img src="../../../assets/brand/quickthumb-icon.svg" width="28" height="28" alt="">
+        <span>quickthumb</span>
+      </a>
+      <p class="qt-footer-tagline">이미지, 프레젠테이션, 동영상을 만드는 Python 창작 도구.</p>
+    </div>
+    <nav class="qt-footer-links" aria-label="하단 탐색">
+      <a href="../../cookbook/">레시피</a>
+      <a href="../../getting-started/">문서</a>
+      <a href="../../installation/">설치</a>
+      <a href="../../changelog/">변경 기록</a>
+    </nav>
+    <div class="qt-footer-meta">
+      <a class="qt-icon-button" href="https://github.com/sjquant/quickthumb" aria-label="GitHub의 quickthumb">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg>
+      </a>
+      <p>© 2026 Seonu Jang · MIT 라이선스<br>제작 도구 <a href="https://squidfunk.github.io/mkdocs-material/">Material for MkDocs</a></p>
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\ud074\ub9bd\ubcf4\ub4dc\uc5d0 \ubcf5\uc0ac\ub428", "clipboard.copy": "\ud074\ub9bd\ubcf4\ub4dc\ub85c \ubcf5\uc0ac", "search.result.more.one": "\uc774 \ubb38\uc11c\uc5d0\uc11c 1\uac1c\uc758 \uac80\uc0c9 \uacb0\uacfc \ub354 \ubcf4\uae30", "search.result.more.other": "\uc774 \ubb38\uc11c\uc5d0\uc11c #\uac1c\uc758 \uac80\uc0c9 \uacb0\uacfc \ub354 \ubcf4\uae30", "search.result.none": "\uac80\uc0c9\uc5b4\uc640 \uc77c\uce58\ud558\ub294 \ubb38\uc11c\uac00 \uc5c6\uc2b5\ub2c8\ub2e4", "search.result.one": "1\uac1c\uc758 \uc77c\uce58\ud558\ub294 \ubb38\uc11c", "search.result.other": "#\uac1c\uc758 \uc77c\uce58\ud558\ub294 \ubb38\uc11c", "search.result.placeholder": "\uac80\uc0c9\uc5b4\ub97c \uc785\ub825\ud558\uc138\uc694", "search.result.term.missing": "\ud3ec\ud568\ub418\uc9c0 \uc54a\uc740 \uac80\uc0c9\uc5b4", "select.version": "\ubc84\uc804 \uc120\ud0dd"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../../javascripts/site.js"></script>
+      
+    
+  </body>
+</html>

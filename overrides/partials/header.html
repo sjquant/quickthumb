@@ -1,0 +1,64 @@
+{% set ui = config.extra.ui %}
+{% set locale_prefix = config.theme.language ~ '/' if config.theme.language != 'en' else '' %}
+<header class="md-header qt-header" data-md-component="header">
+  <nav class="qt-header-inner" aria-label="{{ ui.main_navigation }}">
+    <a class="qt-brand" href="{{ nav.homepage.url | url }}" aria-label="{{ ui.home }}">
+      <img src="{{ 'assets/brand/quickthumb-icon.svg' | url }}" width="40" height="40" alt="">
+      <span>quickthumb</span>
+    </a>
+    <div class="qt-desktop-links">
+      <a href="{{ (locale_prefix ~ 'cookbook/') | url }}">{{ ui.recipes }}</a>
+      <a href="{{ (locale_prefix ~ 'getting-started/') | url }}">{{ ui.docs }}</a>
+      <a href="{{ config.repo_url }}">GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="qt-header-tools">
+      {% include "partials/language-switch.html" %}
+      {% include "partials/palette.html" %}
+      {% include "partials/javascripts/palette.html" %}
+      <button class="qt-icon-button" type="button" data-qt-search aria-label="{{ ui.search }}">
+        {% include ".icons/material/magnify.svg" %}
+      </button>
+      <button class="qt-icon-button qt-menu-trigger" type="button" data-qt-menu aria-label="{{ ui.open_navigation }}" aria-controls="qt-navigation" aria-expanded="false">
+        {% include ".icons/material/menu.svg" %}
+      </button>
+      <a class="qt-button qt-button-white qt-header-cta" href="{{ (locale_prefix ~ 'getting-started/') | url }}">{{ ui.get_started }}</a>
+    </div>
+  </nav>
+  {% include "partials/search.html" %}
+</header>
+
+<dialog class="qt-drawer" id="qt-navigation" aria-label="{{ ui.site_navigation }}">
+  <div class="qt-drawer-header">
+    <a class="qt-brand" href="{{ nav.homepage.url | url }}" aria-label="{{ ui.home }}">
+      <img src="{{ 'assets/brand/quickthumb-icon.svg' | url }}" width="36" height="36" alt="">
+      <span>quickthumb</span>
+    </a>
+    <button class="qt-icon-button" type="button" data-qt-close aria-label="{{ ui.close_navigation }}" autofocus>
+      {% include ".icons/material/close.svg" %}
+    </button>
+  </div>
+  <button class="qt-drawer-search" type="button" data-qt-search>
+    {% include ".icons/material/magnify.svg" %}
+    <span>{{ ui.search }}</span>
+  </button>
+  <nav class="qt-drawer-links" aria-label="{{ ui.explore }}">
+    <a class="qt-button qt-button-blue" href="{{ (locale_prefix ~ 'getting-started/') | url }}">{{ ui.get_started }} <span aria-hidden="true">→</span></a>
+    <a href="{{ (locale_prefix ~ 'cookbook/') | url }}">{{ ui.recipes }}</a>
+    <a href="{{ (locale_prefix ~ 'getting-started/') | url }}">{{ ui.docs }}</a>
+    <a href="{{ config.repo_url }}">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+  <nav class="qt-drawer-docs" aria-label="{{ ui.shortcuts }}">
+    <p class="qt-nav-caption">{{ ui.documentation }}</p>
+    <a href="{{ (locale_prefix ~ 'installation/') | url }}">{{ ui.installation }}</a>
+    <a href="{{ (locale_prefix ~ 'concepts/') | url }}">{{ ui.concepts }}</a>
+    <a href="{{ (locale_prefix ~ 'api/') | url }}">{{ ui.api }}</a>
+  </nav>
+  <details class="qt-drawer-index">
+    <summary>{{ ui.all_docs }}</summary>
+    {% include "partials/drawer-tree.html" %}
+  </details>
+  <button class="qt-appearance" type="button" data-qt-theme>
+    {% include ".icons/material/brightness-6.svg" %}
+    <span>{{ ui.theme }}</span>
+  </button>
+</dialog>

@@ -1,0 +1,15 @@
+{% set current_language = (config.extra.language_code | default(config.theme.language)) if page else 'en' %}
+{% set current = config.extra.alternate | selectattr('lang', 'equalto', current_language) | first %}
+{% set language_label = config.extra.ui.language if page else 'Language / 언어 / 言語 / 语言' %}
+<details class="qt-language-switch">
+  <summary aria-label="{{ language_label }}: {{ current.name }}">
+    {% include ".icons/material/translate.svg" %}
+    <span data-qt-language-current>{{ current.name }}</span>
+    {% include ".icons/material/chevron-down.svg" %}
+  </summary>
+  <nav aria-label="{{ language_label }}">
+    {% for alternative in config.extra.alternate %}
+    <a href="{{ alternative.link | url }}" hreflang="{{ alternative.lang }}" lang="{{ alternative.lang }}" data-qt-language="{{ alternative.lang }}" target="_self"{% if alternative.lang == current_language %} aria-current="page"{% endif %}>{{ alternative.name }}</a>
+    {% endfor %}
+  </nav>
+</details>

@@ -1,0 +1,3202 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Reference for format fidelity and validation in quickthumb.">
+      
+      
+        <meta name="author" content="Seonu Jang">
+      
+      
+        <link rel="canonical" href="https://quickthumb.solaqua.dev/reference/export-validation/">
+      
+      
+        <link rel="prev" href="../export-methods/">
+      
+      
+        <link rel="next" href="../export-documents/">
+      
+      
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/reference/export-validation/" hreflang="en">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ko/reference/export-validation/" hreflang="ko">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ja/reference/export-validation/" hreflang="ja">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/zh/reference/export-validation/" hreflang="zh-CN">
+        
+      
+      
+      <link rel="icon" href="../../assets/brand/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+  
+  <title>quickthumb - Format fidelity and validation</title>
+  
+
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  
+  
+  
+  
+    
+  
+  
+  
+  
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="en_US">
+  
+    
+      
+  <link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-validation/">
+      
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="ko_KR">
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="ja_JP">
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="zh_CN">
+      
+    
+  
+  <meta property="og:site_name" content="quickthumb">
+  <meta property="og:title" content="quickthumb - Format fidelity and validation">
+  <meta property="og:description" content="Reference for format fidelity and validation in quickthumb.">
+  
+  <meta property="og:url" content="https://quickthumb.solaqua.dev/reference/export-validation/">
+  
+  <meta property="og:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta property="og:image:alt" content="quickthumb: Endless thumbnails, from code. Two example thumbnail cards.">
+  
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  
+  <meta name="twitter:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta name="twitter:image:alt" content="quickthumb: Endless thumbnails, from code. Two example thumbnail cards.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="quickthumb - Format fidelity and validation">
+  <meta name="twitter:description" content="Reference for format fidelity and validation in quickthumb.">
+  
+  <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "@id": "https://quickthumb.solaqua.dev/#website", "url": "https://quickthumb.solaqua.dev/", "name": "quickthumb", "description": "Create images, presentations, and animated video with Python or JSON.", "inLanguage": "en", "publisher": {"@id": "https://quickthumb.solaqua.dev/#author"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}}, {"@type": "Person", "@id": "https://quickthumb.solaqua.dev/#author", "name": "Seonu Jang"}, {"@type": "SoftwareApplication", "@id": "https://quickthumb.solaqua.dev/#software", "name": "quickthumb", "url": "https://quickthumb.solaqua.dev/", "description": "Create images, presentations, and animated video with Python or JSON.", "applicationCategory": "MultimediaApplication", "softwareVersion": "0.8.0", "softwareRequirements": "Python >=3.11", "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE", "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "sameAs": ["https://github.com/sjquant/quickthumb", "https://pypi.org/project/quickthumb/"]}, {"@type": "SoftwareSourceCode", "@id": "https://quickthumb.solaqua.dev/#source", "name": "quickthumb", "codeRepository": "https://github.com/sjquant/quickthumb", "programmingLanguage": "Python", "runtimePlatform": "Python >=3.11", "targetProduct": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE"}, {"@type": "WebPage", "@id": "https://quickthumb.solaqua.dev/reference/export-validation/#webpage", "url": "https://quickthumb.solaqua.dev/reference/export-validation/", "name": "Format fidelity and validation", "description": "Reference for format fidelity and validation in quickthumb.", "inLanguage": "en", "isPartOf": {"@id": "https://quickthumb.solaqua.dev/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "primaryImageOfPage": {"@type": "ImageObject", "url": "https://quickthumb.solaqua.dev/assets/brand/social-preview.png", "caption": "quickthumb: Endless thumbnails, from code. Two example thumbnail cards.", "width": 1200, "height": 630}, "mainEntity": {"@id": "https://quickthumb.solaqua.dev/reference/export-validation/#document"}, "breadcrumb": {"@id": "https://quickthumb.solaqua.dev/reference/export-validation/#breadcrumbs"}}, {"@type": "BreadcrumbList", "@id": "https://quickthumb.solaqua.dev/reference/export-validation/#breadcrumbs", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "quickthumb", "item": "https://quickthumb.solaqua.dev/"}, {"@type": "ListItem", "position": 2, "name": "Format fidelity and validation", "item": "https://quickthumb.solaqua.dev/reference/export-validation/"}]}, {"@type": "TechArticle", "@id": "https://quickthumb.solaqua.dev/reference/export-validation/#document", "url": "https://quickthumb.solaqua.dev/reference/export-validation/", "headline": "Format fidelity and validation", "description": "Reference for format fidelity and validation in quickthumb.", "inLanguage": "en", "mainEntityOfPage": {"@id": "https://quickthumb.solaqua.dev/reference/export-validation/#webpage"}, "isPartOf": {"@id": "https://quickthumb.solaqua.dev/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}}]}</script>
+  
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#format-fidelity-and-validation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header qt-header" data-md-component="header">
+  <nav class="qt-header-inner" aria-label="Main navigation">
+    <a class="qt-brand" href="../.." aria-label="quickthumb home">
+      <img src="../../assets/brand/quickthumb-icon.svg" width="40" height="40" alt="">
+      <span>quickthumb</span>
+    </a>
+    <div class="qt-desktop-links">
+      <a href="../../cookbook/">Recipes</a>
+      <a href="../../getting-started/">Docs</a>
+      <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="qt-header-tools">
+      
+
+
+<details class="qt-language-switch">
+  <summary aria-label="Language: English">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    <span data-qt-language-current>English</span>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7.41 8.58 12 13.17l4.59-4.59L18 10l-6 6-6-6z"/></svg>
+  </summary>
+  <nav aria-label="Language">
+    
+    <a href="https://quickthumb.solaqua.dev/reference/export-validation/" hreflang="en" lang="en" data-qt-language="en" target="_self" aria-current="page">English</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ko/reference/export-validation/" hreflang="ko" lang="ko" data-qt-language="ko" target="_self">한국어</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ja/reference/export-validation/" hreflang="ja" lang="ja" data-qt-language="ja" target="_self">日本語</a>
+    
+    <a href="https://quickthumb.solaqua.dev/zh/reference/export-validation/" hreflang="zh-CN" lang="zh-CN" data-qt-language="zh-CN" target="_self">简体中文</a>
+    
+  </nav>
+</details>
+      <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+      <button class="qt-icon-button" type="button" data-qt-search aria-label="Search documentation">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </button>
+      <button class="qt-icon-button qt-menu-trigger" type="button" data-qt-menu aria-label="Open navigation" aria-controls="qt-navigation" aria-expanded="false">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+      </button>
+      <a class="qt-button qt-button-white qt-header-cta" href="../../getting-started/">Get started</a>
+    </div>
+  </nav>
+  <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</header>
+
+<dialog class="qt-drawer" id="qt-navigation" aria-label="Site navigation">
+  <div class="qt-drawer-header">
+    <a class="qt-brand" href="../.." aria-label="quickthumb home">
+      <img src="../../assets/brand/quickthumb-icon.svg" width="36" height="36" alt="">
+      <span>quickthumb</span>
+    </a>
+    <button class="qt-icon-button" type="button" data-qt-close aria-label="Close navigation" autofocus>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
+  <button class="qt-drawer-search" type="button" data-qt-search>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+    <span>Search documentation</span>
+  </button>
+  <nav class="qt-drawer-links" aria-label="Explore quickthumb">
+    <a class="qt-button qt-button-blue" href="../../getting-started/">Get started <span aria-hidden="true">→</span></a>
+    <a href="../../cookbook/">Recipes</a>
+    <a href="../../getting-started/">Docs</a>
+    <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+  <nav class="qt-drawer-docs" aria-label="Documentation shortcuts">
+    <p class="qt-nav-caption">Documentation</p>
+    <a href="../../installation/">Installation</a>
+    <a href="../../concepts/">Core Concepts</a>
+    <a href="../../api/">API Reference</a>
+  </nav>
+  <details class="qt-drawer-index">
+    <summary>All documentation</summary>
+    
+<nav aria-label="All documentation">
+  <ul>
+    
+      <li>
+        
+          <a href="../..">Home</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>Getting Started</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../getting-started/">Render your first cards</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../installation/">Installation</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../concepts/">Core Concepts</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../output-guide/">Choose an output format</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../timing/">Animation Timing</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>API Reference</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../api/">Overview</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/canvas/">Canvas</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/deck/">Deck (Multiple Slides)</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/inspection/">Document Inspection</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/background/">Background</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/text/">Text</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/image/">Image</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/shape/">Shape</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/path/">Path</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/svg/">SVG</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/video/">Video</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/audio/">Audio-reactive Authoring</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/group/">Group (Auto Layout)</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/outline/">Outline</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/data-visualizations/">Data visualizations</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/effects/">Effects</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../api/enums/">Enums & Gradients</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details open>
+            <summary>Advanced Reference</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <details open>
+            <summary>Export</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../exports/">Overview</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-methods/">Methods and receipts</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="./" aria-current="page">Format fidelity and validation</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-documents/">SVG, HTML, PowerPoint, and PDF</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-animation/">GIF, video, and narration</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-transparency/">Transparent video</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-frames/">Image sequences and render quality</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-assets/">Assets and reproducibility</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../export-lottie/">Lottie vectors</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../timing-details/">Animation timing details</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../inspection-details/">Inspecting complex layouts</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>JSON & AI</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../json-schema/">JSON Schema & AI Workflow</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../diagnostics/">Diagnostics & CLI</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../errors/">Structured Errors</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>Cookbook</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../cookbook/">Gallery</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/decks-and-video/">Presentations and video</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/youtube-thumbnail/">YouTube Thumbnails</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/instagram-card/">Instagram Card</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/podcast-promo/">Podcast Promo</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/shorts-cover/">Shorts / Vertical Cover</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/launch-announcement/">Launch Announcement (Auto Layout)</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/ai-workflow/">AI Workflow</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../cookbook/webfonts-rembg/">Webfonts & Background Removal</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../faq/">FAQ</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>Changelog</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../../changelog/">Overview</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../../releases/0.8.0/">0.8.0</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+  </ul>
+</nav>
+  </details>
+  <button class="qt-appearance" type="button" data-qt-theme>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18V6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-2.69L23.31 12 20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20z"/></svg>
+    <span>Switch theme</span>
+  </button>
+</dialog>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="quickthumb" class="md-nav__button md-logo" aria-label="quickthumb" data-md-component="logo">
+      
+  <img src="../../assets/brand/quickthumb-icon.png" alt="logo">
+
+    </a>
+    quickthumb
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sjquant/quickthumb" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sjquant/quickthumb
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Render your first cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../output-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Choose an output format
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../timing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Animation Timing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/canvas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canvas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/deck/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deck (Multiple Slides)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/inspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Document Inspection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/background/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Background
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Text
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/shape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shape
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Path
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/svg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Video
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Audio-reactive Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Group (Auto Layout)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/outline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Outline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/data-visualizations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data visualizations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/effects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Effects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/enums/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enums & Gradients
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Advanced Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Export
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Export
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../exports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methods and receipts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Format fidelity and validation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Format fidelity and validation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#optional-static-svg-fidelity-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional static SVG fidelity report
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#optional-static-pdf-fidelity-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional static PDF fidelity report
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lottie-reference-player" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lottie reference player
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Lottie reference player">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#translucent-fillstroke-investigation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Translucent fill/stroke investigation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#outlined-text-admission" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Outlined-text admission
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#web-reference-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Web reference check
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#android-native-graphics-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Android native graphics check
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pptx-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PPTX compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#html-browser-validation-harness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTML browser validation harness
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#static-cross-export-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Static cross-export checks
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG, HTML, PowerPoint, and PDF
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GIF, video, and narration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-transparency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transparent video
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-frames/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Image sequences and render quality
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-assets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Assets and reproducibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../export-lottie/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lottie vectors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../timing-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Animation timing details
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inspection-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inspecting complex layouts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON & AI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    JSON & AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../json-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON Schema & AI Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../diagnostics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostics & CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Structured Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cookbook
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Cookbook
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gallery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/decks-and-video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Presentations and video
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/youtube-thumbnail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YouTube Thumbnails
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/instagram-card/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instagram Card
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/podcast-promo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Podcast Promo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/shorts-cover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shorts / Vertical Cover
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/launch-announcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Launch Announcement (Auto Layout)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/ai-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cookbook/webfonts-rembg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Webfonts & Background Removal
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Changelog
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../releases/0.8.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0.8.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#optional-static-svg-fidelity-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional static SVG fidelity report
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#optional-static-pdf-fidelity-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional static PDF fidelity report
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lottie-reference-player" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lottie reference player
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Lottie reference player">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#translucent-fillstroke-investigation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Translucent fill/stroke investigation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#outlined-text-admission" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Outlined-text admission
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#web-reference-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Web reference check
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#android-native-graphics-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Android native graphics check
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pptx-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PPTX compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#html-browser-validation-harness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTML browser validation harness
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#static-cross-export-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Static cross-export checks
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="format-fidelity-and-validation">Format fidelity and validation</h1>
+<p><a href="../../exports/">Export reference</a> · <a href="../../output-guide/">Choose an output format</a></p>
+<h2 id="optional-static-svg-fidelity-report">Optional static SVG fidelity report</h2>
+<p>Request a CairoSVG comparison through <code>ExportPolicy</code> when the current job has
+explicit acceptance limits. All three limits are required; there are no built-in
+format budgets. This example requests exact visible RGBA rather than an
+application-specific allowance for edge or font differences:</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">Canvas</span><span class="p">,</span> <span class="n">ExportPolicy</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">policy</span> <span class="o">=</span> <span class="n">ExportPolicy</span><span class="p">(</span><span class="n">fidelity</span><span class="o">=</span><span class="p">{</span><span class="s2">"svg"</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="s2">"pixel_tolerance"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="s2">"max_different_pixel_ratio"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="s2">"min_hash_similarity"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">}})</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">canvas</span> <span class="o">=</span> <span class="n">Canvas</span><span class="p">(</span><span class="mi">160</span><span class="p">,</span> <span class="mi">90</span><span class="p">)</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#123456"</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">result</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"checked.svg"</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="n">policy</span><span class="p">)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">comparison</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">pixel_metrics</span><span class="o">.</span><span class="n">fidelity</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="nb">print</span><span class="p">(</span><span class="n">comparison</span><span class="o">.</span><span class="n">verdict</span><span class="p">,</span> <span class="n">comparison</span><span class="o">.</span><span class="n">pixel_diff_ratio</span><span class="p">,</span> <span class="n">comparison</span><span class="o">.</span><span class="n">hash_similarity</span><span class="p">)</span>
+</code></pre></div>
+<p>The optional <code>quickthumb[svg]</code> extra and system Cairo are needed only when the
+selected SVG export requests this check. The report records CairoSVG/Cairo
+versions, the canonical render environment, applied limits and actual rasterized
+dimensions. It compares the authored-static <code>sample()</code> still, with no resize.
+<code>exact</code> means all visible RGBA channels match; <code>tolerated</code> satisfies the supplied
+pixel-ratio and average-hash limits; <code>out_of_policy</code> fails a limit or dimensions.
+Mean absolute error is normalized over four channels, and the maximum channel
+delta is also reported. Fully transparent pixels ignore hidden RGB, so this
+definition of exact is distinct from canonical raw-pixel SHA-256 equality.
+The 8×8 average hash composites onto white; RGBA measurements independently catch
+alpha loss even when that hash is identical.</p>
+<p>This is report-only: the original SVG representation is written even when the
+verdict is <code>out_of_policy</code>. A fidelity diagnostic describes the observation;
+no new raster fallback is selected. Missing/failed reference rendering raises
+before the destination is opened, preserving an existing file. Default exports
+and non-SVG targets do not perform this comparison.</p>
+<p>The observation applies to static Cairo rendering in the recorded environment.
+Cairo uses installed fonts and does not honor embedded CSS <code>@font-face</code>, so the
+same font environment must be available separately; see the
+<a href="https://cairosvg.org/documentation/">CairoSVG documentation</a>. It is not a browser,
+HTML, or animation fidelity guarantee. SVG keeps its existing authored-static
+motion behavior.</p>
+<h2 id="optional-static-pdf-fidelity-report">Optional static PDF fidelity report</h2>
+<p>Canvas PDF exports accept the same three explicit limits under the <code>"pdf"</code> key:</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">policy</span> <span class="o">=</span> <span class="n">ExportPolicy</span><span class="p">(</span><span class="n">fidelity</span><span class="o">=</span><span class="p">{</span><span class="s2">"pdf"</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="s2">"pixel_tolerance"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="s2">"max_different_pixel_ratio"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="s2">"min_hash_similarity"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">}})</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">result</span> <span class="o">=</span> <span class="n">Canvas</span><span class="p">(</span><span class="mi">160</span><span class="p">,</span> <span class="mi">90</span><span class="p">)</span><span class="o">.</span><span class="n">background</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="s2">"#123456"</span><span class="p">)</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="s2">"checked.pdf"</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="n">policy</span><span class="p">)</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">pixel_metrics</span><span class="o">.</span><span class="n">fidelity</span><span class="o">.</span><span class="n">verdict</span><span class="p">)</span>
+</code></pre></div>
+<p>Install <code>quickthumb[pdf]</code> for ReportLab and the optional PDFium observer. Default
+PDF exports do not import PDFium. Requested comparison renders the actual PDF
+bytes on transparent RGBA at scale 1: this exporter uses one PDF point per
+canonical pixel, not a 96-DPI print-size conversion. The report records PDFium
+and binding versions, actual page size in points, page count, rendered dimensions
+and the canonical environment. Native PDFium document/render/cleanup calls are
+serialized across threads; canonical rendering and pixel comparison stay outside
+that lock. It requires exactly one page of the expected
+point dimensions; mismatches stay out of policy even under permissive pixel
+limits. No resizing or white-background flattening hides alpha or geometry loss.</p>
+<p>The same visible-RGBA/hash criteria and report-only behavior described above
+apply. For an unexpected multi-page Canvas result, metrics observe its first
+page and the reported page count makes the verdict out of policy. PDF generation
+and requested comparison finish before opening the destination; missing/failed
+observation preserves an existing file. Native text/vectors and explained raster
+fragments are retained regardless of the fidelity verdict. Native PDF text is
+searchable vector content; this does not promise PowerPoint-style editing.
+Deck PDF comparison is rejected explicitly; export its Canvas slides individually.
+This observation does not establish PPTX or animation fidelity.</p>
+<h2 id="lottie-reference-player">Lottie reference player</h2>
+<p>The reference gate checks <strong>lottie-web 5.13.0 SVG</strong> and official <strong>Lottie Android
+6.7.1</strong>, using Robolectric 4.17 NATIVE graphics, Android 15/API 35, mdpi and a
+software Drawable on Linux/JVM. Nine payloads validate against schema 1.0.1.
+Each player checks 37 canonical frames and detects 15 blank/frozen controls:
+the original 31+13 plus 6+2 covering multi-contour trim, changing contour lengths
+and shared translucent strokes. Both whole frames and artwork regions use
+channel tolerance 32, pixel difference ≤8%, and average-hash similarity ≥0.93.
+The shared-stroke interior RGBA probe permits at most two channel levels.</p>
+<p>The web CI artifact also retains Android <code>report.json</code>, <code>execution.json</code> and
+<code>maven.log</code>, including failures. Native PNGs remain local to the job; rerun the
+same manifest with the command below to capture them. This tests the actual
+Android library/native graphics, not a device, emulator, ARM/GPU, iOS or app
+performance. Use the <a href="../export-lottie/#play-it-on-the-web">user guide</a> for setup.</p>
+<h3 id="translucent-fillstroke-investigation">Translucent fill/stroke investigation</h3>
+<p>An exploratory 960×640 multi-contour morph at frame 0 fails the Android ROI hash:
+<code>(500,320)-(860,560)</code> measures <strong>0.921875</strong> against <strong>0.93</strong>, with pixel difference
+<strong>3.2928%</strong> (within 8%). The full-frame hash is 1.0 and difference is 1.5653%.
+The same input exported again reproduces these values. Removing other layers
+or removing the morph animation gives the identical ROI result. Fill-only and
+stroke-only controls pass, and Android's combined output exactly equals drawing
+its isolated fill and then its isolated stroke.</p>
+<p>In the combined ROI, all 2,845 pixels exceeding channel tolerance 32 lie outside
+flat alpha neighborhoods: among 65,459 pixels where both renderers' isolated
+fill/stroke alpha ranges span at most two levels in a 7×7 neighborhood, the
+maximum visible channel difference is two. This points toward paint-edge
+rasterization/compositing rather than morph length sampling; it does not identify
+a proven exporter defect or establish regression against an older exporter.
+The existing 52-case gate is unchanged. The opaque-fill morph and shared
+translucent-stroke fixtures remain independent checks.</p>
+<p>To reproduce the combined artwork, use <code>examples.lottie_trim_multi.build_canvas()</code>,
+set only the layer with <code>id="morph"</code> to <code>color="#159A8C40"</code>, and export with
+<code>LottieOptions(fps=24, hold=0.5)</code>. Compare <code>render_frame(0)</code> with frame 0 of the
+Android renderer using the ROI and limits above. For controls, isolate that
+layer, remove <code>animation</code>, or remove just <code>stroke</code>/<code>color</code> respectively.</p>
+<h3 id="outlined-text-admission">Outlined-text admission</h3>
+<p>The text compiler accepts static single-line printable ASCII, local nonvariable
+noncolor fonts and opaque solid paint. Layer opacity supplies translucency.
+Multi-character RAQM text needs explicit nonzero <code>letter_spacing</code>; unspaced BASIC
+text requires additive advances. Per-layer limits are 1,024 characters, 65,536
+outline vertices and a 64 MiB font source. Geometry/precision/resource checks
+complete before writes; some require compiling intermediate animation samples.</p>
+<h3 id="web-reference-check">Web reference check</h3>
+<p>The developer check uses the actual lottie-web player in a disposable Chrome
+profile. It makes no player downloads, changes no export policies, and blocks
+browser HTTP/HTTPS requests while playing self-contained vectors.</p>
+<p>From the repository root, install the locked development dependencies and the
+pinned test-only player, then select an existing Chrome executable:</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--locked<span class="w"> </span>--extra<span class="w"> </span>lottie<span class="w"> </span>--dev
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>npm<span class="w"> </span>ci<span class="w"> </span>--prefix<span class="w"> </span>tests/fixtures/lottie/player<span class="w"> </span>--ignore-scripts<span class="w"> </span>--no-audit<span class="w"> </span>--no-fund
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nv">PYTHONPATH</span><span class="o">=</span>.<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>--locked<span class="w"> </span>python<span class="w"> </span>scripts/check_lottie_fidelity.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>--chrome<span class="w"> </span>/path/to/chrome<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span>--player<span class="w"> </span>tests/fixtures/lottie/player/node_modules/lottie-web/build/player/lottie.min.js<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span>--output<span class="w"> </span>/tmp/quickthumb-lottie-observations
+</code></pre></div>
+<p>Node 24 and an existing Chrome are required; the output directory must be new.
+The report records schema/player hashes, browser/Node/player versions, export
+receipts, exact frame seeks, dimensions, whole-frame and artwork-region RGBA/hash
+metrics, and pass/fail results. Frames are captured at DPR 1 without resizing.
+PNG references, actual player PNGs and exported <code>.lot</code> files remain beside it.</p>
+<p>The default gate uses the SVG renderer. Add <code>--renderer canvas</code> to investigate
+Canvas playback, or repeat <code>--renderer</code> to compare both. A failed comparison or
+an undetected blank/frozen control exits nonzero. Canvas opacity differences
+with the pinned player are a known failing comparison, not an accepted fallback.</p>
+<h3 id="android-native-graphics-check">Android native graphics check</h3>
+<p>After generating the web manifest above, select an existing full JDK 21 and Maven
+3.9+. Maven resolves pinned test-only Android/Robolectric dependencies from Maven
+Central and Google Maven; no Android SDK, device or product dependency is needed.</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">PYTHONPATH</span><span class="o">=</span>.<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>--locked<span class="w"> </span>python<span class="w"> </span>scripts/check_lottie_android.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>--maven<span class="w"> </span>/path/to/mvn<span class="w"> </span>--java-home<span class="w"> </span>/path/to/jdk-21<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span>--cases<span class="w"> </span>/tmp/quickthumb-lottie-observations/cases.json<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>--output<span class="w"> </span>/tmp/quickthumb-android-observations
+</code></pre></div>
+<p>The output must be new. <code>--settings</code> accepts an existing Maven proxy/mirror setup;
+<code>--trust-store</code> selects an existing Java CA store, and <code>--runtime-home</code> selects a
+writable SDK cache. The actual Android parser consumes original bytes, without
+key reordering or another normalization. Frame seeks, render exceptions, native
+runtime identity and pixel/probe results are recorded in <code>report.json</code> beside
+PNGs and <code>maven.log</code>. A Maven success alone does not establish matching output:
+the Python gate checks the same budgets, controls and shared-paint pixel probe
+as the web check and exits nonzero on any unexpected result. iOS, physical Android
+devices and hardware rendering are outside this test.</p>
+<h2 id="pptx-compatibility">PPTX compatibility</h2>
+<p>PPTX keeps supported text and shapes editable. Glow can accompany that editable
+content as a fixed image; re-export after edits to update the glow. Outlined
+content may also require editing multiple objects together or re-exporting.</p>
+<p>These effect combinations export the affected layer as a picture:</p>
+<ul>
+<li>Translucent text, shapes or outlines with stroke/glow effects.</li>
+<li>Gradient-filled shapes with stroke/glow effects.</li>
+<li>Rich text with glow, or content combining glow and shadow.</li>
+<li>Shape glow whose source extends beyond the slide.</li>
+</ul>
+<p>Text with an opaque linear gradient can retain its editable fill and outline. Only the
+paint actually used by each text part determines whether it is translucent;
+unused or overridden colors do not remove editability.</p>
+<p>Inspect <code>canvas.validate_export("pptx")</code> before export or the result's
+<code>capability_report</code> afterward to see compatibility decisions. A mixed editable
+foreground and fixed effect has <code>support="partial"</code>; a complete layer image has
+<code>support="fallback"</code>. See <a href="../export-methods/#document-layer-routing">document layer routing</a>
+for receipt fields.</p>
+<p><code>ExportPolicy(pptx={"title": "native"})</code> rejects these effect image or mixed
+representations for the layer with ID <code>title</code>. <code>ExportPolicy(unsupported_motion="error")</code> also
+rejects these effect fallbacks. Canvas and Deck <code>to_pptx(policy=...)</code> enforce the
+same policy checks as file exports. Defaults allow the explained fallbacks.</p>
+<h2 id="html-browser-validation-harness">HTML browser validation harness</h2>
+<p>The developer-only harness captures actual exported Canvas and two-slide Deck
+stages with an explicitly selected Chrome and Node's built-in WebSocket. It does
+not install a browser or change <code>ExportPolicy</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">PYTHONPATH</span><span class="o">=</span>.<span class="w"> </span>python<span class="w"> </span>scripts/check_html_fidelity.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--chrome<span class="w"> </span><span class="s2">"/path/to/chrome"</span><span class="w"> </span>--output<span class="w"> </span>/tmp/quickthumb-html-observations
+</code></pre></div>
+<p>The output directory must be new. Chrome runs headless with a temporary profile
+and loopback CDP; the harness never attaches to an existing browser session.
+It waits for fonts, images and slide transitions, captures only the original-size
+stage at DPR 1, and seeks a real click-triggered CSS fade at 0, 5 and 10 seconds.
+The report records browser/Node versions, canonical environment, input asset
+hashes, executed route diagnostics, dimensions, seek points, explicit fixture
+limits, pixel/hash metrics and verdicts. Canonical/browser PNGs remain beside it.</p>
+<p>The mixed text/shape/image/mask fixtures allow a channel tolerance of 16, at most
+8% differing pixels, and average-hash similarity of at least 0.94. Every component
+must also satisfy its recorded region criteria: text allows 20% differing pixels
+and requires hash similarity 0.95; the native ellipse allows 2% and requires 0.98.
+The embedded image is exact; the masked fragment allows only one channel level
+of rounding. Text/ellipse channel tolerance is 16. These local criteria prevent
+small missing features from passing a whole-stage average. Negative controls
+remove each text/image/mask/ellipse element in both the wide Canvas and tall Deck
+and must fail that specific region, not merely another metric. All allowances
+are fixture-specific and are not general document budgets. The simple
+fade permits only one channel level of rounding; a deliberately wrong document
+must fail comparison. Unexpected verdicts fail the command while retaining its
+report. No automatic raster fallback or browser/CI installation is performed.</p>
+<p>This observes one Chrome/font/platform environment and one bounded CSS animation,
+not every browser, animation, cue, or Deck transition. CairoSVG cannot substitute
+for this browser observation. Existing Node runtime tests check scheduling and
+state behavior separately from browser pixels.</p>
+<h2 id="static-cross-export-checks">Static cross-export checks</h2>
+<p><code>tests/test_static_export_matrix.py</code> sends the same authored content through the
+public Canvas and Deck file-export boundaries. The first 160×120 slide combines
+repository-font text, a native rectangle, a generated image and an elliptical
+mask; the second Deck slide has a translucent rectangle on a transparent canvas.
+The checks distinguish measured appearance from structural evidence:</p>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Canvas</th>
+<th>Deck</th>
+<th>Capability and fallback evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PNG</td>
+<td>Decoded RGBA equals the canonical sample</td>
+<td>Each numbered slide equals its canonical sample</td>
+<td>Raster output; no native-object or document-viewer claim</td>
+</tr>
+<tr>
+<td>SVG</td>
+<td>Actual CairoSVG observation plus native text/vector and PNG checks</td>
+<td>Single-file Deck SVG is rejected; each Canvas slide is measured separately</td>
+<td>Executed source IDs, native routes and explained image/mask PNG routes</td>
+</tr>
+<tr>
+<td>HTML</td>
+<td>Stage markup, native text/CSS and exact mask PNG</td>
+<td>Stage count and slide-local routes</td>
+<td>Structural only; no browser pixel measurement in this matrix</td>
+</tr>
+<tr>
+<td>PDF</td>
+<td>Actual PDFium observation, searchable text, vector paths and image objects</td>
+<td>Page count/geometry, native objects and rendered component regions</td>
+<td>Canvas routes reported; Deck executed routes and receipt fidelity are not collected yet</td>
+</tr>
+<tr>
+<td>PPTX</td>
+<td>Editable OOXML text/shapes and exact positioned mask PNG</td>
+<td>Slide count and per-slide native/raster objects</td>
+<td>Executed routes reported; PowerPoint/Keynote appearance remains unmeasured</td>
+</tr>
+</tbody>
+</table>
+<p>The mixed SVG/PDF fixture uses explicit whole-image limits: zero channel
+tolerance, at most 8% different pixels, and hash similarity of at least 0.94.
+These are fixture-specific font/edge budgets, not export defaults. Native text
+must also be present as text, and small rectangle, image and mask-interior regions
+must match exactly so a missing component cannot hide in the whole-image budget.
+The text region also requires hash similarity of at least 0.95 and permits at most
+30% different pixels after a channel tolerance of 16 for font rasterization edges.
+A real Deck PDF containing searchable white-on-white text must fail this regional
+check, even though its text objects and other component regions are intact.
+For the transparent rectangle only, alpha must match exactly while visible RGB
+may differ by at most two levels per channel because of renderer
+premultiplication/unpremultiplication rounding. Fully hidden RGB follows the
+existing visible-RGBA comparison rule; PNG still preserves raw RGBA exactly.
+No output is resized or flattened onto an invented matte.</p>
+<p>Run <code>uv run --locked pytest tests/test_static_export_matrix.py --no-cov -q</code>.
+The existing quality workflow already runs this file through <code>pytest tests/</code>
+with the SVG/PDF/PPTX extras and native Cairo installed. Local environments
+without an optional observer skip its cases with the dependency reason.
+Pytest case IDs identify the format and document kind. Each case keeps its
+source JSON, canonical PNGs, actual exports and JSON receipts in its temporary
+directory; measured receipts include renderer versions, canonical environment,
+limits and metrics. A failure is reproducible from the shared fixture and named
+format check rather than a platform-specific screenshot baseline.</p>
+<p>This is a bounded static matrix. It does not run a browser, certify PPTX viewer
+pixels/fonts/timing, or add a Deck PDF fidelity policy. The separate HTML browser
+harness and native presentation-viewer observations require their own execution
+and environment evidence. Structural success must not be reported as a rendered
+pixel-fidelity verdict.</p>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        
+
+<footer class="md-footer qt-footer">
+  <div class="qt-footer-inner">
+    <div>
+      <a class="qt-brand" href="../.." aria-label="quickthumb home">
+        <img src="../../assets/brand/quickthumb-icon.svg" width="28" height="28" alt="">
+        <span>quickthumb</span>
+      </a>
+      <p class="qt-footer-tagline">A Python creative toolkit for images, presentations, and video.</p>
+    </div>
+    <nav class="qt-footer-links" aria-label="Footer">
+      <a href="../../cookbook/">Recipes</a>
+      <a href="../../getting-started/">Docs</a>
+      <a href="../../installation/">Installation</a>
+      <a href="../../changelog/">Changelog</a>
+    </nav>
+    <div class="qt-footer-meta">
+      <a class="qt-icon-button" href="https://github.com/sjquant/quickthumb" aria-label="quickthumb on GitHub">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg>
+      </a>
+      <p>© 2026 Seonu Jang · MIT License<br>Made with <a href="https://squidfunk.github.io/mkdocs-material/">Material for MkDocs</a></p>
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/site.js"></script>
+      
+    
+  </body>
+</html>

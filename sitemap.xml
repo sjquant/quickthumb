@@ -1,0 +1,1963 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+    <url>
+        <loc>https://quickthumb.solaqua.dev/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/changelog/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/changelog/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/concepts/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/concepts/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/diagnostics/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/diagnostics/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/diagnostics/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/diagnostics/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/diagnostics/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/diagnostics/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/errors/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/errors/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/errors/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/errors/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/errors/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/errors/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/exports/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/exports/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/exports/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/exports/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/exports/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/exports/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/faq/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/faq/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/faq/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/faq/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/faq/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/faq/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/getting-started/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/getting-started/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/installation/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/installation/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/installation/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/installation/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/installation/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/installation/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/json-schema/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/json-schema/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/json-schema/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/json-schema/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/json-schema/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/json-schema/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/output-guide/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/output-guide/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/output-guide/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/output-guide/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/output-guide/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/output-guide/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/timing/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/timing/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/timing/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/timing/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/timing/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/timing/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/api/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/api/audio/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/audio/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/audio/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/audio/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/audio/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/audio/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/api/background/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/background/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/background/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/background/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/background/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/background/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/api/canvas/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/canvas/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/canvas/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/canvas/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/canvas/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/canvas/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/api/data-visualizations/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/data-visualizations/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/data-visualizations/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/data-visualizations/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/data-visualizations/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/data-visualizations/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/api/deck/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/deck/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/deck/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/deck/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/deck/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/deck/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/api/effects/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/effects/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/effects/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/effects/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/effects/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/effects/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/api/enums/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/enums/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/enums/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/enums/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/enums/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/enums/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/api/group/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/group/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/group/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/group/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/group/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/group/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/api/image/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/image/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/image/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/image/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/image/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/image/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/api/inspection/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/inspection/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/inspection/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/inspection/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/inspection/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/inspection/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/api/outline/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/outline/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/outline/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/outline/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/outline/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/outline/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/api/path/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/path/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/path/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/path/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/path/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/path/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/api/shape/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/shape/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/shape/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/shape/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/shape/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/shape/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/api/svg/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/svg/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/svg/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/svg/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/svg/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/svg/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/api/text/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/text/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/text/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/text/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/text/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/text/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/api/video/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/video/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/video/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/video/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/video/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/video/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/cookbook/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/cookbook/ai-workflow/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/ai-workflow/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/ai-workflow/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/ai-workflow/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/ai-workflow/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/ai-workflow/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/cookbook/decks-and-video/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/decks-and-video/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/decks-and-video/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/decks-and-video/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/decks-and-video/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/decks-and-video/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/cookbook/instagram-card/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/instagram-card/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/instagram-card/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/instagram-card/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/instagram-card/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/instagram-card/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/cookbook/launch-announcement/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/launch-announcement/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/launch-announcement/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/launch-announcement/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/launch-announcement/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/launch-announcement/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/cookbook/podcast-promo/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/podcast-promo/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/podcast-promo/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/podcast-promo/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/podcast-promo/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/podcast-promo/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/cookbook/shorts-cover/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/shorts-cover/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/shorts-cover/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/shorts-cover/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/shorts-cover/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/shorts-cover/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/cookbook/webfonts-rembg/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/webfonts-rembg/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/webfonts-rembg/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/webfonts-rembg/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/webfonts-rembg/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/webfonts-rembg/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/cookbook/youtube-thumbnail/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/youtube-thumbnail/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/youtube-thumbnail/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/youtube-thumbnail/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/youtube-thumbnail/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/youtube-thumbnail/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/reference/export-animation/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-animation/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-animation/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-animation/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-animation/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-animation/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/reference/export-assets/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-assets/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-assets/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-assets/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-assets/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-assets/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/reference/export-documents/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-documents/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-documents/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-documents/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-documents/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-documents/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/reference/export-frames/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-frames/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-frames/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-frames/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-frames/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-frames/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/reference/export-lottie/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-lottie/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-lottie/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-lottie/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-lottie/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-lottie/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/reference/export-methods/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-methods/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-methods/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-methods/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-methods/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-methods/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/reference/export-transparency/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-transparency/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-transparency/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-transparency/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-transparency/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-transparency/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/reference/export-validation/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-validation/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-validation/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-validation/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-validation/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-validation/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/reference/inspection-details/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/inspection-details/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/inspection-details/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/inspection-details/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/inspection-details/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/inspection-details/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/reference/timing-details/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/timing-details/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/timing-details/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/timing-details/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/timing-details/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/timing-details/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/releases/0.8.0/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/releases/0.8.0/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/releases/0.8.0/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/releases/0.8.0/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/releases/0.8.0/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/releases/0.8.0/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/changelog/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/changelog/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/concepts/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/concepts/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/diagnostics/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/diagnostics/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/diagnostics/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/diagnostics/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/diagnostics/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/diagnostics/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/errors/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/errors/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/errors/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/errors/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/errors/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/errors/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/exports/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/exports/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/exports/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/exports/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/exports/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/exports/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/faq/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/faq/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/faq/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/faq/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/faq/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/faq/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/getting-started/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/getting-started/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/installation/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/installation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/installation/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/installation/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/installation/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/installation/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/json-schema/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/json-schema/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/json-schema/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/json-schema/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/json-schema/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/json-schema/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/output-guide/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/output-guide/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/output-guide/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/output-guide/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/output-guide/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/output-guide/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/timing/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/timing/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/timing/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/timing/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/timing/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/timing/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/api/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/api/audio/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/audio/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/audio/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/audio/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/audio/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/audio/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/api/background/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/background/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/background/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/background/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/background/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/background/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/api/canvas/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/canvas/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/canvas/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/canvas/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/canvas/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/canvas/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/api/data-visualizations/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/data-visualizations/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/data-visualizations/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/data-visualizations/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/data-visualizations/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/data-visualizations/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/api/deck/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/deck/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/deck/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/deck/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/deck/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/deck/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/api/effects/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/effects/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/effects/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/effects/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/effects/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/effects/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/api/enums/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/enums/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/enums/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/enums/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/enums/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/enums/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/api/group/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/group/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/group/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/group/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/group/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/group/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/api/image/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/image/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/image/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/image/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/image/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/image/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/api/inspection/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/inspection/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/inspection/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/inspection/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/inspection/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/inspection/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/api/outline/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/outline/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/outline/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/outline/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/outline/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/outline/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/api/path/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/path/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/path/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/path/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/path/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/path/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/api/shape/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/shape/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/shape/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/shape/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/shape/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/shape/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/api/svg/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/svg/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/svg/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/svg/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/svg/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/svg/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/api/text/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/text/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/text/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/text/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/text/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/text/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/api/video/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/video/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/video/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/video/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/video/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/video/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/cookbook/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/cookbook/ai-workflow/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/ai-workflow/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/ai-workflow/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/ai-workflow/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/ai-workflow/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/ai-workflow/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/cookbook/decks-and-video/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/decks-and-video/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/decks-and-video/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/decks-and-video/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/decks-and-video/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/decks-and-video/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/cookbook/instagram-card/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/instagram-card/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/instagram-card/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/instagram-card/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/instagram-card/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/instagram-card/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/cookbook/launch-announcement/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/launch-announcement/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/launch-announcement/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/launch-announcement/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/launch-announcement/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/launch-announcement/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/cookbook/podcast-promo/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/podcast-promo/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/podcast-promo/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/podcast-promo/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/podcast-promo/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/podcast-promo/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/cookbook/shorts-cover/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/shorts-cover/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/shorts-cover/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/shorts-cover/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/shorts-cover/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/shorts-cover/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/cookbook/webfonts-rembg/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/webfonts-rembg/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/webfonts-rembg/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/webfonts-rembg/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/webfonts-rembg/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/webfonts-rembg/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/cookbook/youtube-thumbnail/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/youtube-thumbnail/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/youtube-thumbnail/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/youtube-thumbnail/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/youtube-thumbnail/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/youtube-thumbnail/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/reference/export-animation/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-animation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-animation/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-animation/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-animation/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-animation/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/reference/export-assets/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-assets/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-assets/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-assets/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-assets/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-assets/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/reference/export-documents/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-documents/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-documents/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-documents/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-documents/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-documents/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/reference/export-frames/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-frames/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-frames/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-frames/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-frames/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-frames/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/reference/export-lottie/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-lottie/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-lottie/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-lottie/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-lottie/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-lottie/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/reference/export-methods/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-methods/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-methods/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-methods/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-methods/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-methods/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/reference/export-transparency/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-transparency/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-transparency/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-transparency/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-transparency/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-transparency/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/reference/export-validation/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-validation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-validation/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-validation/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-validation/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-validation/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/reference/inspection-details/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/inspection-details/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/inspection-details/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/inspection-details/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/inspection-details/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/inspection-details/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/reference/timing-details/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/timing-details/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/timing-details/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/timing-details/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/timing-details/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/timing-details/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ko/releases/0.8.0/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/releases/0.8.0/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/releases/0.8.0/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/releases/0.8.0/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/releases/0.8.0/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/releases/0.8.0/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/changelog/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/changelog/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/concepts/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/concepts/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/diagnostics/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/diagnostics/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/diagnostics/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/diagnostics/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/diagnostics/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/diagnostics/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/errors/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/errors/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/errors/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/errors/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/errors/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/errors/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/exports/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/exports/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/exports/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/exports/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/exports/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/exports/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/faq/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/faq/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/faq/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/faq/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/faq/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/faq/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/getting-started/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/getting-started/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/installation/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/installation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/installation/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/installation/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/installation/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/installation/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/json-schema/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/json-schema/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/json-schema/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/json-schema/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/json-schema/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/json-schema/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/output-guide/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/output-guide/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/output-guide/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/output-guide/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/output-guide/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/output-guide/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/timing/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/timing/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/timing/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/timing/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/timing/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/timing/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/api/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/api/audio/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/audio/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/audio/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/audio/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/audio/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/audio/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/api/background/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/background/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/background/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/background/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/background/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/background/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/api/canvas/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/canvas/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/canvas/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/canvas/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/canvas/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/canvas/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/api/data-visualizations/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/data-visualizations/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/data-visualizations/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/data-visualizations/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/data-visualizations/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/data-visualizations/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/api/deck/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/deck/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/deck/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/deck/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/deck/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/deck/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/api/effects/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/effects/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/effects/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/effects/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/effects/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/effects/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/api/enums/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/enums/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/enums/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/enums/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/enums/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/enums/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/api/group/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/group/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/group/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/group/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/group/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/group/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/api/image/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/image/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/image/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/image/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/image/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/image/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/api/inspection/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/inspection/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/inspection/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/inspection/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/inspection/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/inspection/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/api/outline/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/outline/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/outline/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/outline/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/outline/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/outline/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/api/path/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/path/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/path/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/path/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/path/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/path/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/api/shape/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/shape/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/shape/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/shape/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/shape/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/shape/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/api/svg/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/svg/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/svg/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/svg/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/svg/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/svg/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/api/text/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/text/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/text/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/text/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/text/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/text/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/api/video/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/video/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/video/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/video/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/video/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/video/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/cookbook/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/cookbook/ai-workflow/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/ai-workflow/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/ai-workflow/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/ai-workflow/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/ai-workflow/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/ai-workflow/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/cookbook/decks-and-video/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/decks-and-video/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/decks-and-video/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/decks-and-video/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/decks-and-video/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/decks-and-video/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/cookbook/instagram-card/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/instagram-card/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/instagram-card/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/instagram-card/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/instagram-card/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/instagram-card/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/cookbook/launch-announcement/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/launch-announcement/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/launch-announcement/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/launch-announcement/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/launch-announcement/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/launch-announcement/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/cookbook/podcast-promo/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/podcast-promo/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/podcast-promo/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/podcast-promo/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/podcast-promo/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/podcast-promo/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/cookbook/shorts-cover/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/shorts-cover/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/shorts-cover/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/shorts-cover/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/shorts-cover/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/shorts-cover/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/cookbook/webfonts-rembg/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/webfonts-rembg/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/webfonts-rembg/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/webfonts-rembg/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/webfonts-rembg/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/webfonts-rembg/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/cookbook/youtube-thumbnail/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/youtube-thumbnail/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/youtube-thumbnail/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/youtube-thumbnail/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/youtube-thumbnail/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/youtube-thumbnail/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/reference/export-animation/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-animation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-animation/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-animation/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-animation/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-animation/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/reference/export-assets/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-assets/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-assets/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-assets/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-assets/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-assets/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/reference/export-documents/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-documents/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-documents/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-documents/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-documents/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-documents/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/reference/export-frames/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-frames/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-frames/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-frames/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-frames/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-frames/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/reference/export-lottie/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-lottie/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-lottie/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-lottie/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-lottie/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-lottie/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/reference/export-methods/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-methods/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-methods/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-methods/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-methods/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-methods/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/reference/export-transparency/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-transparency/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-transparency/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-transparency/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-transparency/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-transparency/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/reference/export-validation/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-validation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-validation/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-validation/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-validation/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-validation/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/reference/inspection-details/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/inspection-details/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/inspection-details/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/inspection-details/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/inspection-details/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/inspection-details/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/reference/timing-details/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/timing-details/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/timing-details/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/timing-details/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/timing-details/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/timing-details/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/ja/releases/0.8.0/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/releases/0.8.0/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/releases/0.8.0/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/releases/0.8.0/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/releases/0.8.0/"/>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/releases/0.8.0/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/changelog/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/changelog/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/concepts/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/concepts/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/diagnostics/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/diagnostics/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/diagnostics/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/diagnostics/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/diagnostics/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/diagnostics/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/errors/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/errors/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/errors/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/errors/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/errors/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/errors/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/exports/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/exports/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/exports/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/exports/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/exports/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/exports/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/faq/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/faq/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/faq/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/faq/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/faq/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/faq/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/getting-started/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/getting-started/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/getting-started/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/installation/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/installation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/installation/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/installation/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/installation/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/installation/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/json-schema/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/json-schema/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/json-schema/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/json-schema/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/json-schema/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/json-schema/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/output-guide/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/output-guide/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/output-guide/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/output-guide/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/output-guide/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/output-guide/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/timing/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/timing/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/timing/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/timing/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/timing/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/timing/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/api/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/api/audio/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/audio/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/audio/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/audio/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/audio/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/audio/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/api/background/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/background/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/background/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/background/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/background/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/background/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/api/canvas/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/canvas/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/canvas/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/canvas/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/canvas/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/canvas/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/api/data-visualizations/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/data-visualizations/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/data-visualizations/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/data-visualizations/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/data-visualizations/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/data-visualizations/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/api/deck/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/deck/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/deck/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/deck/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/deck/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/deck/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/api/effects/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/effects/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/effects/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/effects/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/effects/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/effects/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/api/enums/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/enums/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/enums/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/enums/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/enums/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/enums/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/api/group/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/group/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/group/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/group/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/group/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/group/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/api/image/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/image/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/image/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/image/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/image/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/image/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/api/inspection/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/inspection/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/inspection/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/inspection/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/inspection/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/inspection/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/api/outline/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/outline/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/outline/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/outline/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/outline/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/outline/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/api/path/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/path/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/path/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/path/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/path/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/path/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/api/shape/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/shape/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/shape/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/shape/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/shape/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/shape/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/api/svg/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/svg/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/svg/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/svg/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/svg/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/svg/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/api/text/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/text/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/text/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/text/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/text/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/text/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/api/video/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/api/video/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/api/video/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/api/video/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/api/video/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/api/video/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/cookbook/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/cookbook/ai-workflow/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/ai-workflow/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/ai-workflow/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/ai-workflow/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/ai-workflow/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/ai-workflow/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/cookbook/decks-and-video/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/decks-and-video/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/decks-and-video/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/decks-and-video/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/decks-and-video/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/decks-and-video/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/cookbook/instagram-card/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/instagram-card/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/instagram-card/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/instagram-card/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/instagram-card/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/instagram-card/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/cookbook/launch-announcement/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/launch-announcement/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/launch-announcement/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/launch-announcement/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/launch-announcement/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/launch-announcement/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/cookbook/podcast-promo/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/podcast-promo/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/podcast-promo/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/podcast-promo/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/podcast-promo/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/podcast-promo/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/cookbook/shorts-cover/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/shorts-cover/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/shorts-cover/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/shorts-cover/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/shorts-cover/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/shorts-cover/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/cookbook/webfonts-rembg/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/webfonts-rembg/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/webfonts-rembg/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/webfonts-rembg/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/webfonts-rembg/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/webfonts-rembg/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/cookbook/youtube-thumbnail/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/cookbook/youtube-thumbnail/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/cookbook/youtube-thumbnail/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/cookbook/youtube-thumbnail/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/cookbook/youtube-thumbnail/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/cookbook/youtube-thumbnail/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/reference/export-animation/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-animation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-animation/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-animation/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-animation/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-animation/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/reference/export-assets/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-assets/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-assets/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-assets/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-assets/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-assets/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/reference/export-documents/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-documents/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-documents/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-documents/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-documents/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-documents/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/reference/export-frames/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-frames/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-frames/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-frames/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-frames/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-frames/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/reference/export-lottie/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-lottie/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-lottie/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-lottie/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-lottie/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-lottie/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/reference/export-methods/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-methods/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-methods/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-methods/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-methods/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-methods/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/reference/export-transparency/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-transparency/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-transparency/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-transparency/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-transparency/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-transparency/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/reference/export-validation/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/export-validation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/export-validation/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/export-validation/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/export-validation/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/export-validation/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/reference/inspection-details/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/inspection-details/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/inspection-details/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/inspection-details/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/inspection-details/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/inspection-details/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/reference/timing-details/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/reference/timing-details/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/reference/timing-details/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/reference/timing-details/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/reference/timing-details/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/reference/timing-details/"/>
+    </url>
+    <url>
+        <loc>https://quickthumb.solaqua.dev/zh/releases/0.8.0/</loc>
+        <lastmod>2026-11-10</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh-CN" href="https://quickthumb.solaqua.dev/zh/releases/0.8.0/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://quickthumb.solaqua.dev/releases/0.8.0/"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/releases/0.8.0/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://quickthumb.solaqua.dev/ja/releases/0.8.0/"/>
+        <xhtml:link rel="alternate" hreflang="ko" href="https://quickthumb.solaqua.dev/ko/releases/0.8.0/"/>
+    </url>
+</urlset>

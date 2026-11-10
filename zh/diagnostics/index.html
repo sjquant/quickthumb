@@ -1,0 +1,3369 @@
+
+<!doctype html>
+<html lang="zh-CN" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="使用 canvas.diagnose() 排查排版与可读性缺陷，并通过 quickthumb CLI 进行规范的代码检查（lint）、渲染、文件监听、视觉比对及本地预览。">
+      
+      
+        <meta name="author" content="Seonu Jang">
+      
+      
+        <link rel="canonical" href="https://quickthumb.solaqua.dev/zh/diagnostics/">
+      
+      
+        <link rel="prev" href="../json-schema/">
+      
+      
+        <link rel="next" href="../errors/">
+      
+      
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/diagnostics/" hreflang="en">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ko/diagnostics/" hreflang="ko">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/ja/diagnostics/" hreflang="ja">
+        
+          <link rel="alternate" href="https://quickthumb.solaqua.dev/zh/diagnostics/" hreflang="zh-CN">
+        
+      
+      
+      <link rel="icon" href="../../assets/brand/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+  
+  <title>quickthumb - 诊断与 CLI</title>
+  
+
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  
+  
+  
+  
+    
+  
+  
+  
+  
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="zh_CN">
+  
+    
+      
+  <link rel="alternate" hreflang="x-default" href="https://quickthumb.solaqua.dev/diagnostics/">
+      
+      
+  <meta property="og:locale:alternate" content="en_US">
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="ko_KR">
+      
+    
+      
+      
+  <meta property="og:locale:alternate" content="ja_JP">
+      
+    
+      
+      
+    
+  
+  <meta property="og:site_name" content="quickthumb">
+  <meta property="og:title" content="quickthumb - 诊断与 CLI">
+  <meta property="og:description" content="使用 canvas.diagnose() 排查排版与可读性缺陷，并通过 quickthumb CLI 进行规范的代码检查（lint）、渲染、文件监听、视觉比对及本地预览。">
+  
+  <meta property="og:url" content="https://quickthumb.solaqua.dev/zh/diagnostics/">
+  
+  <meta property="og:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta property="og:image:alt" content="quickthumb：用代码制作缩略图。两张缩略图示例。">
+  
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  
+  <meta name="twitter:image" content="https://quickthumb.solaqua.dev/assets/brand/social-preview.png">
+  <meta name="twitter:image:alt" content="quickthumb：用代码制作缩略图。两张缩略图示例。">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="quickthumb - 诊断与 CLI">
+  <meta name="twitter:description" content="使用 canvas.diagnose() 排查排版与可读性缺陷，并通过 quickthumb CLI 进行规范的代码检查（lint）、渲染、文件监听、视觉比对及本地预览。">
+  
+  <script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "@id": "https://quickthumb.solaqua.dev/zh/#website", "url": "https://quickthumb.solaqua.dev/zh/", "name": "quickthumb", "description": "用 Python 或 JSON 制作图像、演示文稿和动画视频。", "inLanguage": "zh-CN", "publisher": {"@id": "https://quickthumb.solaqua.dev/#author"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}}, {"@type": "Person", "@id": "https://quickthumb.solaqua.dev/#author", "name": "Seonu Jang"}, {"@type": "SoftwareApplication", "@id": "https://quickthumb.solaqua.dev/#software", "name": "quickthumb", "url": "https://quickthumb.solaqua.dev/", "description": "用 Python 或 JSON 制作图像、演示文稿和动画视频。", "applicationCategory": "MultimediaApplication", "softwareVersion": "0.8.0", "softwareRequirements": "Python >=3.11", "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE", "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "sameAs": ["https://github.com/sjquant/quickthumb", "https://pypi.org/project/quickthumb/"]}, {"@type": "SoftwareSourceCode", "@id": "https://quickthumb.solaqua.dev/#source", "name": "quickthumb", "codeRepository": "https://github.com/sjquant/quickthumb", "programmingLanguage": "Python", "runtimePlatform": "Python >=3.11", "targetProduct": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}, "license": "https://github.com/sjquant/quickthumb/blob/main/LICENSE"}, {"@type": "WebPage", "@id": "https://quickthumb.solaqua.dev/zh/diagnostics/#webpage", "url": "https://quickthumb.solaqua.dev/zh/diagnostics/", "name": "诊断与 CLI", "description": "使用 canvas.diagnose() 排查排版与可读性缺陷，并通过 quickthumb CLI 进行规范的代码检查（lint）、渲染、文件监听、视觉比对及本地预览。", "inLanguage": "zh-CN", "isPartOf": {"@id": "https://quickthumb.solaqua.dev/zh/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "primaryImageOfPage": {"@type": "ImageObject", "url": "https://quickthumb.solaqua.dev/assets/brand/social-preview.png", "caption": "quickthumb：用代码制作缩略图。两张缩略图示例。", "width": 1200, "height": 630}, "mainEntity": {"@id": "https://quickthumb.solaqua.dev/zh/diagnostics/#document"}, "breadcrumb": {"@id": "https://quickthumb.solaqua.dev/zh/diagnostics/#breadcrumbs"}}, {"@type": "BreadcrumbList", "@id": "https://quickthumb.solaqua.dev/zh/diagnostics/#breadcrumbs", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "quickthumb", "item": "https://quickthumb.solaqua.dev/zh/"}, {"@type": "ListItem", "position": 2, "name": "诊断与 CLI", "item": "https://quickthumb.solaqua.dev/zh/diagnostics/"}]}, {"@type": "TechArticle", "@id": "https://quickthumb.solaqua.dev/zh/diagnostics/#document", "url": "https://quickthumb.solaqua.dev/zh/diagnostics/", "headline": "诊断与 CLI", "description": "使用 canvas.diagnose() 排查排版与可读性缺陷，并通过 quickthumb CLI 进行规范的代码检查（lint）、渲染、文件监听、视觉比对及本地预览。", "inLanguage": "zh-CN", "mainEntityOfPage": {"@id": "https://quickthumb.solaqua.dev/zh/diagnostics/#webpage"}, "isPartOf": {"@id": "https://quickthumb.solaqua.dev/zh/#website"}, "about": {"@id": "https://quickthumb.solaqua.dev/#software"}, "author": {"@id": "https://quickthumb.solaqua.dev/#author"}}]}</script>
+  
+
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#diagnostics-cli" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header qt-header" data-md-component="header">
+  <nav class="qt-header-inner" aria-label="主导航">
+    <a class="qt-brand" href="../" aria-label="quickthumb 首页">
+      <img src="../../assets/brand/quickthumb-icon.svg" width="40" height="40" alt="">
+      <span>quickthumb</span>
+    </a>
+    <div class="qt-desktop-links">
+      <a href="../cookbook/">示例</a>
+      <a href="../getting-started/">文档</a>
+      <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="qt-header-tools">
+      
+
+
+<details class="qt-language-switch">
+  <summary aria-label="语言: 简体中文">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    <span data-qt-language-current>简体中文</span>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7.41 8.58 12 13.17l4.59-4.59L18 10l-6 6-6-6z"/></svg>
+  </summary>
+  <nav aria-label="语言">
+    
+    <a href="https://quickthumb.solaqua.dev/diagnostics/" hreflang="en" lang="en" data-qt-language="en" target="_self">English</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ko/diagnostics/" hreflang="ko" lang="ko" data-qt-language="ko" target="_self">한국어</a>
+    
+    <a href="https://quickthumb.solaqua.dev/ja/diagnostics/" hreflang="ja" lang="ja" data-qt-language="ja" target="_self">日本語</a>
+    
+    <a href="https://quickthumb.solaqua.dev/zh/diagnostics/" hreflang="zh-CN" lang="zh-CN" data-qt-language="zh-CN" target="_self" aria-current="page">简体中文</a>
+    
+  </nav>
+</details>
+      <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="切换到深色主题"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="切换到深色主题" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="custom"  aria-label="切换到浅色主题"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="切换到浅色主题" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+      <button class="qt-icon-button" type="button" data-qt-search aria-label="搜索文档">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </button>
+      <button class="qt-icon-button qt-menu-trigger" type="button" data-qt-menu aria-label="打开导航菜单" aria-controls="qt-navigation" aria-expanded="false">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+      </button>
+      <a class="qt-button qt-button-white qt-header-cta" href="../getting-started/">开始使用</a>
+    </div>
+  </nav>
+  <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</header>
+
+<dialog class="qt-drawer" id="qt-navigation" aria-label="网站导航">
+  <div class="qt-drawer-header">
+    <a class="qt-brand" href="../" aria-label="quickthumb 首页">
+      <img src="../../assets/brand/quickthumb-icon.svg" width="36" height="36" alt="">
+      <span>quickthumb</span>
+    </a>
+    <button class="qt-icon-button" type="button" data-qt-close aria-label="关闭导航菜单" autofocus>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
+  <button class="qt-drawer-search" type="button" data-qt-search>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+    <span>搜索文档</span>
+  </button>
+  <nav class="qt-drawer-links" aria-label="探索 quickthumb">
+    <a class="qt-button qt-button-blue" href="../getting-started/">开始使用 <span aria-hidden="true">→</span></a>
+    <a href="../cookbook/">示例</a>
+    <a href="../getting-started/">文档</a>
+    <a href="https://github.com/sjquant/quickthumb">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+  <nav class="qt-drawer-docs" aria-label="文档快捷链接">
+    <p class="qt-nav-caption">文档</p>
+    <a href="../installation/">安装</a>
+    <a href="../concepts/">核心概念</a>
+    <a href="../api/">API 参考</a>
+  </nav>
+  <details class="qt-drawer-index">
+    <summary>全部文档</summary>
+    
+<nav aria-label="All documentation">
+  <ul>
+    
+      <li>
+        
+          <a href="../">首页</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>快速开始</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../getting-started/">渲染第一组卡片</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../installation/">安装</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../concepts/">核心概念</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../output-guide/">选择输出格式</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../timing/">动画时序</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>API 参考</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../api/">概览</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/canvas/">Canvas</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/deck/">Deck（多页幻灯片）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/inspection/">文档检查</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/background/">背景</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/text/">文本</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/image/">图像</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/shape/">形状</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/path/">路径</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/svg/">SVG</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/video/">视频</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/audio/">音频响应式创作</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/group/">编组（自动布局）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/outline/">外边框</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/data-visualizations/">数据可视化</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/effects/">效果</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../api/enums/">枚举与渐变</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>进阶参考</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <details>
+            <summary>导出</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../exports/">概览</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-methods/">导出方法与凭据</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-validation/">格式保真度与验证</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-documents/">SVG、HTML、PowerPoint 和 PDF</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-animation/">GIF、视频与旁白</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-transparency/">透明视频</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-frames/">图像序列与渲染质量</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-assets/">资源与可复现性</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/export-lottie/">Lottie 矢量动画</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/timing-details/">动画时序参考</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../reference/inspection-details/">检查复杂布局</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details open>
+            <summary>JSON 与 AI</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../json-schema/">JSON Schema 与 AI 工作流</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="./" aria-current="page">诊断与 CLI</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../errors/">结构化错误</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>示例集</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../cookbook/">示例画廊</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/decks-and-video/">演示文稿与视频</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/youtube-thumbnail/">YouTube 缩略图</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/instagram-card/">Instagram 卡片</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/podcast-promo/">播客宣传图</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/shorts-cover/">Shorts 与竖版封面</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/launch-announcement/">发布公告（自动布局）</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/ai-workflow/">AI 工作流</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../cookbook/webfonts-rembg/">Web 字体与背景去除</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../faq/">常见问题</a>
+        
+      </li>
+    
+      <li>
+        
+          <details>
+            <summary>更新日志</summary>
+            
+  <ul>
+    
+      <li>
+        
+          <a href="../changelog/">概览</a>
+        
+      </li>
+    
+      <li>
+        
+          <a href="../releases/0.8.0/">0.8.0</a>
+        
+      </li>
+    
+  </ul>
+
+          </details>
+        
+      </li>
+    
+  </ul>
+</nav>
+  </details>
+  <button class="qt-appearance" type="button" data-qt-theme>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18V6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-2.69L23.31 12 20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20z"/></svg>
+    <span>切换主题</span>
+  </button>
+</dialog>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../" title="quickthumb" class="md-nav__button md-logo" aria-label="quickthumb" data-md-component="logo">
+      
+  <img src="../../assets/brand/quickthumb-icon.png" alt="logo">
+
+    </a>
+    quickthumb
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/sjquant/quickthumb" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    sjquant/quickthumb
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    首页
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    快速开始
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    快速开始
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    渲染第一组卡片
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    安装
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    核心概念
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../output-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    选择输出格式
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../timing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    动画时序
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API 参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API 参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/canvas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canvas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/deck/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deck（多页幻灯片）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/inspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文档检查
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/background/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    背景
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/text/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    文本
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    图像
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/shape/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    形状
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    路径
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/svg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    视频
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    音频响应式创作
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/group/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    编组（自动布局）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/outline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    外边框
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/data-visualizations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    数据可视化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/effects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    效果
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/enums/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    枚举与渐变
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    进阶参考
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    进阶参考
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    导出
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    导出
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../exports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    导出方法与凭据
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    格式保真度与验证
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SVG、HTML、PowerPoint 和 PDF
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-animation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GIF、视频与旁白
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-transparency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    透明视频
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-frames/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    图像序列与渲染质量
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-assets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    资源与可复现性
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/export-lottie/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lottie 矢量动画
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/timing-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    动画时序参考
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/inspection-details/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    检查复杂布局
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON 与 AI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    JSON 与 AI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../json-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JSON Schema 与 AI 工作流
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    诊断与 CLI
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    诊断与 CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#canvasdiagnose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        canvas.diagnose()
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="canvas.diagnose()">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-gets-checked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        检查项
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-quickthumb-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumb CLI
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="quickthumb CLI">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#quickthumb-inspect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumb inspect
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quickthumb-lint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumb lint
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quickthumb-diff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumb diff
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quickthumb-render" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumb render
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quickthumb-watch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumb watch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quickthumb-doctor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumb doctor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quickthumb-serve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumb serve
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timeline-scrubber" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        时间轴预览器
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#variable-substitution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        变量替换
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    结构化错误
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    示例集
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    示例集
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    示例画廊
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/decks-and-video/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    演示文稿与视频
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/youtube-thumbnail/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YouTube 缩略图
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/instagram-card/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Instagram 卡片
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/podcast-promo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    播客宣传图
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/shorts-cover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shorts 与竖版封面
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/launch-announcement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    发布公告（自动布局）
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/ai-workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AI 工作流
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cookbook/webfonts-rembg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web 字体与背景去除
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    常见问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    更新日志
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    更新日志
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概览
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../releases/0.8.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0.8.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#canvasdiagnose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        canvas.diagnose()
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="canvas.diagnose()">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-gets-checked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        检查项
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-quickthumb-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumb CLI
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="quickthumb CLI">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#quickthumb-inspect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumb inspect
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quickthumb-lint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumb lint
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quickthumb-diff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumb diff
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quickthumb-render" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumb render
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quickthumb-watch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumb watch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quickthumb-doctor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumb doctor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quickthumb-serve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        quickthumb serve
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timeline-scrubber" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        时间轴预览器
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#variable-substitution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        变量替换
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="diagnostics-cli">诊断与 CLI</h1>
+<p>无需实际渲染文件，quickthumb 即可检测设计中常见的排版与可读性问题：在 Python 中可调用 <code>canvas.diagnose()</code>，在终端中可使用 <code>quickthumb lint</code>。</p>
+<p>若要在 Python 中检查设计，可从下方的示例开始。对于 JSON 规范文件，可<a href="#quickthumb-lint">安装 CLI 并运行 <code>quickthumb lint</code></a>。使用 <a href="#quickthumb-doctor"><code>quickthumb doctor</code></a> 检查导出依赖，或使用 <a href="#quickthumb-render"><code>quickthumb render</code></a> 执行渲染输出。详细的规则定义与更多 CLI 命令见下文。</p>
+<h2 id="canvasdiagnose"><code>canvas.diagnose()</code></h2>
+<p>返回一个 <code>DiagnosticReport</code>，其 <code>findings</code> 列表包含多个 <code>Diagnostic</code> 检查项。列表为空表示未发现任何问题；但这并不等同于视觉效果良好，也无法捕捉所有主观设计瑕疵。建议务必人工核对渲染产物。</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">Canvas</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">"spec.json"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">canvas</span> <span class="o">=</span> <span class="n">Canvas</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">for</span> <span class="n">finding</span> <span class="ow">in</span> <span class="n">canvas</span><span class="o">.</span><span class="n">diagnose</span><span class="p">()</span><span class="o">.</span><span class="n">findings</span><span class="p">:</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">finding</span><span class="o">.</span><span class="n">severity</span><span class="p">,</span> <span class="n">finding</span><span class="o">.</span><span class="n">code</span><span class="p">,</span> <span class="n">finding</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+</code></pre></div>
+<p>每个 <code>Diagnostic</code> 均包含稳定的人类可读字段，以及用于自动化流程的可选结构化字段：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>类型</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>code</code></td>
+<td><code>str</code></td>
+<td>诊断代码，取值为 <code>"off-canvas"</code>、<code>"tiny-text"</code>、<code>"text-overflow"</code>、<code>"text-clipped"</code>、<code>"missing-glyph"</code>、<code>"low-contrast"</code>、<code>"layer-overlap"</code>、<code>"layer-hidden"</code>、<code>"edge-crowding"</code>、<code>"near-alignment"</code>、<code>"caption-safe-area"</code>、<code>"caption-timing"</code>、<code>"caption-overlap"</code>、<code>"caption-reading-time"</code>、<code>"clip-stretch"</code> 或 <code>"motion-path-unused-handle"</code></td>
+</tr>
+<tr>
+<td><code>severity</code></td>
+<td><code>str</code></td>
+<td><code>"warning"</code> 或 <code>"error"</code></td>
+</tr>
+<tr>
+<td><code>layer_index</code></td>
+<td><code>int</code></td>
+<td>出问题的图层在 <code>canvas.layers</code> 中的索引</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td><code>str</code></td>
+<td>包含实测数值的人类可读解释文案</td>
+</tr>
+<tr>
+<td><code>layer_id</code></td>
+<td><code>str \| None</code></td>
+<td>稳定的图层测量 ID，例如 <code>"layer:3"</code>，对于分组子图层则为 <code>"layer:3:0"</code></td>
+</tr>
+<tr>
+<td><code>layer_name</code></td>
+<td><code>str \| None</code></td>
+<td>图层模型中公开的图层名称（若有）</td>
+</tr>
+<tr>
+<td><code>bbox</code></td>
+<td><code>dict \| None</code></td>
+<td>画布空间中的实测边界框，包含 <code>x</code>、<code>y</code>、<code>width</code> 和 <code>height</code></td>
+</tr>
+<tr>
+<td><code>related_layers</code></td>
+<td><code>list[str]</code></td>
+<td>该诊断项涉及的图层 ID 列表</td>
+</tr>
+<tr>
+<td><code>measured</code></td>
+<td><code>dict</code></td>
+<td>针对特定规则的实测原始数据，如对比度、字号或画布尺寸</td>
+</tr>
+<tr>
+<td><code>suggestion</code></td>
+<td><code>str \| None</code></td>
+<td>规则能够提供的修复建议提示</td>
+</tr>
+</tbody>
+</table>
+<h3 id="what-gets-checked">检查项</h3>
+<table>
+<thead>
+<tr>
+<th>代码</th>
+<th>触发条件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>off-canvas</code></td>
+<td>图层边界框的部分或全部超出了画布边缘</td>
+</tr>
+<tr>
+<td><code>motion-path-unused-handle</code></td>
+<td>首个位置关键帧的入控制柄或末尾关键帧的出控制柄没有相邻曲线段</td>
+</tr>
+<tr>
+<td><code>tiny-text</code></td>
+<td>文本字号小于画布高度的 2.5%，在缩略图尺寸下可能难以辨认</td>
+</tr>
+<tr>
+<td><code>text-overflow</code></td>
+<td>单个词的宽度超过了图层的 <code>max_width</code> 限制且无法折行</td>
+</tr>
+<tr>
+<td><code>text-clipped</code></td>
+<td>折行后的文本超出了画布或所声明的文本框范围</td>
+</tr>
+<tr>
+<td><code>missing-glyph</code></td>
+<td>所选字体将一个或多个字符渲染为了“字形缺失”（豆腐块）占位符</td>
+</tr>
+<tr>
+<td><code>low-contrast</code></td>
+<td>文本颜色与下方合成图层之间的对比度小于 2.0</td>
+</tr>
+<tr>
+<td><code>layer-overlap</code></td>
+<td>两个可见图层发生显著重叠，导致互相遮挡</td>
+</tr>
+<tr>
+<td><code>layer-hidden</code></td>
+<td>可见图层被后添加的不透明图层完全覆盖遮挡</td>
+</tr>
+<tr>
+<td><code>edge-crowding</code></td>
+<td>可见图层距离画布安全边距或平台浮层过近</td>
+</tr>
+<tr>
+<td><code>near-alignment</code></td>
+<td>相关的未旋转图层其测量的 x/y 起点在 3 像素以内，但未完全精确对齐</td>
+</tr>
+<tr>
+<td><code>caption-safe-area</code></td>
+<td>视频字幕落在了画布安全区域边距以内</td>
+</tr>
+<tr>
+<td><code>caption-timing</code></td>
+<td>视频字幕的结束时间晚于其所属视频片段的结束时间，导致永远无法展示</td>
+</tr>
+<tr>
+<td><code>caption-overlap</code></td>
+<td>两个视频字幕同时出现并共享渲染背景</td>
+</tr>
+<tr>
+<td><code>caption-reading-time</code></td>
+<td>字幕在屏幕上停留时间不足 0.8 秒，或每秒超过 20 个显示列，阅读时间过短。中日韩等全宽字符每字符计为 2 列，连接符和变音符号计为 0 列；如果字幕超出其视频片段时长，仅按实际可见的片段部分计算</td>
+</tr>
+<tr>
+<td><code>clip-stretch</code></td>
+<td>片段播放速度慢于原速的 0.5 倍或快于 2 倍。通常这是为了凑齐场景时长而拉伸的结果，但故意的慢动作或延时快进也会以相同规则报告</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition tip">
+<p class="admonition-title">搭配大语言模型（LLM）</p>
+<p>可将诊断项作为具体的修改指示发回给模型，而不是要求它重新生成整套设计。详情参阅 <a href="../cookbook/ai-workflow/">AI 工作流</a>。</p>
+</div>
+<p>近距离对齐检查通过比较已渲染图层的位置，发现无意中产生的 1–3 像素轻微偏差。</p>
+<div class="admonition note">
+<p class="admonition-title">对比度与对齐检查</p>
+<ul>
+<li><strong>对比度检查</strong>会针对文本图层下方的合成背景进行采样分析（包含文本图层的 <code>Background</code> 胶囊框效果）。</li>
+<li><strong>近距离对齐</strong>会标出 3 像素以内接近对齐的图层，便于你直接精确调整对齐参数，避免盲目猜测坐标。</li>
+</ul>
+</div>
+<h2 id="the-quickthumb-cli"><code>quickthumb</code> CLI</h2>
+<p>命令行工具需要安装 <code>cli</code> 额外依赖：</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"quickthumb[cli]"</span>
+</code></pre></div>
+<h3 id="quickthumb-inspect"><code>quickthumb inspect</code></h3>
+<p>无需写入导出文件，即可直接检查 Canvas 或 Deck 的 JSON 规范。</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>quickthumb<span class="w"> </span>inspect<span class="w"> </span>spec.json
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>quickthumb<span class="w"> </span>inspect<span class="w"> </span>deck.json<span class="w"> </span>--format<span class="w"> </span>json
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>quickthumb<span class="w"> </span>inspect<span class="w"> </span>deck.json<span class="w"> </span>--target<span class="w"> </span>video<span class="w"> </span>--fps<span class="w"> </span><span class="m">24</span><span class="w"> </span>--max-samples<span class="w"> </span><span class="m">100</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>quickthumb<span class="w"> </span>inspect<span class="w"> </span>spec.json<span class="w"> </span>--reduced-motion<span class="w"> </span>--var<span class="w"> </span><span class="nv">title</span><span class="o">=</span><span class="s2">"Hello"</span>
+</code></pre></div>
+<p>纯文本输出包含有序的页面与图层边界、各图层的动效时长与事件计数、功能特性与降级呈现行、实测资源以及排版诊断。
+<code>--format json</code> 输出与 Python 的 <a href="../api/inspection/"><code>inspect_document()</code> 结果</a>结构完全一致，包含 <code>version</code> 与文档 <code>kind</code>。
+由于两种文档类型采用统一的页面顺序与通用字段，脚本处理时无需额外推断输入类型。</p>
+<p><code>--target</code> 用于指定功能类别（<code>raster</code>、<code>html</code>、<code>pptx</code>、<code>video</code>）；省略时默认报告全部四种类别。
+<code>--fps</code> 和 <code>--max-samples</code> 控制有限的动效属性观测过程，而非生成实际图像帧。
+<code>--reduced-motion</code> 用于检查无障碍静态策略。<code>--var KEY=VALUE</code> 的用法与其他规范命令一致。</p>
+<p>检查过程中为了计算测量数据，可能会解析字体、资源或解码媒体文件。
+命令会报告已观察到的资源状态，但不会进行独立的前置下载或运行环境就绪检查。
+动效检查时长并不等同于编码后的视频时长。若要获取标准单帧和回放时间，请使用 Python 的 <code>sample()</code> 时间轴。</p>
+<p>诊断结果仅供参考。即便存在告警，只要检查过程本身执行成功，退出码依然为 <code>0</code>。
+输入、校验或资源缺失错误退出码为 <code>1</code>；渲染与导出类别错误（包括针对空 Deck 的动效检查）退出码为 <code>2</code>。
+JSON 格式输出下会使用规范的 <code>{"errors": [...]}</code> 结构。
+如需将诊断结果作为通过/失败门禁，请使用 <code>lint --fail-on</code>；若需检查环境就绪状态，请使用 <code>doctor</code>。
+参数解析错误（如 <code>--fps abc</code>）仍会通过 Typer 向 stderr 输出标准文本并以状态码 <code>2</code> 退出。
+JSON 格式的错误结果仅在参数解析成功后生效。</p>
+<h3 id="quickthumb-lint"><code>quickthumb lint</code></h3>
+<p>对 JSON 规范执行与 <code>diagnose()</code> 相同的诊断检查。</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>quickthumb<span class="w"> </span>lint<span class="w"> </span>spec.json
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>quickthumb<span class="w"> </span>lint<span class="w"> </span>spec.json<span class="w"> </span>--format<span class="w"> </span>json
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>quickthumb<span class="w"> </span>diagnose<span class="w"> </span>spec.json<span class="w"> </span>--format<span class="w"> </span>json
+</code></pre></div>
+<div class="language-text highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>[warning] layer 3: tiny-text: text size 14px is below 18px (2.5% of canvas height) ...
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>[warning] layer 4: low-contrast: text contrast ratio 1.47 against the layers below it ...
+</code></pre></div>
+<p>使用 <code>--format json</code> 输出机器可读的结构化结果：</p>
+<div class="language-json highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">"summary"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nt">"diagnostic_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="nt">"error_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="nt">"warning_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">"diagnostics"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">      </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"tiny-text"</span><span class="p">,</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">      </span><span class="nt">"severity"</span><span class="p">:</span><span class="w"> </span><span class="s2">"warning"</span><span class="p">,</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">      </span><span class="nt">"layer_index"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">      </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"text size 14px is below 18px ..."</span><span class="p">,</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">      </span><span class="nt">"layer_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"layer:3"</span><span class="p">,</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">      </span><span class="nt">"bbox"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"x"</span><span class="p">:</span><span class="w"> </span><span class="mi">80</span><span class="p">,</span><span class="w"> </span><span class="nt">"y"</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="nt">"width"</span><span class="p">:</span><span class="w"> </span><span class="mi">120</span><span class="p">,</span><span class="w"> </span><span class="nt">"height"</span><span class="p">:</span><span class="w"> </span><span class="mi">17</span><span class="p">},</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">      </span><span class="nt">"related_layers"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"layer:3"</span><span class="p">],</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">      </span><span class="nt">"measured"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">"font_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span><span class="p">,</span><span class="w"> </span><span class="nt">"threshold"</span><span class="p">:</span><span class="w"> </span><span class="mf">18.0</span><span class="p">},</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">      </span><span class="nt">"suggestion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"increase text size to at least 18px"</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="p">}</span>
+</code></pre></div>
+<p><code>lint</code> 会返回适合在 CI 流程中使用的退出状态码：</p>
+<table>
+<thead>
+<tr>
+<th>退出码</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>无任何问题</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>规范无效：JSON/校验错误、资源缺失或选项非法</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>渲染执行失败</td>
+</tr>
+<tr>
+<td><code>3</code></td>
+<td>检测到了诊断告警或错误</td>
+</tr>
+</tbody>
+</table>
+<p><code>diagnose</code> 是 <code>lint</code> 的别名命令。两者支持相同的自动化选项：</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>quickthumb<span class="w"> </span>lint<span class="w"> </span>spec.json<span class="w"> </span>--fail-on<span class="w"> </span>error
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>quickthumb<span class="w"> </span>lint<span class="w"> </span>spec.json<span class="w"> </span>--ignore<span class="w"> </span>edge-crowding<span class="w"> </span>--ignore<span class="w"> </span>missing-glyph
+</code></pre></div>
+<p>默认设置 <code>--fail-on warning</code> 会在存在任何诊断项时以退出码 3 退出。
+<code>--fail-on error</code> 允许警告通过，仅在存在错误时失败；<code>--fail-on never</code> 会正常输出诊断信息，但始终以退出码 0 结束。
+<code>--ignore</code> 会从输出和退出状态码判定中一并排除匹配的诊断代码。
+在 <code>--format json</code> 下，无效规范会输出<a href="../errors/">结构化错误详情</a>中的 <code>errors</code> 列表，而非 Python 调用栈轨迹。</p>
+<p>JSON 输入必须包含顶层的 <code>kind</code> 判别属性（<code>canvas</code> 或 <code>deck</code>）。
+针对 Deck 的诊断输出中会包含 <code>slide_index</code>，并完整保留图层 ID、边界框、测量数据、关联图层及修复建议。</p>
+<h3 id="quickthumb-diff"><code>quickthumb diff</code></h3>
+<p>在合入视觉变更前，对比渲染出的新图像与基准基准图（golden image）。</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>quickthumb<span class="w"> </span>diff<span class="w"> </span>golden.png<span class="w"> </span>output.png
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>quickthumb<span class="w"> </span>diff<span class="w"> </span>golden.png<span class="w"> </span>output.png<span class="w"> </span>--format<span class="w"> </span>json<span class="w"> </span>--output<span class="w"> </span>diff.png
+</code></pre></div>
+<p>该工具结合了感知均值哈希与逐像素指标。
+默认情况下，单个通道差值小于等于 2 会被忽略；但只要有任意一个像素超出容差，比对就会宣告失败。
+默认的感知哈希相似度阈值为 <code>0.95</code>。你可以根据渲染器的特性放宽或收紧要求：</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>quickthumb<span class="w"> </span>diff<span class="w"> </span>golden.png<span class="w"> </span>output.png<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span>--threshold<span class="w"> </span><span class="m">0</span>.98<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span>--pixel-tolerance<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span>--max-diff-ratio<span class="w"> </span><span class="m">0</span>.005
+</code></pre></div>
+<p>在 CI 或自动化 Agent 流水线中，建议搭配 <code>--format json</code> 使用。
+<code>--max-diff-ratio</code> 允许一定比例的差异像素存在；<code>--output</code> 会将差异图写入文件以便人工复核。
+退出码定义如下：</p>
+<table>
+<thead>
+<tr>
+<th>退出码</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>在设定容差范围内匹配一致</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>图像差异超出容差、输入无效或无法写入输出文件</td>
+</tr>
+</tbody>
+</table>
+<p>在 Python 测试中也可以使用相同的断言机制：</p>
+<div class="language-python highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">quickthumb</span><span class="w"> </span><span class="kn">import</span> <span class="n">assert_image_similar</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">assert_image_similar</span><span class="p">(</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="s2">"golden.png"</span><span class="p">,</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="s2">"output.png"</span><span class="p">,</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="n">threshold</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="p">)</span>
+</code></pre></div>
+<p>断言方法会返回包含图像尺寸、差异像素数量、归一化平均误差、感知哈希和相似度指标的 <code>ImageDiff</code> 对象，便于调用方做更详细的报告记录。</p>
+<h3 id="quickthumb-render"><code>quickthumb render</code></h3>
+<p>将 JSON 规范渲染为图像文件：</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>quickthumb<span class="w"> </span>render<span class="w"> </span>spec.json<span class="w"> </span>-o<span class="w"> </span>thumbnail.png
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>quickthumb<span class="w"> </span>render<span class="w"> </span>spec.json<span class="w"> </span>-o<span class="w"> </span>thumbnail.webp<span class="w"> </span>--format<span class="w"> </span>WEBP<span class="w"> </span>--quality<span class="w"> </span><span class="m">90</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>quickthumb<span class="w"> </span>render<span class="w"> </span>spec.json<span class="w"> </span>-o<span class="w"> </span>debug.png<span class="w"> </span>--debug
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>选项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-o, --output</code></td>
+<td>输出文件路径（默认 <code>output.png</code>）。</td>
+</tr>
+<tr>
+<td><code>--format</code></td>
+<td><code>PNG</code>、<code>JPEG</code> 或 <code>WEBP</code>。</td>
+</tr>
+<tr>
+<td><code>--quality</code></td>
+<td>压缩质量：JPEG 为 1–95，WebP 为 1–100；不控制渲染质量。</td>
+</tr>
+<tr>
+<td><code>--debug</code></td>
+<td>在光栅输出上叠加公开图层 ID 的边界框。</td>
+</tr>
+<tr>
+<td><code>--var KEY=VALUE</code></td>
+<td>替换规范中的 <code>$KEY</code> 占位符，可重复指定。</td>
+</tr>
+<tr>
+<td><code>--error-format</code></td>
+<td><code>text</code>（默认）或 <code>json</code>；见<a href="../errors/">结构化错误</a>。</td>
+</tr>
+</tbody>
+</table>
+<p>规范无效、资源缺失或选项非法时，<code>render</code> 以状态码 <code>1</code> 退出；不支持的输出格式等导出失败以状态码 <code>2</code> 退出。</p>
+<h3 id="quickthumb-watch"><code>quickthumb watch</code></h3>
+<p>文件发生变化时重新渲染规范，便于手动调整版式时预览结果：</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>quickthumb<span class="w"> </span>watch<span class="w"> </span>spec.json<span class="w"> </span>-o<span class="w"> </span>preview.png
+</code></pre></div>
+<p><code>watch</code> 接受与 <code>render</code> 相同的选项，但不接受 <code>--error-format</code>。失败信息以文本输出，监听会继续。</p>
+<h3 id="quickthumb-doctor"><code>quickthumb doctor</code></h3>
+<p>导出前检查包、工具、源文件要求和输出位置权限：</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>quickthumb<span class="w"> </span>doctor<span class="w"> </span>pdf<span class="w"> </span>-o<span class="w"> </span>out/thumbnail.pdf
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>quickthumb<span class="w"> </span>doctor<span class="w"> </span>mp4<span class="w"> </span>--spec<span class="w"> </span>spec.json<span class="w"> </span>--format<span class="w"> </span>json
+</code></pre></div>
+<p>工作流可选 <code>png</code>、<code>jpeg</code>、<code>webp</code>、<code>gif</code>、<code>svg</code>、<code>html</code>、<code>pdf</code>、<code>pptx</code>、<code>mp4</code>、<code>webm</code> 或 <code>mov</code>。使用 <code>--spec</code> 时，规范中的插件渲染器、字体、SVG/视频图层、背景移除和远程资源会带来各自的依赖要求。<code>-o</code> 检查输出位置是否可写，但不会创建文件。</p>
+<p>每项检查的结果为 <code>ok</code>、<code>warning</code> 或 <code>error</code>。<code>warning</code> 表示可选限制，例如缺少字体或资源缓存不可用；<code>error</code> 表示必要条件不满足，例如缺少 <code>quickthumb[pdf]</code>、FFmpeg、未注册的插件或输出位置不可写。每条警告和错误都包含 <code>fix</code>/<code>remedy</code>。插件按 CLI 进程的注册表检查，其中只包含导入时注册的插件，因此在代码中注册的插件会被报告为未注册。没有必要检查失败时退出码为 <code>0</code>，否则为 <code>1</code>。</p>
+<p>检查成功不等于导出成功或保真度认证。检测到 Python 包并不能证明原生 Cairo 可以加载；找到 FFmpeg 也不能证明其构建包含目标格式所需的编码器。<code>doctor</code> 不会渲染或比对输出。请执行实际导出并检查导出凭据和文件；需要视觉比对时，使用显式保真度策略或 <code>quickthumb diff</code>。</p>
+<h3 id="quickthumb-serve"><code>quickthumb serve</code></h3>
+<p>启动支持热重载的本地 HTML 幻灯片服务器。在不提供源码参数时，它会依次查找同目录下的 <code>slides.py</code>、<code>slides.json</code>、<code>slides.html</code> 或 <code>slides.htm</code>：</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>quickthumb<span class="w"> </span>serve
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>quickthumb<span class="w"> </span>serve<span class="w"> </span>examples/investor_deck.py
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>quickthumb<span class="w"> </span>serve<span class="w"> </span>deck.json<span class="w"> </span>--port<span class="w"> </span><span class="m">4040</span><span class="w"> </span>--no-open
+</code></pre></div>
+<p>Python 源码应在模块作用域下将 <code>Deck</code> 或 <code>Canvas</code> 命名定义为 <code>deck</code>、<code>slides</code> 或 <code>canvas</code>。JSON 源码必须声明 <code>kind: "canvas"</code> 或 <code>kind: "deck"</code>；Canvas 文档包含 <code>layers</code>，Deck 文档则包含顶层 <code>slides</code> 列表。
+使用 <code>--host</code> 和 <code>--port</code> 调整监听地址，<code>--no-open</code> 禁止自动打开浏览器，重复指定 <code>--var KEY=VALUE</code> 可进行 JSON 模板变量替换。</p>
+<p>观众视图地址为 <code>/</code>。通过 <code>?presenter</code> 查询参数进入演讲者模式：</p>
+<div class="language-text highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>http://localhost:3030/?presenter
+</code></pre></div>
+<p>演讲者模式与预览共用浅色主题：左侧为当前幻灯片与演讲备注，右侧为下一页幻灯片及暂停/继续/重置计时器，底部为简易翻页导航。幻灯片预览保留原始宽高比。翻页导航与每页动画进度会广播到该服务器下打开的所有观众标签页，并在刷新后恢复同步。仅在观众端执行的翻页操作只保留在本地。在 Python 中可使用 <code>.slide(canvas, notes="...")</code> 添加备注，在 JSON 中可为幻灯片添加 <code>notes</code> 字符串。</p>
+<h3 id="timeline-scrubber">时间轴预览器</h3>
+<p>在编辑 Python 或 JSON 文档时打开栅格时间轴：</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>quickthumb<span class="w"> </span>serve<span class="w"> </span>examples/timeline_preview.py<span class="w"> </span>--timeline
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>quickthumb<span class="w"> </span>serve<span class="w"> </span>deck.json<span class="w"> </span>--timeline<span class="w"> </span>--no-open
+</code></pre></div>
+<p>在普通的 <code>serve</code> 会话中，也可以直接访问 <code>http://localhost:3030/timeline</code> 进入时间轴。默认视图仍为 HTML 演示文稿，包含幻灯片翻页、点击触发动画以及同步的演讲者控制。
+演示模式（Presentation）与动效检查模式（Inspect motion）共享相同的幻灯片选择和缩略图导航。演示模式在中央按原始宽高比展示幻灯片；动效检查模式则在下方打开逐帧拖动面板。演讲者（Presenter）模式打开同步的讲者视图，放映（Present）按钮则全屏展示 HTML 幻灯片。
+动效说明中会指出 HTML 输出处于静态还是近似呈现状态。这些控制按钮属于本地创作工具，不会被打包进导出的 HTML 文件中。
+独立的 HTML 文件无法抽样检查原始文档；请针对其对应的 Python 或 JSON 源码使用时间轴。</p>
+<p>检查面板展示导出渲染器生成的每一帧画面，不支持音频播放或在线编辑。其拖动指针独立于演讲者/观众同步状态。</p>
+<ul>
+<li>拖动时间滑块、手动输入秒数，或直接点击幻灯片/转场/动效关键节点。</li>
+<li><strong>Proxy</strong> 会将输出的最长边限制在 640 像素以内（例如 1080×1920 变为 360×640），用于预处理可复用图层图片并在降采样表面上合成普通动效。后续不同尺寸的幻灯片也会适应此输出矩形。</li>
+<li><strong>Full</strong> 显示第一页幻灯片的原生尺寸，使用与 <code>Canvas.sample(time=...)</code> / <code>Deck.sample(time=...)</code> 完全相同的标准质量规范时间轴采样器。</li>
+<li>保存源码会重新加载时间轴，并通过 URL 片段保留所选分辨率和时间点；若修改后的时间轴变短，指针会自动截断在有效范围内。</li>
+<li>浏览器同一时刻仅发起一次单帧请求；快速拖动时会用最新的选择替换尚未完成的旧请求。在请求帧准备就绪前，显示的帧标签仍标识上一帧。若代码编辑破坏了运行，会显示错误信息，并在下一次保存修复后自动恢复。</li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">本地安全提示</p>
+<p><code>quickthumb serve</code> 会在你本机运行本地 Python 和 JSON 文件。预览不受信任的内容时，请始终保留默认的本地回环地址（<code>127.0.0.1</code>）。</p>
+</div>
+<h3 id="variable-substitution">变量替换</h3>
+<p>基于 JSON 的命令行工具接受 <code>--var</code> 参数，在解析前填充 <code>$KEY</code>（或 <code>${KEY}</code>）占位符：</p>
+<div class="language-bash highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>quickthumb<span class="w"> </span>render<span class="w"> </span>template.json<span class="w"> </span>-o<span class="w"> </span>ep42.png<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span>--var<span class="w"> </span><span class="nv">TITLE</span><span class="o">=</span><span class="s2">"EPISODE 42"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span>--var<span class="w"> </span><span class="nv">ACCENT</span><span class="o">=</span><span class="s2">"#B8FF00"</span>
+</code></pre></div>
+<p>存在未解析的占位符将导致命令以退出码 <code>1</code> 退出。
+<code>$theme.*</code> 引用并非外部变量，它们由规范文件内部的<a href="../json-schema/#theme-tokens">主题块</a>自行解析。</p>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        
+
+<footer class="md-footer qt-footer">
+  <div class="qt-footer-inner">
+    <div>
+      <a class="qt-brand" href="../" aria-label="quickthumb 首页">
+        <img src="../../assets/brand/quickthumb-icon.svg" width="28" height="28" alt="">
+        <span>quickthumb</span>
+      </a>
+      <p class="qt-footer-tagline">用 Python 制作图像、演示文稿和视频。</p>
+    </div>
+    <nav class="qt-footer-links" aria-label="页脚导航">
+      <a href="../cookbook/">示例</a>
+      <a href="../getting-started/">文档</a>
+      <a href="../installation/">安装</a>
+      <a href="../changelog/">更新日志</a>
+    </nav>
+    <div class="qt-footer-meta">
+      <a class="qt-icon-button" href="https://github.com/sjquant/quickthumb" aria-label="在 GitHub 上查看 quickthumb">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33s1.71.11 2.5.33c1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2"/></svg>
+      </a>
+      <p>© 2026 Seonu Jang · MIT 许可证<br>使用工具 <a href="https://squidfunk.github.io/mkdocs-material/">Material for MkDocs</a></p>
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.instant.progress", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/site.js"></script>
+      
+    
+  </body>
+</html>
