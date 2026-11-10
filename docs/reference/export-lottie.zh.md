@@ -1,14 +1,16 @@
 ---
-description: 将变换形状的徽标、自绘制轮廓以及动态图形导出为 Lottie 矢量动画文件。
+description: 制作矢量徽标动画、自绘轮廓和可复用的片头。
 ---
 
 <a id="lottie-vectors"></a>
 
 # Lottie 动画 { #lottie-animations }
 
-[导出参考](../exports.md) · [输出格式选择指南](../output-guide.md)
+[导出参考](../exports.md) · [输出格式选择](../output-guide.md)
 
-将变换形状的徽标、渐进自绘制的轮廓以及动态图形导出为适用于各类 Lottie 播放器的矢量动画。生成的 `.lot` 文件包含标准 Lottie JSON 数据，不包含任何嵌入的光栅帧图像或音频。
+制作变形徽标、逐步绘制的轮廓，或带标题与动态徽章的片头。
+将 Canvas 导出为 `.lot`，即可通过 Lottie 播放器播放矢量图形，
+无需分发渲染好的视频帧或查看端字体文件。
 
 ## 创建形状变换徽标 { #create-a-shape-changing-logo }
 
@@ -38,48 +40,117 @@ Canvas(120, 120).path(
 ).export("logo.lot", animation=LottieOptions(fps=24, hold=0.5))
 ```
 
-此代码创建了一个从正方形平滑变形为菱形（持续 1 秒），随后静止停顿 0.5 秒的动画。在正式发布之前，建议在目标 Lottie 播放器中实际预览效果。如需查看带有曲线、填充及描边的完整徽标示例，请运行[徽标变形示例](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_morph.py)。
+正方形在 1 秒内变成菱形，然后停顿 0.5 秒。修改两条路径、颜色、大小或 easing 即可制作自己的徽标。
+
+<a id="playback-verification"></a>
+
+## 在网页播放 { #play-it-on-the-web }
+
+在网页项目中安装 `lottie-web@5.13.0`，添加
+`<div id="logo" style="width:120px;height:120px"></div>` 这样的容器，
+把 `logo.lot` 放入公开静态资源目录后播放：
+
+```javascript
+import lottie from "lottie-web";
+
+lottie.loadAnimation({
+  container: document.getElementById("logo"),
+  renderer: "svg",
+  loop: true,
+  autoplay: true,
+  path: "/logo.lot",
+});
+```
+
+使用 `renderer: "svg"` 保持填充、描边和图层不透明度的一致性。
+lottie-web 5.12.2/5.13.0 的 Canvas 存在不透明度组合缺陷。
+发布前在网站或应用的目标播放器中预览。参考版本和复现方法见
+[开发者播放器检查](export-validation.md#lottie-reference-player)。
+
+## 复用完整片头 { #reuse-a-complete-intro }
+
+在仓库根目录运行，即可生成包含轮廓标题、自绘后变成圆形的徽标、旋转徽章的 2 秒片头：
+
+```bash
+pip install 'quickthumb[lottie]'
+python -m examples.lottie_intro /tmp/intro.lot
+```
+
+片头最后停顿 0.5 秒。修改[片头示例](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_intro.py)的
+标题、颜色、路径和旋转即可复用。查看端无需安装字体。
 
 ## 选用图元与时序控制 { #choose-artwork-and-timing }
 
-单个 Canvas 可包含纯色背景、纯色几何形状、SVG 路径、位置/缩放/旋转/不透明度动画、描边修剪以及受支持的静态文本。形状包括矩形、圆角矩形、椭圆、胶囊形、三角形、星形及多边形。路径支持 `M/L/H/V/C/S/Q/T/A/Z` 指令、纯色填充/描边，以及基于奇偶填充规则的孔洞镂空。
+组合纯色背景和形状、带填充/描边/孔洞的 SVG Path，以及位置、缩放、旋转、不透明度轨道。
+可从[静态形状](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_static.py)、
+[曲线路径](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_paths.py)、
+[动态图形](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_motion.py)示例入手。
 
-`LottieOptions.fps` 默认为 30，最高支持 120。更高的 fps 可提供更平滑精细的运动步阶，但也会增加文件体积。系统按照设定的采样帧率并在创作的关键帧/事件边界上对动效进行离散采样；每个姿态画面保持显示直到下一次采样。播放器本身不会在这些采样点之间进行平滑插值。静态艺术图元同样保持纯矢量形态。
-
-`hold` 以秒为单位指定末尾定型停顿时间，必须为非负数。最终总时长为最后动效结束时刻加上该停顿时间，并向上取整为整数帧。即便 hold 为 0 的纯静态 Canvas 也会占据 1 帧。导出凭据中会明确报告总帧数与持续时长。
-
-参考示例：[静态形状](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_static.py)、[平滑曲线路径](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_paths.py)、[动态几何图形](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_motion.py)。
+`LottieOptions(fps=24, hold=0.5)` 按 24 fps 采样，并在末尾停顿 0.5 秒。
+默认 30 fps，最高 120。更高的 fps 提供更细致的运动，也会增加文件大小。
+每个姿态保持到下一采样点。导出结果报告帧数与时长。
 
 ## Lottie 路径变形 { #lottie-path-morph }
 
-`PathMorphTrack` 在保持创作视口（view_box）不变的同时平滑改变路径几何形状。变形过程中可同步伴随填充、纯色描边、不透明度、变换以及描边修剪。在[路径变形限制](../api/path.md#path-morphing)范围内支持开放轮廓、闭合轮廓及嵌套孔洞。
+`PathMorphTrack` 可与填充、描边、不透明度、变换和修剪组合。
+曲线图案可改编[徽标变形示例](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_morph.py)。
 
-创作的初始路径与所有变形关键帧必须具有相同的轮廓数量和开放/闭合状态。所有采样曲线、其控制点以及描边边缘必须完全容纳在 view_box 视口范围内。某些视觉上看似处于内部的曲线仍可能超出此几何边界；请相应重新缩放或调整其位置。带描边的路径要求使用各向同性的等比 view_box 缩放，且退化的描边轮廓会被拒绝。
-
-规模庞大或结构极度复杂的动画可能会超出 Canvas 全局 100,000 次姿态与轮廓顶点观测上限。若导出报告触碰该上限，请调低 fps 或简化路径。中间过渡帧遵循与 Quickthumb 离线渲染帧相同的近似轮廓计算；精确的创作关键帧端点则精确保留其原始贝塞尔曲线。
+保持所有路径的轮廓数和开放/闭合状态一致。为曲线、控制点和描边留出 `view_box` 空间，
+带描边路径使用等比缩放。如遇几何或工作量错误，请按提示扩大 view box、简化路径或降低 fps。
+制作规则见[路径变形](../api/path.md#path-morphing)。
 
 ## Lottie 描边修剪 { #lottie-stroke-trim }
 
-使用 `TrimEndTrack` 可逐步绘制出轮廓线条，或使用 `TrimStartTrack` 与 `TrimOffsetTrack` 让可见线段沿路径流动。同样支持静态的 `trim_start`、`trim_end` 和 `trim_offset`。参见[描边修剪示例](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_trim.py)。
+使用 `TrimEndTrack` 逐步绘制轮廓。接着上面的徽标示例运行：
 
-修剪位置沿路径总长度按轮廓顺序从 0 映射至 1。偏移量（offset）支持环绕循环，取值可为负数或大于 1。0→1 的全区间保留完整描边（不受 offset 影响）；两端点重合或 1→0 会完全隐藏描边。底部的填充始终保持完整。闭合接缝保留其连接样式；被切断的端点使用指定的端点样式（cap）。暂不支持虚线及虚线偏移相位动画。若极小的修剪区间在播放器舍入后会被完全隐去或明显错位端点，可能会被拒绝。
+```python
+from quickthumb import TrimEndTrack
+
+outline = AnimationSpec.timeline(
+    TrimEndTrack(keyframes=[
+        KeyframeSpec(time=0, value=0),
+        KeyframeSpec(time=1, value=1),
+    ]),
+    timing=TimingSpec(duration=1),
+    easing="ease_in_out",
+)
+Canvas(120, 120).path(
+    square, (10, 10), 100, 100, None,
+    view_box=(0, 0, 100, 100), stroke="#159A8C", stroke_width=3,
+    animation=outline,
+).export("outline.lot", animation=LottieOptions(fps=24, hold=0.5))
+```
+
+使用 `TrimStartTrack` 和 `TrimOffsetTrack` 移动可见片段，也可设置静态
+`trim_start`、`trim_end`、`trim_offset`。0 到 1 按轮廓顺序映射到总路径长度，
+变形时也保持此含义；偏移可双向环绕。0→1 绘制完整描边，同端点或 1→0 隐藏描边。
+底部填充保持完整。使用纯色实线，用 `line_cap` 选择切口端点样式。
+极短区间触发精度错误时，请增大区间。参见[修剪示例](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_trim.py)。
 
 ## 形状组合协同联动 { #move-shapes-together }
 
-使用 `parent` 属性可层级联动受支持的 Shape 与 Null 图层，参见[父级绑定示例](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_parenting.py)。子图层跟随父级图层的变换运动，同时保持各自独立的绘制层级顺序与不透明度。父级图层的不透明度不会让子图层淡出。包括子图层在内的百分比坐标均相对于 Canvas 根画布进行解析。路径图层暂不支持父级绑定。
-
-未绑定的动画形状在动画开始前必须完全处于 Canvas 边界之内。已建立绑定的形状可以在 Canvas 外部起始，只要父级变换最终将其带入可视区域即可。不支持非正数的各向同性 Shape/Null 缩放；独立轴缩放保留常规行为，包含镜像翻转与扁平塌陷。
+将 Shape 通过 `parent` 连接到 Null，可让多个形状一起旋转或移动。
+从[父级示例](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_parenting.py)开始即可。
+子图层保留独立绘制顺序和不透明度。整体淡出时，请为各可见子图层设置不透明度动画。
+百分比位置以 Canvas 为准。无父级的动画形状在创作姿态下应位于画布内；
+有父级的形状可从外部进入。父级连接可用于 Shape 和 Null。
 
 ## Lottie 轮廓化文本 { #lottie-outlined-text }
 
-安装 `quickthumb[lottie]` 可将静态、单行且仅含可打印 ASCII 字符的文本纳入导出。文本会被整体转换为矢量轮廓：查看端无需安装对应字体，但无法作为文本进行编辑。纯形状与纯路径导出无需此项额外依赖。参见[轮廓化文本示例](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_text.py)。
-
-请选用不透明文字着色方案，并使用包含所需全部字形的本地非可变、非彩色字体。遇到不受支持的字形将直接报错。暂不支持文本动画、父级绑定、旋转、自动折行/缩放自适应、富文本、动态计数器、图层效果、遮罩、渐变、远程字体以及复杂脚本文字塑形。在 RAQM 排版引擎下，多字符文本需显式指定非零的 `letter_spacing`；未指定字距的 BASIC 文本要求字符步进累计等于总宽度。每个图层最多允许 1024 个字符、65,536 个轮廓顶点以及 64 MiB 的字体源文件。
+安装 `quickthumb[lottie]` 可将静态单行可打印 ASCII 标题转为矢量轮廓。
+查看端无需字体；修改标题时编辑源文件并重新导出。
+按[文本示例](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_text.py)使用本地轮廓字体、
+不透明文字颜色，并为多字符文本设置非零 `letter_spacing`。半透明使用图层 `opacity`。
+标题保持无旋转、无父级连接。动态文字或多语言排版请选择[视频输出](../output-guide.md)。
 
 ## 导出前预先校验兼容性 { #check-compatibility-before-exporting }
 
-调用 `canvas.validate_export("lottie")` 可全面扫描并定位不受支持的图层与字段。导出流程在打开目标路径前即会拒绝不受支持的内容，从而完好保留已存在的目标文件。某些处于中间过渡态的变形错误、浮点精度异常或资源超限问题仅在正式编译动画时才能被发现。
+整合现有设计前调用 `canvas.validate_export("lottie")`，查看需要调整的图层和字段，
+例如渐变、图片、效果或文字动画。导出时还会在写入前检查采样几何与精度，
+因此被拒绝的导出不会覆盖已有文件。
 
-渐变、图层效果/预设、stagger 交错动效、遮罩、视口裁剪、色彩/虚线轨道、运动路径、图片、插件以及 Deck 输出均不受支持。Lottie 导出绝不会自动替换为静态画面或光栅回退切片，即便导出策略中显式请求也是如此。系统不提供 Lottie 文件反向导入、ZIP 归档打包或对既有 Lottie 文件的二次编辑功能。
+矢量 Lottie 请使用上述图元和轨道。保留图片、效果等内容时请选择
+[视频输出](../output-guide.md)；Lottie 导出不会默默将其替换为图片。
 
-`ExportPolicy(reduced_motion=True)` 会将创作时的静态设计画面导出并保持 `hold` 秒。它不会自动选择动画的最终姿态，其余不受支持的功能特性仍需显式移除。
+静态版本可用正数 `hold` 配合 `ExportPolicy(reduced_motion=True)`。
+这会导出创作时的图案，而非动画最终姿态。
