@@ -100,7 +100,40 @@ PYTHONPATH=. python scripts/check_html_fidelity.py \
 
 ## Lottie 기준 플레이어 { #lottie-reference-player }
 
-검증 범위와 알려진 차이는 [재생 검증](export-lottie.md#playback-verification)을 참고하세요.
+기준 검사는 **lottie-web 5.13.0 SVG**와 공식 **Lottie Android 6.7.1**을 사용합니다.
+Android는 Robolectric 4.17 NATIVE graphics, Android 15/API 35, mdpi의 software Drawable을
+Linux/JVM에서 실행합니다. 9개 파일을 schema 1.0.1로 검증하며 각 플레이어는 정상 프레임 37개와
+빈 출력·멈춘 모션 대조 15개를 검사합니다. 기존 31+13에 다중 윤곽 트림·길이 변화·반투명 공통
+stroke를 확인하는 6+2를 더했습니다. 전체 프레임과 작품 영역 모두 채널 허용차 32, 차이 픽셀
+8% 이하, 해시 0.93 이상을 요구합니다. 공통 stroke 내부 픽셀은 채널 차이 2 이하도 검사합니다.
+
+기존 웹 CI artifact에 Android의 `report.json`, `execution.json`, `maven.log`도 실패 시를
+포함해 보존합니다. Native PNG는 작업 로컬에 남으므로 아래 명령으로 같은 manifest를 재실행해
+얻을 수 있습니다. 실제 Android 라이브러리·native graphics 검사이며 실기기·에뮬레이터·ARM/GPU·
+iOS·앱 성능 검사는 아닙니다. 사용 설정은 [가이드](export-lottie.md#play-it-on-the-web)에 있습니다.
+
+### 반투명 fill/stroke 조사
+
+960×640 다중 윤곽 morph의 frame 0 탐색 사례는 Android ROI `(500,320)-(860,560)`의
+해시가 **0.921875**로 기준 **0.93**에 못 미칩니다. 차이 픽셀은 **3.2928%**로 8% 안이며,
+전체 해시는 1.0, 차이는 1.5653%입니다. 같은 입력을 다시 내보내 동일 수치를 재현했습니다.
+다른 레이어나 morph 애니메이션을 제거해도 결과가 같으며, fill만·stroke만인 대조는 통과합니다.
+Android의 결합 출력은 분리한 fill 위에 stroke를 합성한 결과와 정확히 같습니다.
+
+채널 허용차 32를 넘는 2,845픽셀은 모두 알파 경계 주변에 있습니다. 양 렌더러의 분리된
+fill/stroke 알파가 7×7 이웃에서 두 단계 이내로 일정한 65,459픽셀의 최대 채널 차이는 2입니다.
+이는 morph 길이 샘플링보다 페인트 경계의 래스터화·합성을 가리키지만, exporter 결함이나 이전
+버전 대비 회귀를 입증하지는 않습니다. 기존 52건의 기준은 유지하며 불투명 fill morph와 공통
+반투명 stroke를 각각 검사합니다.
+
+재현하려면 `examples.lottie_trim_multi.build_canvas()`의 `id="morph"` 레이어만
+`color="#159A8C40"`으로 바꾸고 `LottieOptions(fps=24, hold=0.5)`로 내보내세요.
+`render_frame(0)`과 Android frame 0을 위 ROI·기준으로 비교합니다. 해당 레이어만 남기기,
+`animation` 제거, `stroke` 또는 `color`만 제거하기로 대조할 수 있습니다.
+
+문자 컴파일의 레이어별 상한은 1,024문자, 외곽선 정점 65,536개, 글꼴 소스 64 MiB입니다.
+RAQM 여러 글자에는 명시적 0 아닌 자간이 필요하고, 자간 없는 BASIC은 전진 폭이 가산적이어야
+합니다. 정밀도·자원 검사는 중간 샘플의 컴파일까지 포함해 쓰기 전에 끝납니다.
 
 ```bash
 uv sync --locked --extra lottie --dev

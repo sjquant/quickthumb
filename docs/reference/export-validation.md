@@ -89,6 +89,57 @@ This observation does not establish PPTX or animation fidelity.
 
 ## Lottie reference player
 
+The reference gate checks **lottie-web 5.13.0 SVG** and official **Lottie Android
+6.7.1**, using Robolectric 4.17 NATIVE graphics, Android 15/API 35, mdpi and a
+software Drawable on Linux/JVM. Nine payloads validate against schema 1.0.1.
+Each player checks 37 canonical frames and detects 15 blank/frozen controls:
+the original 31+13 plus 6+2 covering multi-contour trim, changing contour lengths
+and shared translucent strokes. Both whole frames and artwork regions use
+channel tolerance 32, pixel difference ≤8%, and average-hash similarity ≥0.93.
+The shared-stroke interior RGBA probe permits at most two channel levels.
+
+The web CI artifact also retains Android `report.json`, `execution.json` and
+`maven.log`, including failures. Native PNGs remain local to the job; rerun the
+same manifest with the command below to capture them. This tests the actual
+Android library/native graphics, not a device, emulator, ARM/GPU, iOS or app
+performance. Use the [user guide](export-lottie.md#play-it-on-the-web) for setup.
+
+### Translucent fill/stroke investigation
+
+An exploratory 960×640 multi-contour morph at frame 0 fails the Android ROI hash:
+`(500,320)-(860,560)` measures **0.921875** against **0.93**, with pixel difference
+**3.2928%** (within 8%). The full-frame hash is 1.0 and difference is 1.5653%.
+The same input exported again reproduces these values. Removing other layers
+or removing the morph animation gives the identical ROI result. Fill-only and
+stroke-only controls pass, and Android's combined output exactly equals drawing
+its isolated fill and then its isolated stroke.
+
+In the combined ROI, all 2,845 pixels exceeding channel tolerance 32 lie outside
+flat alpha neighborhoods: among 65,459 pixels where both renderers' isolated
+fill/stroke alpha ranges span at most two levels in a 7×7 neighborhood, the
+maximum visible channel difference is two. This points toward paint-edge
+rasterization/compositing rather than morph length sampling; it does not identify
+a proven exporter defect or establish regression against an older exporter.
+The existing 52-case gate is unchanged. The opaque-fill morph and shared
+translucent-stroke fixtures remain independent checks.
+
+To reproduce the combined artwork, use `examples.lottie_trim_multi.build_canvas()`,
+set only the layer with `id="morph"` to `color="#159A8C40"`, and export with
+`LottieOptions(fps=24, hold=0.5)`. Compare `render_frame(0)` with frame 0 of the
+Android renderer using the ROI and limits above. For controls, isolate that
+layer, remove `animation`, or remove just `stroke`/`color` respectively.
+
+### Outlined-text admission
+
+The text compiler accepts static single-line printable ASCII, local nonvariable
+noncolor fonts and opaque solid paint. Layer opacity supplies translucency.
+Multi-character RAQM text needs explicit nonzero `letter_spacing`; unspaced BASIC
+text requires additive advances. Per-layer limits are 1,024 characters, 65,536
+outline vertices and a 64 MiB font source. Geometry/precision/resource checks
+complete before writes; some require compiling intermediate animation samples.
+
+### Web reference check
+
 The developer check uses the actual lottie-web player in a disposable Chrome
 profile. It makes no player downloads, changes no export policies, and blocks
 browser HTTP/HTTPS requests while playing self-contained vectors.
@@ -115,7 +166,6 @@ The default gate uses the SVG renderer. Add `--renderer canvas` to investigate
 Canvas playback, or repeat `--renderer` to compare both. A failed comparison or
 an undetected blank/frozen control exits nonzero. Canvas opacity differences
 with the pinned player are a known failing comparison, not an accepted fallback.
-See [the playback scope and limits](export-lottie.md#playback-verification).
 
 ### Android native graphics check
 

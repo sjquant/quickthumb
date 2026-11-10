@@ -60,7 +60,17 @@ jobs:
             --runtime-home "$RUNNER_TEMP/lottie-android-home" \
             --output "$RUNNER_TEMP/lottie-android"
 
-      - name: Retain reference images and report
+      - name: Collect Android reports
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/lottie-reference/android"
+          for name in report.json execution.json maven.log; do
+            if [ -f "$RUNNER_TEMP/lottie-android/$name" ]; then
+              cp "$RUNNER_TEMP/lottie-android/$name" "$RUNNER_TEMP/lottie-reference/android/"
+            fi
+          done
+
+      - name: Upload reference images and report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
