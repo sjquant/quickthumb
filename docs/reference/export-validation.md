@@ -87,6 +87,109 @@ searchable vector content; this does not promise PowerPoint-style editing.
 Deck PDF comparison is rejected explicitly; export its Canvas slides individually.
 This observation does not establish PPTX or animation fidelity.
 
+## Lottie reference player
+
+The reference gate checks **lottie-web 5.13.0 SVG** and official **Lottie Android
+6.7.1**, using Robolectric 4.17 NATIVE graphics, Android 15/API 35, mdpi and a
+software Drawable on Linux/JVM. Nine payloads validate against schema 1.0.1.
+Each player checks 37 canonical frames and detects 15 blank/frozen controls:
+the original 31+13 plus 6+2 covering multi-contour trim, changing contour lengths
+and shared translucent strokes. Both whole frames and artwork regions use
+channel tolerance 32, pixel difference ≤8%, and average-hash similarity ≥0.93.
+The shared-stroke interior RGBA probe permits at most two channel levels.
+
+The web CI artifact also retains Android `report.json`, `execution.json` and
+`maven.log`, including failures. Native PNGs remain local to the job; rerun the
+same manifest with the command below to capture them. This tests the actual
+Android library/native graphics, not a device, emulator, ARM/GPU, iOS or app
+performance. Use the [user guide](export-lottie.md#play-it-on-the-web) for setup.
+
+### Translucent fill/stroke investigation
+
+An exploratory 960×640 multi-contour morph at frame 0 fails the Android ROI hash:
+`(500,320)-(860,560)` measures **0.921875** against **0.93**, with pixel difference
+**3.2928%** (within 8%). The full-frame hash is 1.0 and difference is 1.5653%.
+The same input exported again reproduces these values. Removing other layers
+or removing the morph animation gives the identical ROI result. Fill-only and
+stroke-only controls pass, and Android's combined output exactly equals drawing
+its isolated fill and then its isolated stroke.
+
+In the combined ROI, all 2,845 pixels exceeding channel tolerance 32 lie outside
+flat alpha neighborhoods: among 65,459 pixels where both renderers' isolated
+fill/stroke alpha ranges span at most two levels in a 7×7 neighborhood, the
+maximum visible channel difference is two. This points toward paint-edge
+rasterization/compositing rather than morph length sampling; it does not identify
+a proven exporter defect or establish regression against an older exporter.
+The existing 52-case gate is unchanged. The opaque-fill morph and shared
+translucent-stroke fixtures remain independent checks.
+
+To reproduce the combined artwork, use `examples.lottie_trim_multi.build_canvas()`,
+set only the layer with `id="morph"` to `color="#159A8C40"`, and export with
+`LottieOptions(fps=24, hold=0.5)`. Compare `render_frame(0)` with frame 0 of the
+Android renderer using the ROI and limits above. For controls, isolate that
+layer, remove `animation`, or remove just `stroke`/`color` respectively.
+
+### Outlined-text admission
+
+The text compiler accepts static single-line printable ASCII, local nonvariable
+noncolor fonts and opaque solid paint. Layer opacity supplies translucency.
+Multi-character RAQM text needs explicit nonzero `letter_spacing`; unspaced BASIC
+text requires additive advances. Per-layer limits are 1,024 characters, 65,536
+outline vertices and a 64 MiB font source. Geometry/precision/resource checks
+complete before writes; some require compiling intermediate animation samples.
+
+### Web reference check
+
+The developer check uses the actual lottie-web player in a disposable Chrome
+profile. It makes no player downloads, changes no export policies, and blocks
+browser HTTP/HTTPS requests while playing self-contained vectors.
+
+From the repository root, install the locked development dependencies and the
+pinned test-only player, then select an existing Chrome executable:
+
+```bash
+uv sync --locked --extra lottie --dev
+npm ci --prefix tests/fixtures/lottie/player --ignore-scripts --no-audit --no-fund
+PYTHONPATH=. uv run --locked python scripts/check_lottie_fidelity.py \
+  --chrome /path/to/chrome \
+  --player tests/fixtures/lottie/player/node_modules/lottie-web/build/player/lottie.min.js \
+  --output /tmp/quickthumb-lottie-observations
+```
+
+Node 24 and an existing Chrome are required; the output directory must be new.
+The report records schema/player hashes, browser/Node/player versions, export
+receipts, exact frame seeks, dimensions, whole-frame and artwork-region RGBA/hash
+metrics, and pass/fail results. Frames are captured at DPR 1 without resizing.
+PNG references, actual player PNGs and exported `.lot` files remain beside it.
+
+The default gate uses the SVG renderer. Add `--renderer canvas` to investigate
+Canvas playback, or repeat `--renderer` to compare both. A failed comparison or
+an undetected blank/frozen control exits nonzero. Canvas opacity differences
+with the pinned player are a known failing comparison, not an accepted fallback.
+
+### Android native graphics check
+
+After generating the web manifest above, select an existing full JDK 21 and Maven
+3.9+. Maven resolves pinned test-only Android/Robolectric dependencies from Maven
+Central and Google Maven; no Android SDK, device or product dependency is needed.
+
+```bash
+PYTHONPATH=. uv run --locked python scripts/check_lottie_android.py \
+  --maven /path/to/mvn --java-home /path/to/jdk-21 \
+  --cases /tmp/quickthumb-lottie-observations/cases.json \
+  --output /tmp/quickthumb-android-observations
+```
+
+The output must be new. `--settings` accepts an existing Maven proxy/mirror setup;
+`--trust-store` selects an existing Java CA store, and `--runtime-home` selects a
+writable SDK cache. The actual Android parser consumes original bytes, without
+key reordering or another normalization. Frame seeks, render exceptions, native
+runtime identity and pixel/probe results are recorded in `report.json` beside
+PNGs and `maven.log`. A Maven success alone does not establish matching output:
+the Python gate checks the same budgets, controls and shared-paint pixel probe
+as the web check and exits nonzero on any unexpected result. iOS, physical Android
+devices and hardware rendering are outside this test.
+
 ## PPTX compatibility
 
 PPTX keeps supported text and shapes editable. Glow can accompany that editable

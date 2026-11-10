@@ -97,3 +97,55 @@ PYTHONPATH=. python scripts/check_html_fidelity.py \
 运行命令：`uv run --locked pytest tests/test_static_export_matrix.py --no-cov -q`。现有质量工作流已在安装了 SVG/PDF/PPTX 可选依赖及原生 Cairo 的环境下，通过 `pytest tests/` 运行该测试文件。缺少可选观测工具的本地环境会标注依赖原因跳过对应用例。Pytest 用例 ID 标识格式与文档类型。每个用例在其临时目录中保留源 JSON、规范 PNG、实际导出文件及 JSON 凭据；测得的凭据包含渲染器版本、规范环境、限制参数与各项度量指标。测试失败可基于共享固件与指定格式检查完整复现，无需依赖平台相关的截屏基线。
 
 这是一个受限的静态对比矩阵。它不会运行浏览器，不认证 PPTX 查看器的像素/字体/时序，也不增加 Deck PDF 保真度策略。独立的 HTML 浏览器测试套件与原生演示文稿查看器观测需要各自的执行过程与环境证据。结构检查的成功绝不能直接等同于已渲染像素保真度的判定结论。
+
+## Lottie 参考播放器 { #lottie-reference-player }
+
+参考检查使用 **lottie-web 5.13.0 SVG** 和官方 **Lottie Android 6.7.1**。Android 在
+Linux/JVM 上以 Robolectric 4.17 NATIVE graphics、Android 15/API 35、mdpi、software
+Drawable 执行。9 个文件通过 schema 1.0.1；每个播放器检查 37 个正常帧和 15 个空白/冻结
+对照。保留原有 31+13，新增 6+2 覆盖多轮廓修剪、长度变化和共用半透明描边。整帧与图案区域
+均要求通道容差 32、差异像素不超过 8%、哈希至少 0.93；共用描边内部像素还要求通道差不超过 2。
+
+现有 Web CI artifact 也保留 Android 的 `report.json`、`execution.json` 和 `maven.log`，
+包括失败时。Native PNG 留在作业本地，可重跑同一 manifest 获取。这执行实际 Android 库和
+native graphics，不是真机、模拟器、ARM/GPU、iOS 或应用性能检查。使用方法见
+[用户指南](export-lottie.md#play-it-on-the-web)。
+
+### 半透明 fill/stroke 调查
+
+探索案例为 960×640、frame 0，Android ROI `(500,320)-(860,560)` 哈希 **0.921875**，
+低于 **0.93**；差异像素 **3.2928%** 在 8% 内。整帧哈希 1.0、差异 1.5653%。
+重新导出相同输入可复现；移除其他图层或 morph 动画仍相同。仅 fill、仅 stroke 的对照通过，
+Android 组合输出与先画分离 fill 再画 stroke 的结果完全一致。
+
+超过通道容差 32 的 2,845 个像素都位于 alpha 边界附近。两种渲染器的分离 fill/stroke
+alpha 在 7×7 邻域内变化不超过 2 的 65,459 个像素中，最大通道差为 2。这指向绘制边界的
+光栅化/合成而非 morph 长度采样，但尚未证明 exporter 缺陷或旧版回归。保留 52 项检查，
+不透明 fill morph 和共用半透明 stroke 分别验证。
+
+复现时，将 `examples.lottie_trim_multi.build_canvas()` 中 `id="morph"` 的图层设为
+`color="#159A8C40"`，以 `LottieOptions(fps=24, hold=0.5)` 导出，按上述 ROI/标准比较
+`render_frame(0)` 与 Android frame 0。移除其他图层、`animation`、`stroke` 或 `color` 可作对照。
+
+文本每层上限为 1,024 字符、65,536 轮廓顶点及 64 MiB 字体。多字符 RAQM 需要显式非零字距；
+无字距 BASIC 要求可加性步进。精度和工作量检查包括中间采样编译，均在写入前完成。
+
+```bash
+uv sync --locked --extra lottie --dev
+npm ci --prefix tests/fixtures/lottie/player --ignore-scripts --no-audit --no-fund
+PYTHONPATH=. uv run --locked python scripts/check_lottie_fidelity.py \
+  --chrome /path/to/chrome \
+  --player tests/fixtures/lottie/player/node_modules/lottie-web/build/player/lottie.min.js \
+  --output /tmp/quickthumb-lottie-observations
+```
+
+### 重新运行 Android native graphics
+
+使用网页检查的 manifest 以及现有 JDK 21、Maven 3.9+。Maven 会获取测试专用依赖。
+
+```bash
+PYTHONPATH=. uv run --locked python scripts/check_lottie_android.py \
+  --maven /path/to/mvn --java-home /path/to/jdk-21 \
+  --cases /tmp/quickthumb-lottie-observations/cases.json \
+  --output /tmp/quickthumb-android-observations
+```

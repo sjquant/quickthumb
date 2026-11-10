@@ -1,5 +1,5 @@
 ---
-description: Create vector logo animations, self-drawing outlines, and moving shapes as Lottie files.
+description: Create animated vector logos, self-drawing outlines, and reusable intros.
 ---
 
 <a id="lottie-vectors"></a>
@@ -8,9 +8,9 @@ description: Create vector logo animations, self-drawing outlines, and moving sh
 
 [Export reference](../exports.md) · [Choose an output format](../output-guide.md)
 
-Export logos that change shape, outlines that draw themselves, and moving shapes
-as vector animations for a Lottie player. The `.lot` file contains standard
-Lottie JSON, with no embedded frame images or audio.
+Create a logo that changes shape, an outline that draws itself, or an intro with
+a title and moving badge. Export a Canvas to `.lot` and play its vector artwork
+with a Lottie player, without shipping rendered video frames or viewer-side fonts.
 
 ## Create a shape-changing logo
 
@@ -40,106 +40,132 @@ Canvas(120, 120).path(
 ).export("logo.lot", animation=LottieOptions(fps=24, hold=0.5))
 ```
 
-This creates a one-second square-to-diamond animation followed by a half-second
-pause. Preview the file in your target Lottie player before publishing.
-For a curved, filled and stroked logo, run the
-[logo morph example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_morph.py).
+The square becomes a diamond over one second, then pauses for half a second.
+Change the two paths, color, size, or easing to make your own logo.
+
+<a id="playback-verification"></a>
+
+## Play it on the web
+
+Install `lottie-web@5.13.0` in your web project, add a container such as
+`<div id="logo" style="width:120px;height:120px"></div>`, and serve `logo.lot`
+from your public assets directory:
+
+```javascript
+import lottie from "lottie-web";
+
+lottie.loadAnimation({
+  container: document.getElementById("logo"),
+  renderer: "svg",
+  loop: true,
+  autoplay: true,
+  path: "/logo.lot",
+});
+```
+
+Use `renderer: "svg"` to keep fill, stroke, and layer opacity consistent.
+Canvas playback in lottie-web 5.12.2/5.13.0 has a combined-opacity defect.
+Preview your file in the player used by your site or app. See the
+[developer player checks](export-validation.md#lottie-reference-player) for
+reference versions and repeatable comparisons.
+
+## Reuse a complete intro
+
+From the repository root, generate a two-second intro with an outlined title,
+a self-drawing logo that becomes a circle, and a rotating badge:
+
+```bash
+pip install 'quickthumb[lottie]'
+python -m examples.lottie_intro /tmp/intro.lot
+```
+
+The intro ends with a half-second pause. Edit the title, colors, paths, and
+rotation in the [intro example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_intro.py)
+to reuse it; the exported title needs no font files on the viewer’s device.
 
 ## Choose artwork and timing
 
-A single Canvas can include a solid background, solid shapes, SVG Paths,
-position/scale/rotation/opacity animation, stroke trim, and supported static text.
-Shapes include rectangles, rounded rectangles, ellipses, pills, triangles, stars,
-and polygons. Paths accept `M/L/H/V/C/S/Q/T/A/Z`, solid fill/stroke, and holes
-using even-odd fill.
+Use solid backgrounds and shapes, SVG Paths with fill/stroke and holes, and
+position, scale, rotation, or opacity tracks. Start with the
+[static shapes](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_static.py),
+[curved Paths](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_paths.py), or
+[motion example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_motion.py).
 
-`LottieOptions.fps` defaults to 30 and supports up to 120. Higher fps gives finer
-motion steps and larger files. Motion is sampled at that rate and at authored
-key/event boundaries; each pose stays visible until the next sample. Players do
-not interpolate smoothly between those samples. Static artwork stays vector too.
-
-`hold` adds a final pause in seconds and must be nonnegative. The result lasts
-through the latest animation end plus that pause, rounded up to whole frames.
-Even a static Canvas with zero hold occupies one frame. The export receipt gives
-the frame count and duration.
-
-Examples: [static shapes](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_static.py),
-[curved Paths](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_paths.py),
-[moving shapes](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_motion.py).
+Set `LottieOptions(fps=24, hold=0.5)` to sample motion at 24 fps and add a
+half-second final pause. The default is 30 fps; up to 120 is available for finer
+motion at the cost of larger files. Poses stay fixed until the next sample.
+The export receipt reports the resulting frame count and duration.
 
 ## Lottie path morph
 
-`PathMorphTrack` changes Path geometry while keeping its authored view box.
-Fill, solid stroke, opacity, transforms, and stroke trim can accompany the morph.
-Open contours, closed contours, and nested holes are supported within the
-[Path morph limits](../api/path.md#path-morphing).
+Combine `PathMorphTrack` with fill, stroke, opacity, transforms, and trim.
+For curved artwork, adapt the [logo morph example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_morph.py).
 
-The authored Path and all keys must have matching contour count and open/closed
-status. All sampled curves, their control points, and stroke margins must fit
-inside the view box. Some curves that look as though they fit can still exceed
-this bound; rescale or reposition their geometry. Stroked Paths require uniform
-view-box scaling, and degenerate stroked contours are rejected.
-
-Large or complex animations can exceed the Canvas-wide limit of 100,000 pose
-and contour-vertex observations. Lower fps or simplify paths if export reports
-this limit. Intermediate morphs follow the same approximated outlines as rendered
-Quickthumb frames; exact authored endpoints retain their curves.
+Keep the same contour count and open/closed states across your paths. Leave room
+in `view_box` for curves, control points, and the stroke; use uniform scaling for
+stroked paths. If export reports a geometry or work limit, enlarge the view box,
+simplify the path, or lower fps as directed. See [Path morphing](../api/path.md#path-morphing).
 
 ## Lottie stroke trim
 
-Use `TrimEndTrack` to draw an outline progressively, or `TrimStartTrack` and
-`TrimOffsetTrack` to move a visible segment along it. Static `trim_start`,
-`trim_end`, and `trim_offset` are supported too. See the
-[stroke-trim example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_trim.py).
+Use `TrimEndTrack` to reveal an outline. This continues the logo example above:
 
-Trim positions run from 0 to 1 across the total path length, in contour order.
-Offsets wrap and may be negative or greater than one. Full 0→1 keeps the entire
-stroke regardless of offset; equal endpoints and 1→0 hide it. Fill stays complete
-underneath. Closed seams keep their joins; cut endpoints use the chosen cap.
-Dashes and dash-offset animation are unsupported. Very small trim intervals may
-be rejected if player rounding would hide them or noticeably move their endpoints.
+```python
+from quickthumb import TrimEndTrack
+
+outline = AnimationSpec.timeline(
+    TrimEndTrack(keyframes=[
+        KeyframeSpec(time=0, value=0),
+        KeyframeSpec(time=1, value=1),
+    ]),
+    timing=TimingSpec(duration=1),
+    easing="ease_in_out",
+)
+Canvas(120, 120).path(
+    square, (10, 10), 100, 100, None,
+    view_box=(0, 0, 100, 100), stroke="#159A8C", stroke_width=3,
+    animation=outline,
+).export("outline.lot", animation=LottieOptions(fps=24, hold=0.5))
+```
+
+Move a visible segment with `TrimStartTrack` and `TrimOffsetTrack`, or set static
+`trim_start`, `trim_end`, and `trim_offset`. Positions run from 0 to 1 over total
+path length in contour order, including while morphing; offsets wrap in either
+direction. Full 0→1 draws the whole stroke; equal endpoints and 1→0 hide it.
+Fill stays complete underneath. Use solid strokes and choose `line_cap` for cut
+ends. If a very short interval triggers a precision error, widen the interval.
+See the [trim example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_trim.py).
 
 ## Move shapes together
 
-Use `parent` to link supported Shape and Null layers, as in the
-[parenting example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_parenting.py).
-Children follow parent transforms while keeping their independent drawing order
-and opacity. Parent opacity does not fade children. Percentage positions resolve
-against the Canvas, including for children. Path parenting is unsupported.
-
-Unlinked animated shapes must fit inside the Canvas before animation. Linked
-shapes may start outside it when parent transforms bring them into view.
-Nonpositive uniform Shape/Null scale is unsupported; axis scaling retains its
-usual behavior, including reflection and collapse.
+Attach Shape layers to a Null with `parent` to rotate or move them as a group;
+use the [parenting example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_parenting.py)
+as a starting point. Children keep their drawing order and independent opacity.
+To fade the group, animate each visible child’s opacity. Percentage positions
+use Canvas dimensions. Keep animated shapes without a parent inside the Canvas at
+their authored pose; parented shapes can enter from outside. Parenting is
+available for Shape and Null layers.
 
 ## Lottie outlined text
 
-Install `quickthumb[lottie]` to include static, single-line printable ASCII text.
-Text becomes vector outlines: viewers need no font, but cannot edit it as text.
-Shape and Path exports do not need this extra dependency. See the
-[outlined-text example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_text.py).
-
-Use opaque text paint and a local, nonvariable, noncolor font with every required
-glyph. Unsupported glyphs produce an error. Text animation, parenting, rotation,
-wrapping/fitting, rich text, counters, effects, masks, gradients, remote fonts,
-and complex-script shaping are unsupported. With RAQM layout, set explicit nonzero
-`letter_spacing` for multiple characters; unspaced BASIC text requires additive
-character advances. Each layer permits at most 1024 characters, 65,536 outline
-vertices, and a 64 MiB font source.
+Install `quickthumb[lottie]` to add static, single-line printable ASCII titles
+as vector outlines. Viewers need no fonts; edit the source title and re-export
+to change it. Adapt the [text example](https://github.com/sjquant/quickthumb/blob/main/examples/lottie_text.py)
+with a local outline font, an opaque text color, and explicit nonzero
+`letter_spacing` for multi-character text. Use layer `opacity` for translucency.
+Keep the title unrotated and without a parent. For animated or multilingual typography,
+choose a [video output](../output-guide.md) instead.
 
 ## Check compatibility before exporting
 
-`canvas.validate_export("lottie")` identifies unsupported layers and fields.
-Export rejects unsupported content before opening the destination, preserving an
-existing file. Some intermediate morph, precision, and resource-limit errors can
-only be found when export compiles the animation.
+Call `canvas.validate_export("lottie")` before integrating an existing design.
+It lists layers and fields to change, such as gradients, images, effects, or text
+animation. Export also checks sampled geometry and precision before writing, so
+a rejected export preserves an existing destination.
 
-Gradients, effects/presets, stagger, masks, viewport clipping, paint/dash tracks,
-motion paths, images, plugins, and Deck output are unsupported. Lottie export
-cannot substitute static or raster fallbacks, even when an export policy requests
-them. Lottie import, ZIP packaging, and editing existing Lottie files are not
-provided.
+For vector Lottie, use the artwork and tracks shown above. To keep raster
+images, effects, or other unsupported content, choose a [video output](../output-guide.md);
+Lottie export does not silently replace them with images.
 
-`ExportPolicy(reduced_motion=True)` exports the authored static artwork for
-`hold` seconds. It does not choose the animation's final pose, and other
-unsupported features still need to be removed.
+For a still version, use `ExportPolicy(reduced_motion=True)` with a positive
+`hold`. This exports the authored artwork rather than the animation’s final pose.

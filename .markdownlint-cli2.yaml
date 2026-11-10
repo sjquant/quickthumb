@@ -15,3 +15,4 @@ ignores:
   - ".venv/**"
   - "tmp/**"
   - "site/**"
+  - "tests/fixtures/lottie/player/node_modules/**"
