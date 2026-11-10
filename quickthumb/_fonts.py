@@ -16,10 +16,11 @@ from urllib.request import urlopen
 from PIL import ImageFont
 
 from quickthumb._base import DEFAULT_TEXT_SIZE, is_url
+from quickthumb._dependencies import FontReference, layer_dependencies
 from quickthumb.asset_cache import AssetResolver, ResolvedAsset
 from quickthumb.errors import RenderingError
 from quickthumb.font_cache import FontCache
-from quickthumb.models import TextLayer, VideoLayer
+from quickthumb.models import TextLayer
 from quickthumb.models.document import FontIdentity
 
 
@@ -127,22 +128,17 @@ class FontEngine:
 
     def resolve_remote_references(self, layers: Iterable[object]) -> None:
         """Resolve all remote font references found in document layers."""
-        for (
-            font_name,
-            font_source,
-            bold,
-            italic,
-            weight,
-            font_variations,
-        ) in self._remote_font_references(layers):
-            self.resolve_remote_font_reference(
-                font_name,
-                font_source=font_source,
-                bold=bold,
-                italic=italic,
-                weight=weight,
-                font_variations=font_variations,
-            )
+        for layer in layers:
+            for reference in layer_dependencies(layer):
+                if isinstance(reference, FontReference) and reference.is_remote:
+                    self.resolve_remote_font_reference(
+                        reference.source,
+                        font_source=reference.font_source,
+                        bold=reference.bold,
+                        italic=reference.italic,
+                        weight=reference.weight,
+                        font_variations=reference.font_variations,
+                    )
 
     def resolve_remote_font_reference(
         self,
@@ -605,47 +601,6 @@ class FontEngine:
 
     def _remember_reference(self, reference: str, asset: ResolvedAsset) -> None:
         self._asset_resolver.remember_reference(reference, "font", asset)
-
-    def _remote_font_references(self, layers: Iterable[object]):
-        for layer in layers:
-            if isinstance(layer, VideoLayer):
-                for caption in layer.captions:
-                    if caption.font and is_url(caption.font):
-                        yield (caption.font, "auto", False, False, None, None)
-                continue
-
-            if not isinstance(layer, TextLayer):
-                continue
-
-            if layer.font and (is_url(layer.font) or layer.font_source == "google"):
-                font_source = "auto" if is_url(layer.font) else layer.font_source
-                yield (
-                    layer.font,
-                    font_source,
-                    layer.bold,
-                    layer.italic,
-                    layer.weight,
-                    layer.font_variations,
-                )
-
-            if not isinstance(layer.content, list):
-                continue
-            for part in layer.content:
-                if not part.font:
-                    continue
-                font_source = part.font_source or layer.font_source
-                if not (is_url(part.font) or font_source == "google"):
-                    continue
-                yield (
-                    part.font,
-                    "auto" if is_url(part.font) else font_source,
-                    part.bold if part.bold is not None else layer.bold,
-                    part.italic if part.italic is not None else layer.italic,
-                    part.weight if part.weight is not None else layer.weight,
-                    part.font_variations
-                    if part.font_variations is not None
-                    else layer.font_variations,
-                )
 
     def _font_extension(self, url: str) -> str:
         extension = os.path.splitext(urlparse(url).path)[1].lower()
