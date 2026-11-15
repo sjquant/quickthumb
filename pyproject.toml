@@ -43,7 +43,7 @@ Documentation = "https://quickthumb.solaqua.dev/"
 [project.optional-dependencies]
 rembg = [
     "onnxruntime>=1.31.0,<2.0.0; python_version >= '3.11'",
-    "rembg>=2.0.86,<3.0.0; python_version >= '3.11'",
+    "rembg>=2.0.87,<3.0.0; python_version >= '3.11'",
 ]
 cli = [
     "jinja2>=3.1.0,<4.0.0",
