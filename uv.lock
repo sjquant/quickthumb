@@ -2056,7 +2056,7 @@ requires-dist = [
     { name = "pypdfium2", marker = "extra == 'pdf'", specifier = ">=5.14.0,<6.0.0" },
     { name = "python-pptx", marker = "extra == 'pptx'", specifier = ">=1.0.2,<2.0" },
     { name = "qrcode", specifier = ">=8.2,<9.0" },
-    { name = "rembg", marker = "python_full_version >= '3.11' and extra == 'rembg'", specifier = ">=2.0.86,<3.0.0" },
+    { name = "rembg", marker = "python_full_version >= '3.11' and extra == 'rembg'", specifier = ">=2.0.87,<3.0.0" },
     { name = "reportlab", marker = "extra == 'pdf'", specifier = ">=5.1.0,<6.0.0" },
     { name = "typer", marker = "extra == 'cli'", specifier = ">=0.24.1,<1.0" },
     { name = "typing-extensions", specifier = ">=4.15.0,<5.0.0" },
@@ -2101,7 +2101,7 @@ wheels = [
 
 [[package]]
 name = "rembg"
-version = "2.0.86"
+version = "2.0.87"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jsonschema" },
@@ -2115,9 +2115,9 @@ dependencies = [
     { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0e/01/cfbd8fe98ba718451c58c35b8687b1ad60623014b50cc32e6a1c0e31f4ed/rembg-2.0.86.tar.gz", hash = "sha256:9c409038acbd52cc2f5e0183c9d0c155aa3798d0707e0f82f71dcdb6937e2dbf", size = 52828, upload-time = "2026-10-21T21:18:51.327Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/06/80/fec75ee0e2ed9e1d94f1afbf9f27a1361e7976126a87a7f35e0349ce1dc3/rembg-2.0.87.tar.gz", hash = "sha256:34674fdde1e15e17a38dfb8560f1e6f232a27de48f3204b154049f8b7dfd65d8", size = 55787, upload-time = "2026-11-06T01:19:56.005Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0b/68/2f9d97f736ae7a861dbb99e4337dfd8ba02782dca0beb90b5db2f66e7c92/rembg-2.0.86-py3-none-any.whl", hash = "sha256:1db1af3d65fdab16724dbd96b8b0a828dd02ac68efe95a3d8e1010a1517412a6", size = 67762, upload-time = "2026-10-21T21:18:52.27Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/10/5380109d4e825ba934409ed6206a8986d8ba99f80283aa893de443cbb842/rembg-2.0.87-py3-none-any.whl", hash = "sha256:928468af97067e09232505bd9c7714a5c34e0a8624382e04236faaba4734ecd6", size = 70625, upload-time = "2026-11-06T01:19:57.161Z" },
 ]
 
 [[package]]
